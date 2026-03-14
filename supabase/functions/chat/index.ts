@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
     }
 
     // Step 3: Get document names for sources
-    const docIds = [...new Set((chunks || []).map((c: any) => c.document_id))];
+    const docIds = [...new Set(finalChunks.map((c: any) => c.document_id))];
     let documents: any[] = [];
     if (docIds.length > 0) {
       const { data } = await supabase
@@ -97,9 +97,9 @@ Deno.serve(async (req) => {
     }
 
     // Step 4: Build context
-    const context = (chunks || []).map((c: any) => {
+    const context = finalChunks.map((c: any) => {
       const doc = documents.find((d: any) => d.id === c.document_id);
-      return `[${doc?.name || "Documento"} | ${doc?.fund_name || ""} | ${doc?.period || ""} | Similaridade: ${(c.similarity * 100).toFixed(1)}%]\n${c.content}`;
+      return `[${doc?.name || "Documento"} | ${doc?.fund_name || ""} | ${doc?.period || ""}]\n${c.content}`;
     }).join("\n\n---\n\n");
 
     // Step 5: Call Claude
