@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
     }
     const base64 = btoa(binary);
 
-    const uploadRes = await fetch("https://api.reducto.ai/v1/upload", {
+    const uploadRes = await fetch("https://platform.reducto.ai/upload", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${reductoKey}`,
@@ -66,16 +66,16 @@ Deno.serve(async (req) => {
       throw new Error(`Reducto upload failed [${uploadRes.status}]: ${errText}`);
     }
 
-    const { document_url } = await uploadRes.json();
+    const { file_id } = await uploadRes.json();
 
-    const parseRes = await fetch("https://api.reducto.ai/v1/parse", {
+    const parseRes = await fetch("https://platform.reducto.ai/parse", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${reductoKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        document_url,
+        document_url: file_id,
         options: { table_output_format: "markdown" },
       }),
     });
