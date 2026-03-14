@@ -52,39 +52,31 @@ Deno.serve(async (req) => {
     }
     const base64 = btoa(binary);
 
-    // Step 1a: Get upload URL from Reducto
+    // Convert base64 to binary and upload as FormData
+    const binaryStr = atob(base64);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+    const blob = new Blob([bytes], { type: "application/pdf" });
+    const formData2 = new FormData();
+    formData2.append("file", blob, documentName || "document.pdf");
+
     const uploadRes = await fetch("https://platform.reducto.ai/upload", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${reductoKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({}),
+      headers: { Authorization: `Bearer ${reductoKey}` },
+      // NO Content-Type header — FormData sets it automatically
+      body: formData2,
     });
 
-    if (!uploadRes.ok) {
-      throw new Error(`Reducto upload init failed [${uploadRes.status}]: ${await uploadRes.text()}`);
-    }
+    if (!uploadRes.ok) throw new Error(`Reducto upload failed [${uploadRes.status}]: ${await uploadRes.text()}`);
+    const uploadData = await uploadRes.json();
+    console.log("Reducto upload response:", JSON.stringify(uploadData));
 
-    const { file_id, presigned_url } = await uploadRes.json();
-    console.log("Reducto upload init:", file_id, "has presigned:", !!presigned_url);
+    // file_id field (not url, not file_url)
+    const file_id = uploadData.file_id ?? uploadData.url ?? uploadData.file_url;
+    if (!file_id) throw new Error(`No file_id returned: ${JSON.stringify(uploadData)}`);
 
-    // Step 1b: If presigned_url exists, PUT the file to S3
-    if (presigned_url) {
-      const binaryStr = atob(base64);
-      const bytes = new Uint8Array(binaryStr.length);
-      for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
-
-      const s3Res = await fetch(presigned_url, {
-        method: "PUT",
-        body: bytes,
-      });
-
-      if (!s3Res.ok) throw new Error(`S3 upload failed [${s3Res.status}]`);
-      console.log("S3 upload OK");
-    }
-
-    // Step 1c: Parse
     const parseRes = await fetch("https://platform.reducto.ai/parse", {
       method: "POST",
       headers: {
@@ -93,7 +85,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         document_url: file_id,
-        options: { table_output_format: "markdown" },
+        options: { table_output_format: "markdown" }
       }),
     });
 
@@ -101,30 +93,25 @@ Deno.serve(async (req) => {
 
     const parseData = await parseRes.json();
     console.log("Parse response keys:", Object.keys(parseData));
-    console.log("Parse result sample:", JSON.stringify(parseData).substring(0, 500));
 
-    // Extract text from parse response
-    const fullText =
-      parseData.result?.chunks
-        ?.map(
-          (c: any) =>
-            c.content?.markdown ||
-            c.content?.text ||
-            (Array.isArray(c.blocks)
-              ? c.blocks.map((b: any) => b.content || "").join("\n")
-              : "")
-        )
-        .filter((t: string) => t.length > 0)
-        .join("\n\n") ||
-      parseData.text ||
-      parseData.content ||
-      "";
+    const result = parseData.result ?? parseData;
+    let fullText = "";
+    if (Array.isArray(result.chunks)) {
+      fullText = result.chunks.map((chunk: any) => {
+        if (typeof chunk.content === "string") return chunk.content;
+        if (chunk.content?.markdown) return chunk.content.markdown;
+        if (chunk.content?.text) return chunk.content.text;
+        if (Array.isArray(chunk.blocks)) {
+          return chunk.blocks.map((b: any) => b.content || "").join("\n");
+        }
+        return "";
+      }).filter((t: string) => t.length > 0).join("\n\n");
+    } else if (typeof result.text === "string") {
+      fullText = result.text;
+    }
 
     console.log(`Extracted ${fullText.length} characters`);
-    if (!fullText || fullText.length < 20) {
-      console.log("Full parse response:", JSON.stringify(parseData).substring(0, 1000));
-      throw new Error("No text extracted from PDF");
-    }
+    if (!fullText || fullText.length < 20) throw new Error("No text extracted from PDF");
 
     // STEP 2: Extract metadata with Gemini 2.0 Flash
     console.log("Step 2: Extracting metadata with Gemini...");
