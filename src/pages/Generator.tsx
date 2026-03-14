@@ -152,7 +152,7 @@ export default function Generator() {
   const handleExportPDF = () => {
     if (!previewRef.current) return;
     const opt = {
-      margin: [12, 16],
+      margin: [12, 16] as [number, number],
       filename: `${activeTab.replace(/ /g, "_")}_${period || "documento"}.pdf`,
       image: { type: "jpeg", quality: 0.98 },
       html2canvas: { scale: 2 },
