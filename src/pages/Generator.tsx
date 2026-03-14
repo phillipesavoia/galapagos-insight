@@ -14,6 +14,19 @@ export default function Generator() {
   const [fundNames, setFundNames] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>("Carta Mensal");
   const [clientName, setClientName] = useState("Ricardo Almeida");
+
+  useEffect(() => {
+    const fetchFunds = async () => {
+      const { data } = await supabase
+        .from("documents")
+        .select("fund_name")
+        .eq("status", "indexed")
+        .not("fund_name", "is", null);
+      const names = [...new Set(data?.map((d) => d.fund_name).filter(Boolean))] as string[];
+      setFundNames(names);
+    };
+    fetchFunds();
+  }, []);
   const [period, setPeriod] = useState("2025-02");
   const [selectedFunds, setSelectedFunds] = useState(["Macro Global", "Crédito Plus"]);
   const [tone, setTone] = useState("Neutro");
