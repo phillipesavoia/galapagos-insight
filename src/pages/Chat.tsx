@@ -10,40 +10,6 @@ interface ChatMessage {
   sources?: { name: string; period: string }[];
 }
 
-const mockMessages: ChatMessage[] = [
-  {
-    id: "1",
-    role: "user",
-    content: "Qual foi o desempenho do fundo Macro Global em janeiro de 2025?",
-  },
-  {
-    id: "2",
-    role: "assistant",
-    content:
-      "O fundo **Galapagos Macro Global** apresentou retorno de **+1.82%** em janeiro de 2025, acumulando **+14.3% nos últimos 12 meses**. O resultado foi impulsionado por posições em juros americanos e crédito high yield. A volatilidade realizada ficou em 6.2% a.a., dentro da banda alvo.\n\nO drawdown máximo no período foi de -0.45%, rapidamente recuperado. A alocação em duration longa contribuiu positivamente com a abertura moderada da curva de treasuries.",
-    sources: [
-      { name: "Factsheet Macro Global", period: "Jan 2025" },
-      { name: "Carta Mensal", period: "Jan 2025" },
-      { name: "Apresentação Trimestral", period: "Q4 2024" },
-    ],
-  },
-  {
-    id: "3",
-    role: "user",
-    content: "Como está a posição de crédito e qual a duration média?",
-  },
-  {
-    id: "4",
-    role: "assistant",
-    content:
-      "A alocação em **crédito** representa atualmente **34% do portfólio**, dividida entre:\n\n- **Investment Grade**: 18% (duration média 3.2 anos)\n- **High Yield**: 12% (duration média 2.1 anos)\n- **Crédito Estruturado**: 4% (CLOs e ABS)\n\nA **duration média total** do fundo é de **4.8 anos**, ligeiramente acima da média histórica de 4.2 anos, refletindo a visão construtiva da equipe sobre a trajetória de juros nos EUA.\n\nO spread médio ponderado da carteira de crédito é de **185 bps** sobre treasuries, com yield-to-worst de **6.8%**.",
-    sources: [
-      { name: "Factsheet Macro Global", period: "Jan 2025" },
-      { name: "Relatório de Risco", period: "Jan 2025" },
-    ],
-  },
-];
-
 const suggestions = [
   "Qual foi o drawdown máximo no último trimestre?",
   "Compare os fundos de menor correlação com S&P 500",
@@ -54,11 +20,12 @@ const suggestions = [
 const filterChips = ["Todos os documentos", "Factsheets", "Cartas Mensais", "Apresentações"];
 
 export default function Chat() {
-  const [messages, setMessages] = useState<ChatMessage[]>(mockMessages);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [activeFilter, setActiveFilter] = useState("Todos os documentos");
   const [expandedSources, setExpandedSources] = useState<Record<string, boolean>>({});
   const [showSourcesPanel, setShowSourcesPanel] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
   const isEmpty = messages.length === 0;
 
