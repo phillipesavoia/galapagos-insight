@@ -310,9 +310,11 @@ export default function Chat() {
                 </div>
               ))}
               {isLoading && (
-                <div className="flex justify-start">
-                  <div className="bg-card border border-border rounded-2xl px-4 py-3 text-sm text-muted-foreground">
-                    Pensando...
+                <div className="flex justify-start animate-fade-in">
+                  <div className="bg-card border border-border rounded-2xl px-4 py-3 flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-primary/60 animate-[pulse_1s_ease-in-out_infinite]" />
+                    <span className="h-2 w-2 rounded-full bg-primary/60 animate-[pulse_1s_ease-in-out_0.2s_infinite]" />
+                    <span className="h-2 w-2 rounded-full bg-primary/60 animate-[pulse_1s_ease-in-out_0.4s_infinite]" />
                   </div>
                 </div>
               )}
