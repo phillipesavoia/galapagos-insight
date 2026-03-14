@@ -11,6 +11,7 @@ type Tab = (typeof tabs)[number];
 
 export default function Generator() {
   const previewRef = useRef<HTMLDivElement>(null);
+  const [fundNames, setFundNames] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>("Carta Mensal");
   const [clientName, setClientName] = useState("Ricardo Almeida");
   const [period, setPeriod] = useState("2025-02");
