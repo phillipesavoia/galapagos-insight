@@ -44,6 +44,7 @@ Deno.serve(async (req) => {
 
     const embData = await embRes.json();
     const queryEmbedding = embData.embedding.values as number[];
+    console.log("Query embedding dimensions:", queryEmbedding.length);
     const embeddingStr = `[${queryEmbedding.join(",")}]`;
 
     // Step 2: Search using match_chunks vector function
