@@ -57,8 +57,33 @@ Deno.serve(async (req) => {
       filter_fund: filter_fund || null,
     });
 
-    if (chunksError) throw new Error(`Search failed: ${chunksError.message}`);
+    if (chunksError) {
+      console.error("match_chunks error:", chunksError);
+      throw new Error(`Search failed: ${chunksError.message}`);
+    }
     console.log(`Found ${chunks?.length || 0} matching chunks`);
+    if (chunks && chunks.length > 0) {
+      console.log("Top similarity:", chunks[0].similarity);
+    }
+    
+    // Fallback: if vector search finds nothing, try a simple text search
+    let finalChunks = chunks || [];
+    if (finalChunks.length === 0) {
+      console.log("Vector search returned 0, falling back to text search...");
+      const words = query.split(/\s+/).filter((w: string) => w.length > 3).slice(0, 3);
+      if (words.length > 0) {
+        let textQuery = supabase
+          .from("document_chunks")
+          .select("id, content, metadata, document_id")
+          .limit(8);
+        for (const word of words.slice(0, 1)) {
+          textQuery = textQuery.ilike("content", `%${word}%`);
+        }
+        const { data: textChunks } = await textQuery;
+        finalChunks = (textChunks || []).map((c: any) => ({ ...c, similarity: 0 }));
+        console.log(`Text fallback found ${finalChunks.length} chunks`);
+      }
+    }
 
     // Step 3: Get document names for sources
     const docIds = [...new Set((chunks || []).map((c: any) => c.document_id))];
