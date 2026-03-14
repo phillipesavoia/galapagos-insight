@@ -2,7 +2,8 @@ import { BarChart3, FileText, Presentation, ClipboardList, Eye, RefreshCw, Trash
 import { useState } from "react";
 import type { Document } from "@/hooks/useDocuments";
 
-const typeIcons: Record<string, React.ComponentType<{ className?: string; strokeWidth?: number }>> = {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const typeIcons: Record<string, React.ComponentType<any>> = {
   factsheet: BarChart3,
   carta_mensal: FileText,
   apresentacao: Presentation,
