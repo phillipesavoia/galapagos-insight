@@ -18,7 +18,6 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(dbUrl, dbKey);
 
-    // Fetch relevant chunks for the requested funds
     let chunks: any[] = [];
     if (funds && funds.length > 0) {
       for (const fund of funds.slice(0, 3)) {
@@ -31,7 +30,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // If no fund-specific chunks, get latest chunks
     if (chunks.length === 0) {
       const { data } = await supabase
         .from("document_chunks")
@@ -45,7 +43,6 @@ Deno.serve(async (req) => {
       `[${c.metadata?.fund_name || ""} | ${c.metadata?.period || ""}]\n${c.content}`
     ).join("\n\n---\n\n");
 
-    // Build prompt based on document type
     let prompt = "";
 
     if (type === "carta_mensal") {
@@ -105,7 +102,7 @@ Estruture a comparação com:
 Escreva em português brasileiro, formato profissional.`;
     }
 
-    // Call Claude
+    // Call Claude with streaming
     const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -116,16 +113,62 @@ Escreva em português brasileiro, formato profissional.`;
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
         max_tokens: 2048,
+        stream: true,
         messages: [{ role: "user", content: prompt }],
       }),
     });
 
     if (!claudeRes.ok) throw new Error(`Claude error: ${await claudeRes.text()}`);
-    const claudeData = await claudeRes.json();
-    const generated = claudeData.content?.[0]?.text || "Erro ao gerar documento";
 
-    return new Response(JSON.stringify({ generated }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // Transform Claude's SSE stream into our own SSE stream
+    const stream = new ReadableStream({
+      async start(controller) {
+        const encoder = new TextEncoder();
+        const reader = claudeRes.body!.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+
+            for (const line of lines) {
+              if (!line.startsWith("data: ")) continue;
+              const data = line.slice(6).trim();
+              if (data === "[DONE]") continue;
+
+              try {
+                const evt = JSON.parse(data);
+                if (evt.type === "content_block_delta" && evt.delta?.text) {
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "delta", text: evt.delta.text })}\n\n`));
+                }
+              } catch {
+                // skip unparseable
+              }
+            }
+          }
+
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`));
+        } catch (err) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "error", message: String(err) })}\n\n`));
+        } finally {
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+      },
     });
 
   } catch (error) {
