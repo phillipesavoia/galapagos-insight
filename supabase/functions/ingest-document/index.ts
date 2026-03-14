@@ -45,33 +45,47 @@ Deno.serve(async (req) => {
     if (!reductoKey) throw new Error("Missing REDUCTO_API_KEY");
 
     const arrayBuffer = await file.arrayBuffer();
-    const fileBytes = new Uint8Array(arrayBuffer);
-    const blob = new Blob([fileBytes], { type: "application/pdf" });
+    const bytesForBase64 = new Uint8Array(arrayBuffer);
+    let binary = "";
+    for (let i = 0; i < bytesForBase64.length; i++) {
+      binary += String.fromCharCode(bytesForBase64[i]);
+    }
+    const base64 = btoa(binary);
 
-    const uploadForm = new FormData();
-    uploadForm.append("file", blob, documentName || "document.pdf");
-
+    // Step 1a: Get upload URL from Reducto
     const uploadRes = await fetch("https://platform.reducto.ai/upload", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${reductoKey}`,
-        // Do NOT set Content-Type — let FormData set it with boundary
+        "Content-Type": "application/json",
       },
-      body: uploadForm,
+      body: JSON.stringify({}),
     });
 
     if (!uploadRes.ok) {
-      const errText = await uploadRes.text();
-      throw new Error(`Reducto upload failed [${uploadRes.status}]: ${errText}`);
+      throw new Error(`Reducto upload init failed [${uploadRes.status}]: ${await uploadRes.text()}`);
     }
 
-    const uploadData = await uploadRes.json();
-    console.log("Reducto upload response:", JSON.stringify(uploadData));
+    const { file_id, presigned_url } = await uploadRes.json();
+    console.log("Reducto upload init:", file_id, "has presigned:", !!presigned_url);
 
-    const fileId = uploadData.file_id ?? uploadData.document_url ?? uploadData.url ?? uploadData.id;
-    if (!fileId) throw new Error(`No file_id returned: ${JSON.stringify(uploadData)}`);
+    // Step 1b: If presigned_url exists, PUT the file to S3
+    if (presigned_url) {
+      const binaryStr = atob(base64);
+      const bytes = new Uint8Array(binaryStr.length);
+      for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
 
-    // Step 2: Parse
+      const s3Res = await fetch(presigned_url, {
+        method: "PUT",
+        headers: { "Content-Type": "application/pdf" },
+        body: bytes,
+      });
+
+      if (!s3Res.ok) throw new Error(`S3 upload failed [${s3Res.status}]`);
+      console.log("S3 upload OK");
+    }
+
+    // Step 1c: Parse
     const parseRes = await fetch("https://platform.reducto.ai/parse", {
       method: "POST",
       headers: {
@@ -79,27 +93,39 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        document_url: fileId,
+        document_url: file_id,
         options: { table_output_format: "markdown" },
       }),
     });
 
-    if (!parseRes.ok) {
-      const errText = await parseRes.text();
-      throw new Error(`Reducto parse failed [${parseRes.status}]: ${errText}`);
-    }
+    if (!parseRes.ok) throw new Error(`Reducto parse failed [${parseRes.status}]: ${await parseRes.text()}`);
 
     const parseData = await parseRes.json();
+    console.log("Parse response keys:", Object.keys(parseData));
+    console.log("Parse result sample:", JSON.stringify(parseData).substring(0, 500));
+
+    // Extract text from parse response
     const fullText =
       parseData.result?.chunks
         ?.map(
-          (c: { content?: { markdown?: string; text?: string } }) =>
-            c.content?.markdown || c.content?.text || ""
+          (c: any) =>
+            c.content?.markdown ||
+            c.content?.text ||
+            (Array.isArray(c.blocks)
+              ? c.blocks.map((b: any) => b.content || "").join("\n")
+              : "")
         )
-        .join("\n\n") || "";
+        .filter((t: string) => t.length > 0)
+        .join("\n\n") ||
+      parseData.text ||
+      parseData.content ||
+      "";
 
-    if (!fullText) throw new Error("No text extracted from PDF");
     console.log(`Extracted ${fullText.length} characters`);
+    if (!fullText || fullText.length < 20) {
+      console.log("Full parse response:", JSON.stringify(parseData).substring(0, 1000));
+      throw new Error("No text extracted from PDF");
+    }
 
     // STEP 2: Extract metadata with Gemini 2.0 Flash
     console.log("Step 2: Extracting metadata with Gemini...");
