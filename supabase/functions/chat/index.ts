@@ -21,32 +21,63 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(dbUrl, dbKey);
 
-    // Search chunks using full-text ilike search
-    const words = query.split(/\s+/).filter((w: string) => w.length > 3);
-    const searchWord = words[0] || query.substring(0, 20);
+    // Extract search terms - include short words too (tickers like DTLA)
+    const words = query.split(/\s+/).filter((w: string) => w.length >= 2);
+    const searchTerms = words.length > 0 ? words : [query.trim()];
+    console.log("Search terms:", searchTerms);
 
-    let chunksQuery = supabase
-      .from("document_chunks")
-      .select("id, content, metadata, document_id")
-      .ilike("content", `%${searchWord}%`)
-      .limit(8);
+    // Strategy 1: Search chunks by content using OR across all terms
+    let allChunks: any[] = [];
+    for (const term of searchTerms.slice(0, 5)) {
+      const { data } = await supabase
+        .from("document_chunks")
+        .select("id, content, metadata, document_id")
+        .ilike("content", `%${term}%`)
+        .limit(5);
+      if (data) allChunks.push(...data);
+    }
 
-    const { data: chunks, error: chunksError } = await chunksQuery;
-    if (chunksError) throw new Error(`Search failed: ${chunksError.message}`);
+    // Strategy 2: Also search by document name/fund_name/metadata for tickers
+    let docMatchIds: string[] = [];
+    for (const term of searchTerms.slice(0, 3)) {
+      const { data: docMatches } = await supabase
+        .from("documents")
+        .select("id")
+        .or(`name.ilike.%${term}%,fund_name.ilike.%${term}%,metadata->>detected_ticker.ilike.%${term}%,metadata->>detected_ticker_exchange.ilike.%${term}%`);
+      if (docMatches) docMatchIds.push(...docMatches.map((d: any) => d.id));
+    }
 
-    console.log(`Found ${chunks?.length || 0} chunks for word: "${searchWord}"`);
+    // If we found documents by metadata, fetch their chunks too
+    if (docMatchIds.length > 0) {
+      const uniqueDocIds = [...new Set(docMatchIds)];
+      const { data: metaChunks } = await supabase
+        .from("document_chunks")
+        .select("id, content, metadata, document_id")
+        .in("document_id", uniqueDocIds)
+        .limit(10);
+      if (metaChunks) allChunks.push(...metaChunks);
+    }
+
+    // Deduplicate chunks by id
+    const seen = new Set<string>();
+    const chunks = allChunks.filter((c) => {
+      if (seen.has(c.id)) return false;
+      seen.add(c.id);
+      return true;
+    }).slice(0, 12);
+
+    console.log(`Found ${chunks.length} unique chunks`);
 
     // Get document info for sources
-    const docIds = [...new Set((chunks || []).map((c: any) => c.document_id))];
+    const docIds = [...new Set(chunks.map((c: any) => c.document_id))];
     let documents: any[] = [];
     if (docIds.length > 0) {
       const { data } = await supabase
         .from("documents")
-        .select("id, name, fund_name, period, type")
+        .select("id, name, fund_name, period, type, metadata")
         .in("id", docIds);
       documents = data || [];
 
-      // Apply filter_type on documents if provided
       if (filter_type && filter_type !== "all") {
         documents = documents.filter((d: any) => d.type === filter_type);
       }
@@ -54,16 +85,17 @@ Deno.serve(async (req) => {
 
     // Build context string
     const filteredDocIds = new Set(documents.map((d: any) => d.id));
-    const filteredChunks = (chunks || []).filter((c: any) => filteredDocIds.has(c.document_id));
+    const filteredChunks = chunks.filter((c: any) => filteredDocIds.has(c.document_id));
 
     const context = filteredChunks.map((c: any) => {
       const doc = documents.find((d: any) => d.id === c.document_id);
-      const label = [doc?.fund_name, doc?.name, doc?.period].filter(Boolean).join(" | ");
+      const ticker = doc?.metadata?.detected_ticker_exchange || doc?.metadata?.detected_ticker || "";
+      const label = [doc?.fund_name, ticker, doc?.name, doc?.period].filter(Boolean).join(" | ");
       return `[${label}]\n${c.content}`;
     }).join("\n\n---\n\n");
 
     // Call Claude
-    console.log("Calling Claude...");
+    console.log("Calling Claude with context length:", context.length);
     const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -97,6 +129,7 @@ Formate sua resposta usando markdown: use **negrito** para métricas importantes
       name: d.fund_name || d.name,
       period: d.period || "",
       document_name: d.name,
+      ticker: d.metadata?.detected_ticker_exchange || d.metadata?.detected_ticker || "",
     }));
 
     return new Response(JSON.stringify({ answer, sources }), {
