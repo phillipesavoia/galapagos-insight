@@ -132,10 +132,14 @@ Deno.serve(async (req) => {
                   text: `Analyze this financial document and extract metadata.
 Return ONLY a JSON object with these fields:
 {
-  "detected_fund_name": "fund name or null",
+  "detected_fund_name": "full fund name or null",
   "detected_period": "YYYY-MM format or null",
   "detected_type": "factsheet|carta_mensal|apresentacao|outro",
   "detected_language": "pt-BR|en-US",
+  "detected_ticker": "ticker symbol like DTLA, IBTA, etc. or null",
+  "detected_isin": "ISIN code like IE00BFM6TC58 or null",
+  "detected_exchange": "exchange code like LN (London), US, GR, etc. or null - look for listing exchange info",
+  "detected_ticker_exchange": "ticker with exchange like DTLA LN or null",
   "summary": "2-3 sentence summary in Portuguese",
   "key_metrics": {}
 }

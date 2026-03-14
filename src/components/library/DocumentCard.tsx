@@ -39,6 +39,26 @@ export function DocumentCard({ doc, onDelete }: DocumentCardProps) {
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-semibold text-foreground truncate">{doc.name}</h3>
           <p className="text-sm text-primary mt-0.5">{doc.fund_name || "—"}</p>
+          {/* Ticker / ISIN from metadata */}
+          {doc.metadata && (
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              {(doc.metadata as Record<string, unknown>).detected_ticker_exchange && (
+                <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-mono font-semibold">
+                  {(doc.metadata as Record<string, unknown>).detected_ticker_exchange as string}
+                </span>
+              )}
+              {!(doc.metadata as Record<string, unknown>).detected_ticker_exchange && (doc.metadata as Record<string, unknown>).detected_ticker && (
+                <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-mono font-semibold">
+                  {(doc.metadata as Record<string, unknown>).detected_ticker as string}
+                </span>
+              )}
+              {(doc.metadata as Record<string, unknown>).detected_isin && (
+                <span className="px-2 py-0.5 rounded-md bg-secondary text-xs text-muted-foreground font-mono">
+                  {(doc.metadata as Record<string, unknown>).detected_isin as string}
+                </span>
+              )}
+            </div>
+          )}
           <div className="flex items-center gap-2 mt-3">
             <span className="px-2 py-0.5 rounded-md bg-secondary text-xs text-muted-foreground">
               {doc.period || "—"}
