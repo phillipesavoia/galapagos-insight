@@ -3,6 +3,7 @@ import { Layout } from "@/components/Layout";
 import { Copy, Download, Edit, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { marked } from "marked";
 
 const tabs = ["Carta Mensal", "Resumo de Fundo", "Comparativo"] as const;
 type Tab = (typeof tabs)[number];
