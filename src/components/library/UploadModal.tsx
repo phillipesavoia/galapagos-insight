@@ -28,17 +28,23 @@ export function UploadModal({ open, onClose, onUpload, initialFiles }: UploadMod
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // Load initial files from drag-and-drop
+  // Reset files when modal opens/closes, load initial files from drag-and-drop
   useEffect(() => {
-    if (open && initialFiles && initialFiles.length > 0) {
-      const entries: FileEntry[] = initialFiles.map((f) => ({
-        file: f,
-        docType: "factsheet",
-        fundName: "",
-        period: "",
-        status: "pending" as const,
-      }));
-      setFiles(entries);
+    if (open) {
+      if (initialFiles && initialFiles.length > 0) {
+        const entries: FileEntry[] = initialFiles.map((f) => ({
+          file: f,
+          docType: "factsheet",
+          fundName: "",
+          period: "",
+          status: "pending" as const,
+        }));
+        setFiles(entries);
+      } else {
+        setFiles([]);
+      }
+    } else {
+      setFiles([]);
     }
   }, [open, initialFiles]);
 
