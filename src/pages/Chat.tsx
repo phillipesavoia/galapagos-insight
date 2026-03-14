@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Send, ChevronDown, ChevronRight, X, SlidersHorizontal } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -117,7 +118,13 @@ export default function Chat() {
                         : "bg-card border border-border text-foreground"
                     }`}
                   >
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                    {msg.role === "assistant" ? (
+                      <div className="prose prose-sm prose-invert max-w-none [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_strong]:text-foreground [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm [&_h1]:font-semibold [&_h2]:font-semibold [&_h3]:font-semibold [&_h1]:mt-3 [&_h2]:mt-3 [&_h3]:mt-2 [&_h1]:mb-1 [&_h2]:mb-1 [&_h3]:mb-1">
+                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                    )}
                     {msg.role === "assistant" && msg.sources && msg.sources.length > 0 && (
                       <div className="mt-3 pt-3 border-t border-border">
                         <button
