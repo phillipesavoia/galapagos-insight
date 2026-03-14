@@ -155,16 +155,62 @@ export default function Generator() {
     }
   };
 
-  const handleExportPDF = () => {
-    if (!previewRef.current) return;
-    const opt = {
-      margin: [12, 16] as [number, number],
-      filename: `${activeTab.replace(/ /g, "_")}_${period || "documento"}.pdf`,
-      image: { type: "jpeg" as const, quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" as const },
-    };
-    html2pdf().set(opt).from(previewRef.current).save();
+  const handleExportPDF = async () => {
+    if (!previewRef.current || !currentContent) return;
+
+    // Create a print-friendly clone with light theme
+    const clone = document.createElement("div");
+    clone.innerHTML = parsedHtml;
+    clone.style.cssText = `
+      font-family: 'Georgia', serif;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #1a1a1a;
+      background: #ffffff;
+      padding: 20px;
+      max-width: 700px;
+    `;
+    // Style all child elements for print
+    clone.querySelectorAll("h1, h2, h3").forEach((el) => {
+      (el as HTMLElement).style.color = "#111";
+      (el as HTMLElement).style.marginTop = "16px";
+      (el as HTMLElement).style.marginBottom = "8px";
+    });
+    clone.querySelectorAll("table").forEach((el) => {
+      el.style.borderCollapse = "collapse";
+      el.style.width = "100%";
+      el.style.marginTop = "12px";
+      el.style.marginBottom = "12px";
+    });
+    clone.querySelectorAll("th, td").forEach((el) => {
+      (el as HTMLElement).style.border = "1px solid #ccc";
+      (el as HTMLElement).style.padding = "6px 10px";
+      (el as HTMLElement).style.fontSize = "11px";
+      (el as HTMLElement).style.color = "#1a1a1a";
+    });
+    clone.querySelectorAll("th").forEach((el) => {
+      (el as HTMLElement).style.backgroundColor = "#f0f0f0";
+      (el as HTMLElement).style.fontWeight = "600";
+    });
+
+    document.body.appendChild(clone);
+
+    try {
+      const opt = {
+        margin: [15, 15] as [number, number],
+        filename: `${activeTab.replace(/ /g, "_")}_${period || "documento"}.pdf`,
+        image: { type: "jpeg" as const, quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" as const },
+      };
+      await html2pdf().set(opt).from(clone).save();
+      toast({ title: "PDF exportado com sucesso!" });
+    } catch (err) {
+      console.error("PDF export error:", err);
+      toast({ title: "Erro ao exportar PDF", variant: "destructive" });
+    } finally {
+      document.body.removeChild(clone);
+    }
   };
 
   const periodLabel = (() => {
