@@ -33,7 +33,7 @@ export default function Chat() {
 
   const handleSend = async (text?: string) => {
     const msg = text || input;
-    if (!msg.trim()) return;
+    if (!msg.trim() || isLoading) return;
 
     const newMsg: ChatMessage = {
       id: Date.now().toString(),
@@ -42,6 +42,7 @@ export default function Chat() {
     };
     setMessages((prev) => [...prev, newMsg]);
     setInput("");
+    setIsLoading(true);
 
     const filterMap: Record<string, string> = {
       "Factsheets": "factsheet",
@@ -72,6 +73,8 @@ export default function Chat() {
         sources: [],
       };
       setMessages((prev) => [...prev, errorMsg]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
