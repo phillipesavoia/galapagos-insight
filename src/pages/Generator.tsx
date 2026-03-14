@@ -260,7 +260,7 @@ export default function Generator() {
     if (currentContent) {
       return (
         <div
-          className="prose prose-invert prose-sm max-w-none text-muted-foreground"
+          className="prose prose-invert prose-sm max-w-none text-muted-foreground text-justify"
           dangerouslySetInnerHTML={{ __html: parsedHtml }}
         />
       );
