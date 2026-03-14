@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Send, ChevronDown, ChevronRight, X, SlidersHorizontal } from "lucide-react";
 import { Layout } from "@/components/Layout";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ChatMessage {
   id: string;
