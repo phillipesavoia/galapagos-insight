@@ -46,7 +46,14 @@ export default function Chat() {
   const isEmpty = messages.length === 0;
   const lastAssistantSources = [...messages].reverse().find((m) => m.role === "assistant")?.sources || [];
 
-  // Load previous sessions list
+  // Auto-scroll to bottom when messages change or loading state changes
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollTop = messagesEndRef.current.scrollHeight;
+    }
+  }, [messages, isLoading]);
+
+
   useEffect(() => {
     const loadSessions = async () => {
       const { data } = await supabase
