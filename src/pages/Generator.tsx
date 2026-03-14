@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { Copy, Download, Edit, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,14 +8,6 @@ import html2pdf from "html2pdf.js";
 
 const tabs = ["Carta Mensal", "Resumo de Fundo", "Comparativo"] as const;
 type Tab = (typeof tabs)[number];
-
-const mockFunds = [
-  "Macro Global",
-  "Crédito Plus",
-  "Total Return",
-  "Equity Long Short",
-  "EM Debt Opportunities",
-];
 
 export default function Generator() {
   const previewRef = useRef<HTMLDivElement>(null);
