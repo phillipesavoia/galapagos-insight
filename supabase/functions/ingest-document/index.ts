@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
     if (!googleKey) throw new Error("Missing GOOGLE_AI_API_KEY");
 
     const geminiMetaRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${googleKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${googleKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
