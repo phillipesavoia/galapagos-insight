@@ -166,7 +166,6 @@ export default function Generator() {
         />
       );
     }
-    }
     const labels: Record<Tab, string> = {
       "Carta Mensal": 'Clique em "Gerar Carta" para visualizar o documento.',
       "Resumo de Fundo": 'Selecione um fundo e clique em "Gerar Resumo" para visualizar.',
