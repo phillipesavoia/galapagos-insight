@@ -9,7 +9,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const { query, filter_type, filter_fund } = await req.json();
+    const { query, filter_type } = await req.json();
     if (!query) return new Response(JSON.stringify({ error: "query required" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -17,76 +17,27 @@ Deno.serve(async (req) => {
     const dbUrl = Deno.env.get("DB_URL");
     const dbKey = Deno.env.get("DB_SERVICE_ROLE_KEY");
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-    const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
     if (!dbUrl || !dbKey || !anthropicKey) throw new Error("Missing env vars");
-    if (!googleKey) throw new Error("Missing GOOGLE_AI_API_KEY for embeddings");
 
     const supabase = createClient(dbUrl, dbKey);
 
-    // Step 1: Generate embedding for the query
-    console.log("Generating query embedding...");
-    const embRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${googleKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content: { parts: [{ text: query }] },
-          outputDimensionality: 768,
-        }),
-      }
-    );
+    // Search chunks using full-text ilike search
+    const words = query.split(/\s+/).filter((w: string) => w.length > 3);
+    const searchWord = words[0] || query.substring(0, 20);
 
-    if (!embRes.ok) {
-      const errText = await embRes.text();
-      throw new Error(`Embedding failed [${embRes.status}]: ${errText}`);
-    }
+    let chunksQuery = supabase
+      .from("document_chunks")
+      .select("id, content, metadata, document_id")
+      .ilike("content", `%${searchWord}%`)
+      .limit(8);
 
-    const embData = await embRes.json();
-    const queryEmbedding = embData.embedding.values as number[];
-    console.log("Query embedding dimensions:", queryEmbedding.length);
-    const embeddingStr = `[${queryEmbedding.join(",")}]`;
+    const { data: chunks, error: chunksError } = await chunksQuery;
+    if (chunksError) throw new Error(`Search failed: ${chunksError.message}`);
 
-    // Step 2: Search using match_chunks vector function
-    console.log("Searching with match_chunks...");
-    const { data: chunks, error: chunksError } = await supabase.rpc("match_chunks", {
-      query_embedding: embeddingStr,
-      match_threshold: 0.3,
-      match_count: 8,
-      filter_type: filter_type && filter_type !== "all" ? filter_type : null,
-      filter_fund: filter_fund || null,
-    });
+    console.log(`Found ${chunks?.length || 0} chunks for word: "${searchWord}"`);
 
-    if (chunksError) {
-      console.error("match_chunks error:", chunksError);
-      throw new Error(`Search failed: ${chunksError.message}`);
-    }
-    console.log(`Found ${chunks?.length || 0} matching chunks`);
-    if (chunks && chunks.length > 0) {
-      console.log("Top similarity:", chunks[0].similarity);
-    }
-    
-    // Fallback: if vector search finds nothing, try a simple text search
-    let finalChunks = chunks || [];
-    if (finalChunks.length === 0) {
-      console.log("Vector search returned 0, falling back to text search...");
-      const words = query.split(/\s+/).filter((w: string) => w.length > 3).slice(0, 3);
-      if (words.length > 0) {
-        let textQuery = supabase
-          .from("document_chunks")
-          .select("id, content, metadata, document_id")
-          .limit(8);
-        for (const word of words.slice(0, 1)) {
-          textQuery = textQuery.ilike("content", `%${word}%`);
-        }
-        const { data: textChunks } = await textQuery;
-        finalChunks = (textChunks || []).map((c: any) => ({ ...c, similarity: 0 }));
-        console.log(`Text fallback found ${finalChunks.length} chunks`);
-      }
-    }
-
-    // Step 3: Get document names for sources
-    const docIds = [...new Set(finalChunks.map((c: any) => c.document_id))];
+    // Get document info for sources
+    const docIds = [...new Set((chunks || []).map((c: any) => c.document_id))];
     let documents: any[] = [];
     if (docIds.length > 0) {
       const { data } = await supabase
@@ -94,15 +45,24 @@ Deno.serve(async (req) => {
         .select("id, name, fund_name, period, type")
         .in("id", docIds);
       documents = data || [];
+
+      // Apply filter_type on documents if provided
+      if (filter_type && filter_type !== "all") {
+        documents = documents.filter((d: any) => d.type === filter_type);
+      }
     }
 
-    // Step 4: Build context
-    const context = finalChunks.map((c: any) => {
+    // Build context string
+    const filteredDocIds = new Set(documents.map((d: any) => d.id));
+    const filteredChunks = (chunks || []).filter((c: any) => filteredDocIds.has(c.document_id));
+
+    const context = filteredChunks.map((c: any) => {
       const doc = documents.find((d: any) => d.id === c.document_id);
-      return `[${doc?.name || "Documento"} | ${doc?.fund_name || ""} | ${doc?.period || ""}]\n${c.content}`;
+      const label = [doc?.fund_name, doc?.name, doc?.period].filter(Boolean).join(" | ");
+      return `[${label}]\n${c.content}`;
     }).join("\n\n---\n\n");
 
-    // Step 5: Call Claude
+    // Call Claude
     console.log("Calling Claude...");
     const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -118,24 +78,21 @@ Deno.serve(async (req) => {
 Responda sempre em português brasileiro de forma profissional e objetiva.
 Use apenas as informações dos documentos fornecidos para responder.
 Se a informação não estiver nos documentos, diga claramente que não encontrou nos documentos indexados.
-Seja direto e objetivo. Cite os documentos quando relevante.
+Seja direto e preciso. Cite os documentos quando relevante.
 Formate sua resposta usando markdown: use **negrito** para métricas importantes, listas com - para itens, e organize bem as informações.`,
-        messages: [
-          {
-            role: "user",
-            content: context
-              ? `Documentos relevantes encontrados:\n\n${context}\n\n---\nPergunta: ${query}`
-              : `Não encontrei documentos relevantes para: ${query}. Por favor, informe que não há documentos indexados sobre este tema.`
-          }
-        ],
+        messages: [{
+          role: "user",
+          content: context
+            ? `Documentos encontrados:\n\n${context}\n\n---\nPergunta: ${query}`
+            : `Não encontrei documentos relevantes para: "${query}". Informe que não há documentos indexados sobre este tema.`
+        }],
       }),
     });
 
-    if (!claudeRes.ok) throw new Error(`Claude failed: ${await claudeRes.text()}`);
+    if (!claudeRes.ok) throw new Error(`Claude error: ${await claudeRes.text()}`);
     const claudeData = await claudeRes.json();
     const answer = claudeData.content?.[0]?.text || "Sem resposta";
 
-    // Build sources
     const sources = documents.map((d: any) => ({
       name: d.fund_name || d.name,
       period: d.period || "",

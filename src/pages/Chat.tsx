@@ -66,6 +66,7 @@ export default function Chat() {
       };
       setMessages((prev) => [...prev, assistantMsg]);
     } catch (err) {
+      console.error("Chat error:", err);
       const errorMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
