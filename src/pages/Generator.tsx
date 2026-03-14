@@ -314,7 +314,7 @@ export default function Generator() {
                   <label className="block text-sm font-medium text-foreground mb-1.5">Fundo C (opcional)</label>
                   <select value={fundC3} onChange={(e) => setFundC3(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50">
                     <option value="">+ Adicionar</option>
-                    {mockFunds.map((f) => <option key={f} value={f}>{f}</option>)}
+                    {fundNames.map((f) => <option key={f} value={f}>{f}</option>)}
                   </select>
                 </div>
                 <div>
