@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Layout } from "@/components/Layout";
 import { Copy, Download, Edit, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { marked } from "marked";
 
 const tabs = ["Carta Mensal", "Resumo de Fundo", "Comparativo"] as const;
 type Tab = (typeof tabs)[number];
@@ -142,8 +143,13 @@ export default function Generator() {
     return `${months[parseInt(m)]} ${y}`;
   })();
 
+  const parsedHtml = useMemo(() => {
+    if (!currentContent) return "";
+    return marked(currentContent) as string;
+  }, [currentContent]);
+
   const renderPreview = () => {
-    if (isGenerating) {
+    if (isGenerating && !currentContent) {
       return (
         <div className="space-y-4">
           {Array.from({ length: 12 }).map((_, i) => (
@@ -153,7 +159,13 @@ export default function Generator() {
       );
     }
     if (currentContent) {
-      return <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{currentContent}</div>;
+      return (
+        <div
+          className="prose prose-invert prose-sm max-w-none text-muted-foreground"
+          dangerouslySetInnerHTML={{ __html: parsedHtml }}
+        />
+      );
+    }
     }
     const labels: Record<Tab, string> = {
       "Carta Mensal": 'Clique em "Gerar Carta" para visualizar o documento.',
