@@ -77,7 +77,6 @@ Deno.serve(async (req) => {
 
       const s3Res = await fetch(presigned_url, {
         method: "PUT",
-        headers: { "Content-Type": "application/pdf" },
         body: bytes,
       });
 
