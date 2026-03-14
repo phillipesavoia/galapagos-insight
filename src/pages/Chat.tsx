@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Send, ChevronDown, ChevronRight, X, SlidersHorizontal } from "lucide-react";
 import { Layout } from "@/components/Layout";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ChatMessage {
   id: string;
@@ -63,24 +64,48 @@ export default function Chat() {
 
   const lastAssistantSources = [...messages].reverse().find((m) => m.role === "assistant")?.sources || [];
 
-  const handleSend = (text?: string) => {
+  const handleSend = async (text?: string) => {
     const msg = text || input;
     if (!msg.trim()) return;
-    const newMsg: ChatMessage = { id: Date.now().toString(), role: "user", content: msg };
+
+    const newMsg: ChatMessage = {
+      id: Date.now().toString(),
+      role: "user",
+      content: msg,
+    };
     setMessages((prev) => [...prev, newMsg]);
     setInput("");
-    // Mock assistant response
-    setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content: "Obrigado pela pergunta. Estou analisando os documentos indexados para fornecer uma resposta completa com base nas fontes disponíveis...",
-          sources: [{ name: "Factsheet Macro Global", period: "Fev 2025" }],
-        },
-      ]);
-    }, 800);
+
+    const filterMap: Record<string, string> = {
+      "Factsheets": "factsheet",
+      "Cartas Mensais": "carta_mensal",
+      "Apresentações": "apresentacao",
+    };
+    const filter_type = filterMap[activeFilter] || "all";
+
+    try {
+      const { data, error } = await supabase.functions.invoke("chat", {
+        body: { query: msg, filter_type },
+      });
+
+      if (error) throw error;
+
+      const assistantMsg: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: data.answer,
+        sources: data.sources || [],
+      };
+      setMessages((prev) => [...prev, assistantMsg]);
+    } catch (err) {
+      const errorMsg: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: "Erro ao processar sua pergunta. Tente novamente.",
+        sources: [],
+      };
+      setMessages((prev) => [...prev, errorMsg]);
+    }
   };
 
   return (
