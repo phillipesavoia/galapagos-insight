@@ -143,8 +143,13 @@ export default function Generator() {
     return `${months[parseInt(m)]} ${y}`;
   })();
 
+  const parsedHtml = useMemo(() => {
+    if (!currentContent) return "";
+    return marked(currentContent) as string;
+  }, [currentContent]);
+
   const renderPreview = () => {
-    if (isGenerating) {
+    if (isGenerating && !currentContent) {
       return (
         <div className="space-y-4">
           {Array.from({ length: 12 }).map((_, i) => (
@@ -154,7 +159,13 @@ export default function Generator() {
       );
     }
     if (currentContent) {
-      return <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{currentContent}</div>;
+      return (
+        <div
+          className="prose prose-invert prose-sm max-w-none text-muted-foreground"
+          dangerouslySetInnerHTML={{ __html: parsedHtml }}
+        />
+      );
+    }
     }
     const labels: Record<Tab, string> = {
       "Carta Mensal": 'Clique em "Gerar Carta" para visualizar o documento.',
