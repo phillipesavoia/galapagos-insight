@@ -139,6 +139,28 @@ export default function Generator() {
 
   const currentContent = activeTab === "Carta Mensal" ? generatedContent : activeTab === "Resumo de Fundo" ? generatedB : generatedC;
 
+  const handleCopy = async () => {
+    if (!currentContent) return;
+    try {
+      await navigator.clipboard.writeText(currentContent);
+      toast({ title: "Copiado!", description: "Conteúdo copiado para a área de transferência." });
+    } catch {
+      toast({ title: "Erro ao copiar", variant: "destructive" });
+    }
+  };
+
+  const handleExportPDF = () => {
+    if (!previewRef.current) return;
+    const opt = {
+      margin: [12, 16],
+      filename: `${activeTab.replace(/ /g, "_")}_${period || "documento"}.pdf`,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" as const },
+    };
+    html2pdf().set(opt).from(previewRef.current).save();
+  };
+
   const periodLabel = (() => {
     const [y, m] = period.split("-");
     const months = ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
