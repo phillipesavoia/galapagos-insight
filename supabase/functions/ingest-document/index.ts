@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
       throw new Error(`Reducto upload failed [${uploadRes.status}]: ${errText}`);
     }
 
-    const { document_url } = await uploadRes.json();
+    const { file_id } = await uploadRes.json();
 
     const parseRes = await fetch("https://api.reducto.ai/v1/parse", {
       method: "POST",
