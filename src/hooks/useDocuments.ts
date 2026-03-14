@@ -39,6 +39,15 @@ export function useDocuments() {
     fetchDocuments();
   }, [fetchDocuments]);
 
+  useEffect(() => {
+    const hasProcessing = documents.some(d => d.status === "processing");
+    if (!hasProcessing) return;
+    const interval = setInterval(() => {
+      fetchDocuments();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [documents, fetchDocuments]);
+
   const uploadDocument = async (
     file: File,
     meta: { name: string; type: string; fund_name: string; period: string }
