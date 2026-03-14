@@ -193,12 +193,13 @@ ${fullText.substring(0, 3000)}`,
         batchChunks.map(async (chunk, batchIdx) => {
           const globalIdx = i + batchIdx;
           const embRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/embedding-001:embedContent?key=${googleKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${googleKey}`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 content: { parts: [{ text: chunk }] },
+                outputDimensionality: 768,
               }),
             }
           );
@@ -247,14 +248,27 @@ ${fullText.substring(0, 3000)}`,
         throw new Error(`Failed to store chunks batch ${i}: ${chunksError.message}`);
     }
 
-    // Update document status
+    // Update document status + metadata extracted by Gemini
+    const meta = extractedMetadata as Record<string, unknown>;
+    const updatePayload: Record<string, unknown> = {
+      status: "indexed",
+      chunk_count: chunks.length,
+      metadata: extractedMetadata,
+    };
+    // Persist Gemini-extracted fund_name and period if the user didn't provide them
+    if (!fundName && meta.detected_fund_name) {
+      updatePayload.fund_name = meta.detected_fund_name;
+    }
+    if (!period && meta.detected_period) {
+      updatePayload.period = meta.detected_period;
+    }
+    if (meta.detected_language) {
+      updatePayload.language = meta.detected_language;
+    }
+
     const { error: updateError } = await supabase
       .from("documents")
-      .update({
-        status: "indexed",
-        chunk_count: chunks.length,
-        metadata: extractedMetadata,
-      })
+      .update(updatePayload)
       .eq("id", documentId);
 
     if (updateError)

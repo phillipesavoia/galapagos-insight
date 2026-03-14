@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 Deno.serve(async (req) => {
@@ -17,33 +17,49 @@ Deno.serve(async (req) => {
     const dbUrl = Deno.env.get("DB_URL");
     const dbKey = Deno.env.get("DB_SERVICE_ROLE_KEY");
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+    const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
     if (!dbUrl || !dbKey || !anthropicKey) throw new Error("Missing env vars");
+    if (!googleKey) throw new Error("Missing GOOGLE_AI_API_KEY for embeddings");
 
     const supabase = createClient(dbUrl, dbKey);
 
-    // Search chunks using full-text search
-    const words = query.split(/\s+/).filter((w: string) => w.length > 3);
-    const searchTerms = words.slice(0, 5).join(" | ");
+    // Step 1: Generate embedding for the query
+    console.log("Generating query embedding...");
+    const embRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${googleKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: { parts: [{ text: query }] },
+          outputDimensionality: 768,
+        }),
+      }
+    );
 
-    let chunksQuery = supabase
-      .from("document_chunks")
-      .select("id, content, metadata, document_id")
-      .limit(8);
-
-    if (searchTerms) {
-      chunksQuery = chunksQuery.ilike("content", `%${words[0]}%`);
-    }
-    if (filter_type && filter_type !== "all") {
-      chunksQuery = chunksQuery.eq("metadata->>document_type", filter_type);
-    }
-    if (filter_fund) {
-      chunksQuery = chunksQuery.ilike("metadata->>fund_name", `%${filter_fund}%`);
+    if (!embRes.ok) {
+      const errText = await embRes.text();
+      throw new Error(`Embedding failed [${embRes.status}]: ${errText}`);
     }
 
-    const { data: chunks, error: chunksError } = await chunksQuery;
+    const embData = await embRes.json();
+    const queryEmbedding = embData.embedding.values as number[];
+    const embeddingStr = `[${queryEmbedding.join(",")}]`;
+
+    // Step 2: Search using match_chunks vector function
+    console.log("Searching with match_chunks...");
+    const { data: chunks, error: chunksError } = await supabase.rpc("match_chunks", {
+      query_embedding: embeddingStr,
+      match_threshold: 0.5,
+      match_count: 8,
+      filter_type: filter_type && filter_type !== "all" ? filter_type : null,
+      filter_fund: filter_fund || null,
+    });
+
     if (chunksError) throw new Error(`Search failed: ${chunksError.message}`);
+    console.log(`Found ${chunks?.length || 0} matching chunks`);
 
-    // Get document names for sources
+    // Step 3: Get document names for sources
     const docIds = [...new Set((chunks || []).map((c: any) => c.document_id))];
     let documents: any[] = [];
     if (docIds.length > 0) {
@@ -54,13 +70,14 @@ Deno.serve(async (req) => {
       documents = data || [];
     }
 
-    // Build context
+    // Step 4: Build context
     const context = (chunks || []).map((c: any) => {
       const doc = documents.find((d: any) => d.id === c.document_id);
-      return `[${doc?.name || "Documento"} | ${doc?.fund_name || ""} | ${doc?.period || ""}]\n${c.content}`;
+      return `[${doc?.name || "Documento"} | ${doc?.fund_name || ""} | ${doc?.period || ""} | Similaridade: ${(c.similarity * 100).toFixed(1)}%]\n${c.content}`;
     }).join("\n\n---\n\n");
 
-    // Call Claude
+    // Step 5: Call Claude
+    console.log("Calling Claude...");
     const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -75,11 +92,12 @@ Deno.serve(async (req) => {
 Responda sempre em português brasileiro de forma profissional e objetiva.
 Use apenas as informações dos documentos fornecidos para responder.
 Se a informação não estiver nos documentos, diga claramente que não encontrou nos documentos indexados.
-Seja direto e objetivo. Cite os documentos quando relevante.`,
+Seja direto e objetivo. Cite os documentos quando relevante.
+Formate sua resposta usando markdown: use **negrito** para métricas importantes, listas com - para itens, e organize bem as informações.`,
         messages: [
           {
             role: "user",
-            content: context 
+            content: context
               ? `Documentos relevantes encontrados:\n\n${context}\n\n---\nPergunta: ${query}`
               : `Não encontrei documentos relevantes para: ${query}. Por favor, informe que não há documentos indexados sobre este tema.`
           }
@@ -104,8 +122,8 @@ Seja direto e objetivo. Cite os documentos quando relevante.`,
 
   } catch (error) {
     console.error("Chat error:", error);
-    return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : "Unknown error" 
+    return new Response(JSON.stringify({
+      error: error instanceof Error ? error.message : "Unknown error"
     }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
