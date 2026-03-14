@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Send, ChevronDown, ChevronRight, X, SlidersHorizontal } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 
