@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
 
     const { file_id } = await uploadRes.json();
 
-    const parseRes = await fetch("https://api.reducto.ai/v1/parse", {
+    const parseRes = await fetch("https://platform.reducto.ai/parse", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${reductoKey}`,
