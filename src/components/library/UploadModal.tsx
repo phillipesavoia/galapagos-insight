@@ -1,10 +1,11 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { X, Upload, FileText, Trash2 } from "lucide-react";
 
 interface UploadModalProps {
   open: boolean;
   onClose: () => void;
   onUpload: (file: File, meta: { name: string; type: string; fund_name: string; period: string }) => Promise<boolean>;
+  initialFiles?: File[];
 }
 
 const typeOptions = [
@@ -22,10 +23,24 @@ interface FileEntry {
   status: "pending" | "uploading" | "done" | "error";
 }
 
-export function UploadModal({ open, onClose, onUpload }: UploadModalProps) {
+export function UploadModal({ open, onClose, onUpload, initialFiles }: UploadModalProps) {
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Load initial files from drag-and-drop
+  useEffect(() => {
+    if (open && initialFiles && initialFiles.length > 0) {
+      const entries: FileEntry[] = initialFiles.map((f) => ({
+        file: f,
+        docType: "factsheet",
+        fundName: "",
+        period: "",
+        status: "pending" as const,
+      }));
+      setFiles(entries);
+    }
+  }, [open, initialFiles]);
 
   if (!open) return null;
 
