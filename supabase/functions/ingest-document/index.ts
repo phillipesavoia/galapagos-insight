@@ -45,20 +45,19 @@ Deno.serve(async (req) => {
     if (!reductoKey) throw new Error("Missing REDUCTO_API_KEY");
 
     const arrayBuffer = await file.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-    let binary = "";
-    for (let i = 0; i < bytes.length; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    const base64 = btoa(binary);
+    const fileBytes = new Uint8Array(arrayBuffer);
+    const blob = new Blob([fileBytes], { type: "application/pdf" });
+
+    const uploadForm = new FormData();
+    uploadForm.append("file", blob, documentName || "document.pdf");
 
     const uploadRes = await fetch("https://platform.reducto.ai/upload", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${reductoKey}`,
-        "Content-Type": "application/json",
+        // Do NOT set Content-Type — let FormData set it with boundary
       },
-      body: JSON.stringify({ content: base64 }),
+      body: uploadForm,
     });
 
     if (!uploadRes.ok) {
@@ -69,9 +68,8 @@ Deno.serve(async (req) => {
     const uploadData = await uploadRes.json();
     console.log("Reducto upload response:", JSON.stringify(uploadData));
 
-    // file_id can be in different fields depending on API version
     const fileId = uploadData.file_id ?? uploadData.document_url ?? uploadData.url ?? uploadData.id;
-    if (!fileId) throw new Error(`Reducto upload returned no file_id: ${JSON.stringify(uploadData)}`);
+    if (!fileId) throw new Error(`No file_id returned: ${JSON.stringify(uploadData)}`);
 
     // Step 2: Parse
     const parseRes = await fetch("https://platform.reducto.ai/parse", {
