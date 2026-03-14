@@ -41,8 +41,8 @@ export default function Generator() {
   const [generatedB, setGeneratedB] = useState("");
 
   // Tab C state
-  const [fundC1, setFundC1] = useState("Macro Global");
-  const [fundC2, setFundC2] = useState("Crédito Plus");
+  const [fundC1, setFundC1] = useState("");
+  const [fundC2, setFundC2] = useState("");
   const [fundC3, setFundC3] = useState("");
   const [criteria, setCriteria] = useState("Retorno");
   const [generatedC, setGeneratedC] = useState("");
