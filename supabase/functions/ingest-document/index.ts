@@ -116,6 +116,7 @@ Deno.serve(async (req) => {
     // STEP 2: Extract metadata with Gemini 2.0 Flash
     console.log("Step 2: Extracting metadata with Gemini...");
     const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
+    console.log("Google key exists:", !!googleKey, "length:", googleKey?.length ?? 0);
     if (!googleKey) throw new Error("Missing GOOGLE_AI_API_KEY");
 
     const geminiMetaRes = await fetch(
