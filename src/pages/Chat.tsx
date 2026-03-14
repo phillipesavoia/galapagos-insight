@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Send, ChevronDown, ChevronRight, X, SlidersHorizontal } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Send, ChevronDown, ChevronRight, X, SlidersHorizontal, Plus, History } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +11,12 @@ interface ChatMessage {
   sources?: { name: string; period: string }[];
 }
 
+interface ChatSession {
+  session_id: string;
+  preview: string;
+  created_at: string;
+}
+
 const suggestions = [
   "Qual foi o drawdown máximo no último trimestre?",
   "Compare os fundos de menor correlação com S&P 500",
@@ -20,17 +26,100 @@ const suggestions = [
 
 const filterChips = ["Todos os documentos", "Factsheets", "Cartas Mensais", "Apresentações"];
 
+function generateSessionId() {
+  return crypto.randomUUID();
+}
+
 export default function Chat() {
+  const [sessionId, setSessionId] = useState(() => generateSessionId());
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [activeFilter, setActiveFilter] = useState("Todos os documentos");
   const [expandedSources, setExpandedSources] = useState<Record<string, boolean>>({});
   const [showSourcesPanel, setShowSourcesPanel] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const hasLoadedRef = useRef(false);
 
   const isEmpty = messages.length === 0;
-
   const lastAssistantSources = [...messages].reverse().find((m) => m.role === "assistant")?.sources || [];
+
+  // Load previous sessions list
+  useEffect(() => {
+    const loadSessions = async () => {
+      const { data } = await supabase
+        .from("advisor_chat_history")
+        .select("session_id, content, created_at")
+        .eq("role", "user")
+        .order("created_at", { ascending: false });
+
+      if (data) {
+        const seen = new Set<string>();
+        const unique: ChatSession[] = [];
+        for (const row of data) {
+          if (row.session_id && !seen.has(row.session_id)) {
+            seen.add(row.session_id);
+            unique.push({
+              session_id: row.session_id,
+              preview: (row.content || "").substring(0, 60),
+              created_at: row.created_at || "",
+            });
+          }
+        }
+        setSessions(unique.slice(0, 20));
+      }
+    };
+    loadSessions();
+  }, [messages.length]);
+
+  // Load messages for current session
+  const loadSession = useCallback(async (sid: string) => {
+    const { data } = await supabase
+      .from("advisor_chat_history")
+      .select("*")
+      .eq("session_id", sid)
+      .order("created_at", { ascending: true });
+
+    if (data && data.length > 0) {
+      const loaded: ChatMessage[] = data.map((row) => ({
+        id: row.id,
+        role: (row.role as "user" | "assistant") || "user",
+        content: row.content || "",
+        sources: row.sources ? (row.sources as any[]) : [],
+      }));
+      setMessages(loaded);
+    }
+  }, []);
+
+  // Persist a message to Supabase
+  const persistMessage = async (
+    msg: ChatMessage,
+    sid: string,
+    filters?: Record<string, string>
+  ) => {
+    await supabase.from("advisor_chat_history").insert({
+      session_id: sid,
+      role: msg.role,
+      content: msg.content,
+      sources: msg.sources ? (msg.sources as any) : null,
+      filters: filters ? (filters as any) : null,
+    });
+  };
+
+  const handleNewChat = () => {
+    setSessionId(generateSessionId());
+    setMessages([]);
+    setExpandedSources({});
+    setShowHistory(false);
+  };
+
+  const handleSelectSession = (sid: string) => {
+    setSessionId(sid);
+    setMessages([]);
+    loadSession(sid);
+    setShowHistory(false);
+  };
 
   const handleSend = async (text?: string) => {
     const msg = text || input;
@@ -52,6 +141,9 @@ export default function Chat() {
     };
     const filter_type = filterMap[activeFilter] || "all";
 
+    // Persist user message
+    await persistMessage(newMsg, sessionId, { filter_type });
+
     try {
       const { data, error } = await supabase.functions.invoke("chat", {
         body: { query: msg, filter_type },
@@ -66,6 +158,9 @@ export default function Chat() {
         sources: data.sources || [],
       };
       setMessages((prev) => [...prev, assistantMsg]);
+
+      // Persist assistant message
+      await persistMessage(assistantMsg, sessionId);
     } catch (err) {
       console.error("Chat error:", err);
       const errorMsg: ChatMessage = {
@@ -83,8 +178,65 @@ export default function Chat() {
   return (
     <Layout>
       <div className="flex h-screen">
+        {/* History Sidebar */}
+        {showHistory && (
+          <div className="w-64 border-r border-border bg-card flex flex-col shrink-0">
+            <div className="p-3 border-b border-border flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-foreground">Histórico</h3>
+              <button onClick={() => setShowHistory(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-4 w-4" strokeWidth={1.5} />
+              </button>
+            </div>
+            <div className="p-2">
+              <button
+                onClick={handleNewChat}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-primary hover:bg-primary/10 transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                Nova conversa
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto scrollbar-thin px-2 pb-2 space-y-1">
+              {sessions.map((s) => (
+                <button
+                  key={s.session_id}
+                  onClick={() => handleSelectSession(s.session_id)}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors truncate ${
+                    s.session_id === sessionId
+                      ? "bg-primary/15 text-foreground"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  }`}
+                >
+                  {s.preview || "Conversa sem título"}
+                </button>
+              ))}
+              {sessions.length === 0 && (
+                <p className="text-xs text-muted-foreground px-3 py-2">Nenhuma conversa anterior.</p>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Chat Area */}
         <div className="flex-1 flex flex-col min-w-0">
+          {/* Top bar with history toggle */}
+          <div className="flex items-center gap-2 p-3 border-b border-border">
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              title="Histórico de conversas"
+            >
+              <History className="h-4 w-4" strokeWidth={1.5} />
+            </button>
+            <button
+              onClick={handleNewChat}
+              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              title="Nova conversa"
+            >
+              <Plus className="h-4 w-4" strokeWidth={1.5} />
+            </button>
+          </div>
+
           {isEmpty ? (
             <div className="flex-1 flex items-center justify-center p-8">
               <div className="max-w-xl w-full text-center">
@@ -157,6 +309,13 @@ export default function Chat() {
                   </div>
                 </div>
               ))}
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-card border border-border rounded-2xl px-4 py-3 text-sm text-muted-foreground">
+                    Pensando...
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
