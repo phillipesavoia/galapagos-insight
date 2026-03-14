@@ -40,6 +40,7 @@ export default function Chat() {
   const [isLoading, setIsLoading] = useState(false);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasLoadedRef = useRef(false);
 
   const isEmpty = messages.length === 0;
