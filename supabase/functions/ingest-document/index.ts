@@ -193,12 +193,13 @@ ${fullText.substring(0, 3000)}`,
         batchChunks.map(async (chunk, batchIdx) => {
           const globalIdx = i + batchIdx;
           const embRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${googleKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${googleKey}`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 content: { parts: [{ text: chunk }] },
+                outputDimensionality: 768,
               }),
             }
           );
