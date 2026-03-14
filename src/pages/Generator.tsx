@@ -343,7 +343,7 @@ export default function Generator() {
                 </button>
               </div>
             </div>
-            <div className="p-6 overflow-y-auto max-h-[calc(100vh-200px)] scrollbar-thin">
+            <div ref={previewRef} className="p-6 overflow-y-auto max-h-[calc(100vh-200px)] scrollbar-thin">
               {renderPreview()}
             </div>
           </div>
