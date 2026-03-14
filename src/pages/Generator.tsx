@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { Copy, Download, Edit, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,34 +9,40 @@ import html2pdf from "html2pdf.js";
 const tabs = ["Carta Mensal", "Resumo de Fundo", "Comparativo"] as const;
 type Tab = (typeof tabs)[number];
 
-const mockFunds = [
-  "Macro Global",
-  "Crédito Plus",
-  "Total Return",
-  "Equity Long Short",
-  "EM Debt Opportunities",
-];
-
 export default function Generator() {
   const previewRef = useRef<HTMLDivElement>(null);
+  const [fundNames, setFundNames] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>("Carta Mensal");
   const [clientName, setClientName] = useState("Ricardo Almeida");
+
+  useEffect(() => {
+    const fetchFunds = async () => {
+      const { data } = await supabase
+        .from("documents")
+        .select("fund_name")
+        .eq("status", "indexed")
+        .not("fund_name", "is", null);
+      const names = [...new Set(data?.map((d) => d.fund_name).filter(Boolean))] as string[];
+      setFundNames(names);
+    };
+    fetchFunds();
+  }, []);
   const [period, setPeriod] = useState("2025-02");
-  const [selectedFunds, setSelectedFunds] = useState(["Macro Global", "Crédito Plus"]);
+  const [selectedFunds, setSelectedFunds] = useState<string[]>([]);
   const [tone, setTone] = useState("Neutro");
   const [macroContext, setMacroContext] = useState("Fed em pausa, spreads comprimidos, oportunidades em EM...");
   const [generatedContent, setGeneratedContent] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Tab B state
-  const [fundB, setFundB] = useState("Macro Global");
+  const [fundB, setFundB] = useState("");
   const [periodB, setPeriodB] = useState("2025-02");
   const [recipientB, setRecipientB] = useState("Cliente");
   const [generatedB, setGeneratedB] = useState("");
 
   // Tab C state
-  const [fundC1, setFundC1] = useState("Macro Global");
-  const [fundC2, setFundC2] = useState("Crédito Plus");
+  const [fundC1, setFundC1] = useState("");
+  const [fundC2, setFundC2] = useState("");
   const [fundC3, setFundC3] = useState("");
   const [criteria, setCriteria] = useState("Retorno");
   const [generatedC, setGeneratedC] = useState("");
@@ -249,7 +255,7 @@ export default function Generator() {
                   </div>
                   <select onChange={(e) => { if (e.target.value && !selectedFunds.includes(e.target.value)) setSelectedFunds((p) => [...p, e.target.value]); e.target.value = ""; }} className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-sm text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50" defaultValue="">
                     <option value="" disabled>Adicionar fundo...</option>
-                    {mockFunds.filter((f) => !selectedFunds.includes(f)).map((f) => (<option key={f} value={f}>{f}</option>))}
+                    {fundNames.filter((f) => !selectedFunds.includes(f)).map((f) => (<option key={f} value={f}>{f}</option>))}
                   </select>
                 </div>
                 <div>
@@ -272,7 +278,7 @@ export default function Generator() {
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">Fundo</label>
                   <select value={fundB} onChange={(e) => setFundB(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50">
-                    {mockFunds.map((f) => <option key={f} value={f}>{f}</option>)}
+                    {fundNames.map((f) => <option key={f} value={f}>{f}</option>)}
                   </select>
                 </div>
                 <div>
@@ -295,20 +301,20 @@ export default function Generator() {
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">Fundo A</label>
                   <select value={fundC1} onChange={(e) => setFundC1(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50">
-                    {mockFunds.map((f) => <option key={f} value={f}>{f}</option>)}
+                    {fundNames.map((f) => <option key={f} value={f}>{f}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">Fundo B</label>
                   <select value={fundC2} onChange={(e) => setFundC2(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50">
-                    {mockFunds.map((f) => <option key={f} value={f}>{f}</option>)}
+                    {fundNames.map((f) => <option key={f} value={f}>{f}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">Fundo C (opcional)</label>
                   <select value={fundC3} onChange={(e) => setFundC3(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50">
                     <option value="">+ Adicionar</option>
-                    {mockFunds.map((f) => <option key={f} value={f}>{f}</option>)}
+                    {fundNames.map((f) => <option key={f} value={f}>{f}</option>)}
                   </select>
                 </div>
                 <div>

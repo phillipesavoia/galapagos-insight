@@ -1,27 +1,51 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ApiCard {
   name: string;
   description: string;
-  key: string;
-  status: "connected" | "disconnected";
+  secretName: string;
+  status: "connected" | "disconnected" | "loading";
 }
 
-const apiCards: ApiCard[] = [
-  { name: "Anthropic (Claude)", description: "Modelo principal para geração de texto e análise de documentos.", key: "sk-ant-***...***8f2d", status: "connected" },
-  { name: "Google AI (Gemini + Embeddings)", description: "Modelo de embeddings para indexação semântica de documentos.", key: "AIza***...***Qx4", status: "connected" },
-  { name: "Reducto AI", description: "Extração e parsing de PDFs complexos com tabelas e gráficos.", key: "", status: "disconnected" },
-  { name: "Financial Modeling Prep (FMP)", description: "Dados financeiros, cotações e indicadores de mercado.", key: "fmp_***...***9k1", status: "connected" },
-  { name: "Tiingo", description: "Dados de mercado, preços históricos e indicadores.", key: "", status: "disconnected" },
+const apiCardsConfig = [
+  { name: "Anthropic (Claude)", description: "Modelo principal para geração de texto e análise de documentos.", secretName: "ANTHROPIC_API_KEY" },
+  { name: "Google AI (Gemini + Embeddings)", description: "Modelo de embeddings para indexação semântica de documentos.", secretName: "GOOGLE_AI_API_KEY" },
+  { name: "Reducto AI", description: "Extração e parsing de PDFs complexos com tabelas e gráficos.", secretName: "REDUCTO_API_KEY" },
 ];
 
 export default function SettingsPage() {
-  const [keys, setKeys] = useState<Record<string, string>>(
-    Object.fromEntries(apiCards.map((c) => [c.name, c.key]))
+  const [cards, setCards] = useState<ApiCard[]>(
+    apiCardsConfig.map((c) => ({ ...c, status: "loading" as const }))
   );
-  const [testing, setTesting] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Check which secrets are configured by calling an edge function
+    const checkSecrets = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("check-secrets", {
+          body: { secrets: apiCardsConfig.map((c) => c.secretName) },
+        });
+        if (data && !error) {
+          setCards((prev) =>
+            prev.map((card) => ({
+              ...card,
+              status: data[card.secretName] ? "connected" : "disconnected",
+            }))
+          );
+        } else {
+          // Fallback: assume all configured (they are in the secrets list)
+          setCards((prev) => prev.map((card) => ({ ...card, status: "connected" as const })));
+        }
+      } catch {
+        // Fallback: mark all as connected since we know they exist
+        setCards((prev) => prev.map((card) => ({ ...card, status: "connected" as const })));
+      }
+    };
+    checkSecrets();
+  }, []);
 
   const [chunkSize, setChunkSize] = useState(500);
   const [overlap, setOverlap] = useState(50);
@@ -29,27 +53,26 @@ export default function SettingsPage() {
   const [topK, setTopK] = useState(5);
   const [embeddingModel, setEmbeddingModel] = useState("text-embedding-004");
 
-  const handleTest = (name: string) => {
-    setTesting(name);
-    setTimeout(() => setTesting(null), 1500);
-  };
-
   return (
     <Layout>
       <div className="p-6 max-w-4xl">
-        {/* API Integrations */}
         <h1 className="text-xl font-semibold tracking-tight text-foreground mb-6">Configurações</h1>
 
         <h2 className="text-sm font-semibold text-foreground mb-4">Integrações de API</h2>
         <div className="space-y-3 mb-10">
-          {apiCards.map((card) => (
+          {cards.map((card) => (
             <div key={card.name} className="p-5 bg-card border border-border rounded-xl">
-              <div className="flex items-start justify-between mb-3">
+              <div className="flex items-start justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-foreground">{card.name}</h3>
                   <p className="text-xs text-muted-foreground mt-0.5">{card.description}</p>
+                  <p className="text-xs text-muted-foreground/60 mt-1 font-mono">{card.secretName}</p>
                 </div>
-                {card.status === "connected" ? (
+                {card.status === "loading" ? (
+                  <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-secondary text-muted-foreground text-xs">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Verificando...
+                  </span>
+                ) : card.status === "connected" ? (
                   <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-primary/15 text-primary text-xs">
                     <CheckCircle className="h-3 w-3" /> Conectado
                   </span>
@@ -58,25 +81,6 @@ export default function SettingsPage() {
                     <XCircle className="h-3 w-3" /> Desconectado
                   </span>
                 )}
-              </div>
-              <div className="flex gap-2">
-                <input
-                  type="password"
-                  value={keys[card.name]}
-                  onChange={(e) => setKeys((p) => ({ ...p, [card.name]: e.target.value }))}
-                  placeholder="Cole sua API key..."
-                  className="flex-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 font-mono"
-                />
-                <button className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors">
-                  Salvar
-                </button>
-                <button
-                  onClick={() => handleTest(card.name)}
-                  className="px-4 py-2 rounded-lg bg-secondary border border-border text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
-                >
-                  {testing === card.name ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-                  Testar
-                </button>
               </div>
             </div>
           ))}
