@@ -1,9 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Layout } from "@/components/Layout";
 import { Copy, Download, Edit, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { marked } from "marked";
+import html2pdf from "html2pdf.js";
 
 const tabs = ["Carta Mensal", "Resumo de Fundo", "Comparativo"] as const;
 type Tab = (typeof tabs)[number];
@@ -17,6 +18,7 @@ const mockFunds = [
 ];
 
 export default function Generator() {
+  const previewRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<Tab>("Carta Mensal");
   const [clientName, setClientName] = useState("Ricardo Almeida");
   const [period, setPeriod] = useState("2025-02");
@@ -136,6 +138,28 @@ export default function Generator() {
   };
 
   const currentContent = activeTab === "Carta Mensal" ? generatedContent : activeTab === "Resumo de Fundo" ? generatedB : generatedC;
+
+  const handleCopy = async () => {
+    if (!currentContent) return;
+    try {
+      await navigator.clipboard.writeText(currentContent);
+      toast({ title: "Copiado!", description: "Conteúdo copiado para a área de transferência." });
+    } catch {
+      toast({ title: "Erro ao copiar", variant: "destructive" });
+    }
+  };
+
+  const handleExportPDF = () => {
+    if (!previewRef.current) return;
+    const opt = {
+      margin: [12, 16] as [number, number],
+      filename: `${activeTab.replace(/ /g, "_")}_${period || "documento"}.pdf`,
+      image: { type: "jpeg" as const, quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" as const },
+    };
+    html2pdf().set(opt).from(previewRef.current).save();
+  };
 
   const periodLabel = (() => {
     const [y, m] = period.split("-");
@@ -308,14 +332,18 @@ export default function Generator() {
             <div className="flex items-center justify-between p-4 border-b border-border">
               <h3 className="text-sm font-semibold text-foreground">Galapagos Capital Advisory · {periodLabel}</h3>
               <div className="flex gap-2">
-                {[{ icon: Copy, label: "Copiar" }, { icon: Download, label: "Exportar PDF" }, { icon: Edit, label: "Editar" }].map(({ icon: Icon, label }) => (
-                  <button key={label} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-xs text-muted-foreground hover:text-foreground transition-colors">
-                    <Icon className="h-3.5 w-3.5" strokeWidth={1.5} /> {label}
-                  </button>
-                ))}
+                <button onClick={handleCopy} disabled={!currentContent} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50">
+                  <Copy className="h-3.5 w-3.5" strokeWidth={1.5} /> Copiar
+                </button>
+                <button onClick={handleExportPDF} disabled={!currentContent} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50">
+                  <Download className="h-3.5 w-3.5" strokeWidth={1.5} /> Exportar PDF
+                </button>
+                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-xs text-muted-foreground hover:text-foreground transition-colors">
+                  <Edit className="h-3.5 w-3.5" strokeWidth={1.5} /> Editar
+                </button>
               </div>
             </div>
-            <div className="p-6 overflow-y-auto max-h-[calc(100vh-200px)] scrollbar-thin">
+            <div ref={previewRef} className="p-6 overflow-y-auto max-h-[calc(100vh-200px)] scrollbar-thin">
               {renderPreview()}
             </div>
           </div>
