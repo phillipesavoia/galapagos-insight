@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
     console.log("Searching with match_chunks...");
     const { data: chunks, error: chunksError } = await supabase.rpc("match_chunks", {
       query_embedding: embeddingStr,
-      match_threshold: 0.5,
+      match_threshold: 0.3,
       match_count: 8,
       filter_type: filter_type && filter_type !== "all" ? filter_type : null,
       filter_fund: filter_fund || null,
