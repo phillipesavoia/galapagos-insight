@@ -28,7 +28,7 @@ export default function Generator() {
     fetchFunds();
   }, []);
   const [period, setPeriod] = useState("2025-02");
-  const [selectedFunds, setSelectedFunds] = useState(["Macro Global", "Crédito Plus"]);
+  const [selectedFunds, setSelectedFunds] = useState<string[]>([]);
   const [tone, setTone] = useState("Neutro");
   const [macroContext, setMacroContext] = useState("Fed em pausa, spreads comprimidos, oportunidades em EM...");
   const [generatedContent, setGeneratedContent] = useState("");
