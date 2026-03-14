@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
     }
     const base64 = btoa(binary);
 
-    const uploadRes = await fetch("https://v1.api.reducto.ai/upload", {
+    const uploadRes = await fetch("https://api.reducto.ai/v1/upload", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${reductoKey}`,
