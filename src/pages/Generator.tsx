@@ -332,11 +332,15 @@ export default function Generator() {
             <div className="flex items-center justify-between p-4 border-b border-border">
               <h3 className="text-sm font-semibold text-foreground">Galapagos Capital Advisory · {periodLabel}</h3>
               <div className="flex gap-2">
-                {[{ icon: Copy, label: "Copiar" }, { icon: Download, label: "Exportar PDF" }, { icon: Edit, label: "Editar" }].map(({ icon: Icon, label }) => (
-                  <button key={label} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-xs text-muted-foreground hover:text-foreground transition-colors">
-                    <Icon className="h-3.5 w-3.5" strokeWidth={1.5} /> {label}
-                  </button>
-                ))}
+                <button onClick={handleCopy} disabled={!currentContent} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50">
+                  <Copy className="h-3.5 w-3.5" strokeWidth={1.5} /> Copiar
+                </button>
+                <button onClick={handleExportPDF} disabled={!currentContent} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50">
+                  <Download className="h-3.5 w-3.5" strokeWidth={1.5} /> Exportar PDF
+                </button>
+                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-xs text-muted-foreground hover:text-foreground transition-colors">
+                  <Edit className="h-3.5 w-3.5" strokeWidth={1.5} /> Editar
+                </button>
               </div>
             </div>
             <div className="p-6 overflow-y-auto max-h-[calc(100vh-200px)] scrollbar-thin">
