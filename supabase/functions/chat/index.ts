@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
     // Step 1: Generate embedding for the query
     console.log("Generating query embedding...");
     const embRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/embedding-001:embedContent?key=${googleKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${googleKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
