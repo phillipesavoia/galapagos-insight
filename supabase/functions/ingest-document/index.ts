@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        document_url,
+        document_url: file_id,
         options: { table_output_format: "markdown" },
       }),
     });
