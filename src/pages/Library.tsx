@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Layout } from "@/components/Layout";
-import { Search, Plus } from "lucide-react";
+import { Search, Plus, Upload } from "lucide-react";
 import { useDocuments } from "@/hooks/useDocuments";
 import { DocumentCard } from "@/components/library/DocumentCard";
 import { UploadModal } from "@/components/library/UploadModal";
@@ -18,6 +18,8 @@ export default function Library() {
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("Todos");
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [droppedFiles, setDroppedFiles] = useState<File[]>([]);
   const { documents, loading, uploadDocument, deleteDocument } = useDocuments();
 
   const filtered = documents.filter((doc) => {
@@ -29,13 +31,57 @@ export default function Library() {
     return matchesSearch && matchesFilter;
   });
 
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.currentTarget === e.target || !e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragging(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = Array.from(e.dataTransfer.files).filter(
+      (f) => f.type === "application/pdf" || f.name.endsWith(".docx")
+    );
+    if (files.length > 0) {
+      setDroppedFiles(files);
+      setShowUploadModal(true);
+    }
+  }, []);
+
   return (
     <Layout>
-      <div className="p-6">
+      <div
+        className="p-6 relative min-h-full"
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {/* Drag overlay */}
+        {isDragging && (
+          <div className="absolute inset-0 z-40 bg-primary/5 border-2 border-dashed border-primary/40 rounded-xl flex items-center justify-center backdrop-blur-sm pointer-events-none">
+            <div className="text-center">
+              <Upload className="h-10 w-10 mx-auto text-primary mb-3" strokeWidth={1.5} />
+              <p className="text-lg font-medium text-primary">Solte os arquivos aqui</p>
+              <p className="text-sm text-muted-foreground mt-1">PDF, DOCX</p>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-xl font-semibold tracking-tight text-foreground">Base de Conhecimento</h1>
           <button
-            onClick={() => setShowUploadModal(true)}
+            onClick={() => { setDroppedFiles([]); setShowUploadModal(true); }}
             className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
           >
             <Plus className="h-4 w-4" strokeWidth={1.5} /> Novo Documento
@@ -83,8 +129,9 @@ export default function Library() {
 
         <UploadModal
           open={showUploadModal}
-          onClose={() => setShowUploadModal(false)}
+          onClose={() => { setShowUploadModal(false); setDroppedFiles([]); }}
           onUpload={uploadDocument}
+          initialFiles={droppedFiles}
         />
       </div>
     </Layout>
