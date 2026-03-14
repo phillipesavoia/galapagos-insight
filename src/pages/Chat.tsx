@@ -40,12 +40,20 @@ export default function Chat() {
   const [isLoading, setIsLoading] = useState(false);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasLoadedRef = useRef(false);
 
   const isEmpty = messages.length === 0;
   const lastAssistantSources = [...messages].reverse().find((m) => m.role === "assistant")?.sources || [];
 
-  // Load previous sessions list
+  // Auto-scroll to bottom when messages change or loading state changes
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollTop = messagesEndRef.current.scrollHeight;
+    }
+  }, [messages, isLoading]);
+
+
   useEffect(() => {
     const loadSessions = async () => {
       const { data } = await supabase
@@ -260,7 +268,7 @@ export default function Chat() {
               </div>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto scrollbar-thin p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto scrollbar-thin p-6 space-y-4" ref={messagesEndRef}>
               {messages.map((msg) => (
                 <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div
