@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Layout } from "@/components/Layout";
 import { Copy, Download, Edit, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
