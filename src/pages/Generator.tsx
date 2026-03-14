@@ -35,7 +35,7 @@ export default function Generator() {
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Tab B state
-  const [fundB, setFundB] = useState("Macro Global");
+  const [fundB, setFundB] = useState("");
   const [periodB, setPeriodB] = useState("2025-02");
   const [recipientB, setRecipientB] = useState("Cliente");
   const [generatedB, setGeneratedB] = useState("");
