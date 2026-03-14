@@ -40,6 +40,11 @@ export default function Generator() {
 
   const handleGenerate = async () => {
     setIsGenerating(true);
+
+    // Clear previous content for active tab
+    const setSetter = activeTab === "Carta Mensal" ? setGeneratedContent : activeTab === "Resumo de Fundo" ? setGeneratedB : setGeneratedC;
+    setSetter("");
+
     try {
       let body: Record<string, unknown> = {};
 
@@ -67,15 +72,60 @@ export default function Generator() {
         };
       }
 
-      const { data, error } = await supabase.functions.invoke("generate-document", { body });
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-      if (error) throw error;
+      const resp = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/generate-document`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${anonKey}`,
+            apikey: anonKey,
+          },
+          body: JSON.stringify(body),
+        }
+      );
 
-      const text = data?.generated || "Erro ao gerar documento";
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP ${resp.status}`);
+      }
 
-      if (activeTab === "Carta Mensal") setGeneratedContent(text);
-      else if (activeTab === "Resumo de Fundo") setGeneratedB(text);
-      else setGeneratedC(text);
+      const reader = resp.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let fullContent = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const evt = JSON.parse(line.slice(6));
+            if (evt.type === "delta") {
+              fullContent += evt.text;
+              setSetter(fullContent);
+            } else if (evt.type === "error") {
+              throw new Error(evt.message);
+            }
+          } catch (e) {
+            if (e instanceof SyntaxError) continue;
+            throw e;
+          }
+        }
+      }
+
+      if (!fullContent) {
+        setSetter("Erro ao gerar documento — resposta vazia.");
+      }
     } catch (err) {
       console.error(err);
       toast({ title: "Erro ao gerar documento", description: err instanceof Error ? err.message : "Tente novamente", variant: "destructive" });
