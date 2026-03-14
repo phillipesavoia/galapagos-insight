@@ -115,7 +115,7 @@ export default function Chat() {
   };
 
   const handleSelectSession = (sid: string) => {
-    setSessionId(sid);
+    setSessionId(sid as `${string}-${string}-${string}-${string}-${string}`);
     setMessages([]);
     loadSession(sid);
     setShowHistory(false);
