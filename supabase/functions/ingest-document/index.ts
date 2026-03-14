@@ -66,8 +66,14 @@ Deno.serve(async (req) => {
       throw new Error(`Reducto upload failed [${uploadRes.status}]: ${errText}`);
     }
 
-    const { file_id } = await uploadRes.json();
+    const uploadData = await uploadRes.json();
+    console.log("Reducto upload response:", JSON.stringify(uploadData));
 
+    // file_id can be in different fields depending on API version
+    const fileId = uploadData.file_id ?? uploadData.document_url ?? uploadData.url ?? uploadData.id;
+    if (!fileId) throw new Error(`Reducto upload returned no file_id: ${JSON.stringify(uploadData)}`);
+
+    // Step 2: Parse
     const parseRes = await fetch("https://platform.reducto.ai/parse", {
       method: "POST",
       headers: {
@@ -75,7 +81,7 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        document_url: file_id,
+        document_url: fileId,
         options: { table_output_format: "markdown" },
       }),
     });
