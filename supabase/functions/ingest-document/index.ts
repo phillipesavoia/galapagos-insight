@@ -247,14 +247,27 @@ ${fullText.substring(0, 3000)}`,
         throw new Error(`Failed to store chunks batch ${i}: ${chunksError.message}`);
     }
 
-    // Update document status
+    // Update document status + metadata extracted by Gemini
+    const meta = extractedMetadata as Record<string, unknown>;
+    const updatePayload: Record<string, unknown> = {
+      status: "indexed",
+      chunk_count: chunks.length,
+      metadata: extractedMetadata,
+    };
+    // Persist Gemini-extracted fund_name and period if the user didn't provide them
+    if (!fundName && meta.detected_fund_name) {
+      updatePayload.fund_name = meta.detected_fund_name;
+    }
+    if (!period && meta.detected_period) {
+      updatePayload.period = meta.detected_period;
+    }
+    if (meta.detected_language) {
+      updatePayload.language = meta.detected_language;
+    }
+
     const { error: updateError } = await supabase
       .from("documents")
-      .update({
-        status: "indexed",
-        chunk_count: chunks.length,
-        metadata: extractedMetadata,
-      })
+      .update(updatePayload)
       .eq("id", documentId);
 
     if (updateError)
