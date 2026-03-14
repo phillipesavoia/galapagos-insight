@@ -152,32 +152,87 @@ export default function Chat() {
     // Persist user message
     await persistMessage(newMsg, sessionId, { filter_type });
 
+    const assistantId = (Date.now() + 1).toString();
+    let fullContent = "";
+    let sources: { name: string; period: string }[] = [];
+
     try {
-      const { data, error } = await supabase.functions.invoke("chat", {
-        body: { query: msg, filter_type },
+      const chatUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+      const resp = await fetch(chatUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ query: msg, filter_type }),
       });
 
-      if (error) throw error;
+      if (!resp.ok || !resp.body) {
+        throw new Error(`HTTP ${resp.status}`);
+      }
 
-      const assistantMsg: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: data.answer,
-        sources: data.sources || [],
-      };
-      setMessages((prev) => [...prev, assistantMsg]);
+      // Create initial assistant message
+      setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "", sources: [] }]);
 
-      // Persist assistant message
-      await persistMessage(assistantMsg, sessionId);
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+          const line = buffer.slice(0, newlineIndex).trim();
+          buffer = buffer.slice(newlineIndex + 1);
+
+          if (!line.startsWith("data: ")) continue;
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") continue;
+
+          try {
+            const event = JSON.parse(jsonStr);
+            if (event.type === "delta" && event.text) {
+              fullContent += event.text;
+              const contentSnapshot = fullContent;
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId ? { ...m, content: contentSnapshot } : m
+                )
+              );
+            } else if (event.type === "sources") {
+              sources = event.sources || [];
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId ? { ...m, sources } : m
+                )
+              );
+            }
+          } catch {
+            // partial JSON, ignore
+          }
+        }
+      }
+
+      // Persist final assistant message
+      await persistMessage(
+        { id: assistantId, role: "assistant", content: fullContent, sources },
+        sessionId
+      );
     } catch (err) {
       console.error("Chat error:", err);
-      const errorMsg: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: "Erro ao processar sua pergunta. Tente novamente.",
-        sources: [],
-      };
-      setMessages((prev) => [...prev, errorMsg]);
+      const errorContent = "Erro ao processar sua pergunta. Tente novamente.";
+      setMessages((prev) => {
+        const hasAssistant = prev.some((m) => m.id === assistantId);
+        if (hasAssistant) {
+          return prev.map((m) =>
+            m.id === assistantId ? { ...m, content: errorContent } : m
+          );
+        }
+        return [...prev, { id: assistantId, role: "assistant", content: errorContent, sources: [] }];
+      });
     } finally {
       setIsLoading(false);
     }
