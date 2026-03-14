@@ -160,7 +160,6 @@ export default function Generator() {
 
     // Create a print-friendly clone with light theme
     const clone = document.createElement("div");
-    clone.innerHTML = parsedHtml;
     clone.style.cssText = `
       font-family: 'Georgia', serif;
       font-size: 12px;
@@ -170,6 +169,30 @@ export default function Generator() {
       padding: 20px;
       max-width: 700px;
     `;
+
+    // Header with logo
+    const header = document.createElement("div");
+    header.style.cssText = `
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 2px solid #0a1f44;
+      padding-bottom: 12px;
+      margin-bottom: 24px;
+    `;
+    const logo = document.createElement("img");
+    logo.src = window.location.origin + "/galapagos-logo.png";
+    logo.style.cssText = "height: 40px; width: auto;";
+    const headerRight = document.createElement("div");
+    headerRight.style.cssText = "text-align: right; font-size: 11px; color: #555;";
+    headerRight.innerHTML = `<div style="font-weight:600;color:#0a1f44">${activeTab}</div><div>${periodLabel}</div>`;
+    header.appendChild(logo);
+    header.appendChild(headerRight);
+    clone.appendChild(header);
+
+    const body = document.createElement("div");
+    body.innerHTML = parsedHtml;
+    clone.appendChild(body);
     // Style all child elements for print
     clone.querySelectorAll("h1, h2, h3").forEach((el) => {
       (el as HTMLElement).style.color = "#111";
