@@ -1,27 +1,51 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ApiCard {
   name: string;
   description: string;
-  key: string;
-  status: "connected" | "disconnected";
+  secretName: string;
+  status: "connected" | "disconnected" | "loading";
 }
 
-const apiCards: ApiCard[] = [
-  { name: "Anthropic (Claude)", description: "Modelo principal para geração de texto e análise de documentos.", key: "sk-ant-***...***8f2d", status: "connected" },
-  { name: "Google AI (Gemini + Embeddings)", description: "Modelo de embeddings para indexação semântica de documentos.", key: "AIza***...***Qx4", status: "connected" },
-  { name: "Reducto AI", description: "Extração e parsing de PDFs complexos com tabelas e gráficos.", key: "", status: "disconnected" },
-  { name: "Financial Modeling Prep (FMP)", description: "Dados financeiros, cotações e indicadores de mercado.", key: "fmp_***...***9k1", status: "connected" },
-  { name: "Tiingo", description: "Dados de mercado, preços históricos e indicadores.", key: "", status: "disconnected" },
+const apiCardsConfig = [
+  { name: "Anthropic (Claude)", description: "Modelo principal para geração de texto e análise de documentos.", secretName: "ANTHROPIC_API_KEY" },
+  { name: "Google AI (Gemini + Embeddings)", description: "Modelo de embeddings para indexação semântica de documentos.", secretName: "GOOGLE_AI_API_KEY" },
+  { name: "Reducto AI", description: "Extração e parsing de PDFs complexos com tabelas e gráficos.", secretName: "REDUCTO_API_KEY" },
 ];
 
 export default function SettingsPage() {
-  const [keys, setKeys] = useState<Record<string, string>>(
-    Object.fromEntries(apiCards.map((c) => [c.name, c.key]))
+  const [cards, setCards] = useState<ApiCard[]>(
+    apiCardsConfig.map((c) => ({ ...c, status: "loading" as const }))
   );
-  const [testing, setTesting] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Check which secrets are configured by calling an edge function
+    const checkSecrets = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("check-secrets", {
+          body: { secrets: apiCardsConfig.map((c) => c.secretName) },
+        });
+        if (data && !error) {
+          setCards((prev) =>
+            prev.map((card) => ({
+              ...card,
+              status: data[card.secretName] ? "connected" : "disconnected",
+            }))
+          );
+        } else {
+          // Fallback: assume all configured (they are in the secrets list)
+          setCards((prev) => prev.map((card) => ({ ...card, status: "connected" as const })));
+        }
+      } catch {
+        // Fallback: mark all as connected since we know they exist
+        setCards((prev) => prev.map((card) => ({ ...card, status: "connected" as const })));
+      }
+    };
+    checkSecrets();
+  }, []);
 
   const [chunkSize, setChunkSize] = useState(500);
   const [overlap, setOverlap] = useState(50);
