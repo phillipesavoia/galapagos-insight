@@ -53,27 +53,26 @@ export default function SettingsPage() {
   const [topK, setTopK] = useState(5);
   const [embeddingModel, setEmbeddingModel] = useState("text-embedding-004");
 
-  const handleTest = (name: string) => {
-    setTesting(name);
-    setTimeout(() => setTesting(null), 1500);
-  };
-
   return (
     <Layout>
       <div className="p-6 max-w-4xl">
-        {/* API Integrations */}
         <h1 className="text-xl font-semibold tracking-tight text-foreground mb-6">Configurações</h1>
 
         <h2 className="text-sm font-semibold text-foreground mb-4">Integrações de API</h2>
         <div className="space-y-3 mb-10">
-          {apiCards.map((card) => (
+          {cards.map((card) => (
             <div key={card.name} className="p-5 bg-card border border-border rounded-xl">
-              <div className="flex items-start justify-between mb-3">
+              <div className="flex items-start justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-foreground">{card.name}</h3>
                   <p className="text-xs text-muted-foreground mt-0.5">{card.description}</p>
+                  <p className="text-xs text-muted-foreground/60 mt-1 font-mono">{card.secretName}</p>
                 </div>
-                {card.status === "connected" ? (
+                {card.status === "loading" ? (
+                  <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-secondary text-muted-foreground text-xs">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Verificando...
+                  </span>
+                ) : card.status === "connected" ? (
                   <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-primary/15 text-primary text-xs">
                     <CheckCircle className="h-3 w-3" /> Conectado
                   </span>
@@ -82,25 +81,6 @@ export default function SettingsPage() {
                     <XCircle className="h-3 w-3" /> Desconectado
                   </span>
                 )}
-              </div>
-              <div className="flex gap-2">
-                <input
-                  type="password"
-                  value={keys[card.name]}
-                  onChange={(e) => setKeys((p) => ({ ...p, [card.name]: e.target.value }))}
-                  placeholder="Cole sua API key..."
-                  className="flex-1 bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 font-mono"
-                />
-                <button className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors">
-                  Salvar
-                </button>
-                <button
-                  onClick={() => handleTest(card.name)}
-                  className="px-4 py-2 rounded-lg bg-secondary border border-border text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"
-                >
-                  {testing === card.name ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-                  Testar
-                </button>
               </div>
             </div>
           ))}
