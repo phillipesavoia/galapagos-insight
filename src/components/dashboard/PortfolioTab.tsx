@@ -1,4 +1,5 @@
 import { NavChart } from "./NavChart";
+import { RiskMetrics } from "./RiskMetrics";
 import { HoldingsTable } from "./HoldingsTable";
 import type { PortfolioName, NavDataPoint } from "@/pages/Dashboard";
 
@@ -12,6 +13,7 @@ export function PortfolioTab({ portfolio, navData, loading }: PortfolioTabProps)
   return (
     <div className="space-y-6">
       <NavChart portfolio={portfolio} data={navData} loading={loading} />
+      <RiskMetrics data={navData} loading={loading} />
       <HoldingsTable portfolio={portfolio} />
     </div>
   );
