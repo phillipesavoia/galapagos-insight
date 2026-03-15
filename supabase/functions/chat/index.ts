@@ -170,7 +170,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
-        max_tokens: 1024,
+        max_tokens: 2048,
         stream: true,
         system: `Você é um assistente especializado em fundos de investimento da Galapagos Capital Advisory.
 Responda sempre em português brasileiro de forma profissional e objetiva.
