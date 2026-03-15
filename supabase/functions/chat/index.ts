@@ -153,7 +153,7 @@ Deno.serve(async (req) => {
     if (docIds.length > 0) {
       const { data } = await supabase
         .from("documents")
-        .select("id, name, fund_name, period, type, metadata")
+        .select("id, name, fund_name, period, type, metadata, file_url")
         .in("id", docIds);
       documents = data || [];
       if (filter_type && filter_type !== "all") {
@@ -176,6 +176,7 @@ Deno.serve(async (req) => {
       period: d.period || "",
       document_name: d.name,
       ticker: d.metadata?.detected_ticker_exchange || d.metadata?.detected_ticker || "",
+      file_url: d.file_url || null,
     }));
 
     // --- Retrieve last 5 conversation turns for context ---

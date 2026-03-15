@@ -4,11 +4,17 @@ import ReactMarkdown from "react-markdown";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 
+interface ChatSource {
+  name: string;
+  period: string;
+  file_url?: string | null;
+}
+
 interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
-  sources?: { name: string; period: string }[];
+  sources?: ChatSource[];
 }
 
 interface ChatSession {
@@ -155,7 +161,7 @@ export default function Chat() {
 
     const assistantId = (Date.now() + 1).toString();
     let fullContent = "";
-    let sources: { name: string; period: string }[] = [];
+    let sources: ChatSource[] = [];
 
     try {
       const chatUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
@@ -361,12 +367,24 @@ export default function Chat() {
                         {expandedSources[msg.id] && (
                           <div className="flex flex-wrap gap-1.5 mt-2">
                             {msg.sources.map((src, i) => (
-                              <span
-                                key={i}
-                                className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-100 text-xs text-gray-600 border border-gray-200"
-                              >
-                                {src.name} · {src.period}
-                              </span>
+                              src.file_url ? (
+                                <a
+                                  key={i}
+                                  href={src.file_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center px-2.5 py-1 rounded-md bg-emerald-50 text-xs text-emerald-700 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 transition-colors cursor-pointer"
+                                >
+                                  {src.name} · {src.period}
+                                </a>
+                              ) : (
+                                <span
+                                  key={i}
+                                  className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-100 text-xs text-gray-600 border border-gray-200"
+                                >
+                                  {src.name} · {src.period}
+                                </span>
+                              )
                             ))}
                           </div>
                         )}
@@ -434,7 +452,11 @@ export default function Chat() {
               <div className="flex flex-wrap gap-2">
                 {lastAssistantSources.map((src, i) => (
                   <div key={i} className="px-3 py-1.5 rounded-lg bg-white border border-gray-200 shadow-sm">
-                    <p className="text-xs font-medium text-gray-800">{src.name}</p>
+                    {src.file_url ? (
+                      <a href={src.file_url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-emerald-700 hover:underline">{src.name}</a>
+                    ) : (
+                      <p className="text-xs font-medium text-gray-800">{src.name}</p>
+                    )}
                     <p className="text-[10px] text-gray-500">{src.period}</p>
                   </div>
                 ))}
