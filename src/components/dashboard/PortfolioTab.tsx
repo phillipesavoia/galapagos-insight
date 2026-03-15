@@ -1,8 +1,8 @@
 import { NavChart } from "./NavChart";
 import { RiskMetrics } from "./RiskMetrics";
+import { PerformanceAttribution } from "./PerformanceAttribution";
 import { HoldingsTable } from "./HoldingsTable";
 import type { PortfolioName, NavDataPoint } from "@/pages/Dashboard";
-
 interface PortfolioTabProps {
   portfolio: PortfolioName;
   navData: NavDataPoint[];
