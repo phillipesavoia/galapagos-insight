@@ -23,6 +23,7 @@ export type Database = {
           role: string | null
           session_id: string | null
           sources: Json | null
+          user_id: string | null
         }
         Insert: {
           content?: string | null
@@ -32,6 +33,7 @@ export type Database = {
           role?: string | null
           session_id?: string | null
           sources?: Json | null
+          user_id?: string | null
         }
         Update: {
           content?: string | null
@@ -41,6 +43,7 @@ export type Database = {
           role?: string | null
           session_id?: string | null
           sources?: Json | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -181,6 +184,7 @@ export type Database = {
           language: string | null
           metadata: Json | null
           name: string
+          owner_id: string | null
           period: string | null
           status: string | null
           type: string | null
@@ -194,6 +198,7 @@ export type Database = {
           language?: string | null
           metadata?: Json | null
           name: string
+          owner_id?: string | null
           period?: string | null
           status?: string | null
           type?: string | null
@@ -207,6 +212,7 @@ export type Database = {
           language?: string | null
           metadata?: Json | null
           name?: string
+          owner_id?: string | null
           period?: string | null
           status?: string | null
           type?: string | null
