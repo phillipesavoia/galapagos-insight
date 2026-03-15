@@ -159,8 +159,39 @@ Deno.serve(async (req) => {
       ticker: d.metadata?.detected_ticker_exchange || d.metadata?.detected_ticker || "",
     }));
 
+    // --- Retrieve last 5 conversation turns for context ---
+    let historyMessages: { role: string; content: string }[] = [];
+    if (session_id) {
+      const { data: historyData } = await supabase
+        .from("advisor_chat_history")
+        .select("role, content")
+        .eq("session_id", session_id)
+        .order("created_at", { ascending: false })
+        .limit(10); // 5 pairs = 10 messages
+
+      if (historyData && historyData.length > 0) {
+        historyMessages = historyData.reverse().map((h: any) => ({
+          role: h.role === "user" ? "user" : "assistant",
+          content: h.content || "",
+        }));
+        console.log(`Loaded ${historyMessages.length} history messages for session ${session_id}`);
+      }
+    }
+
     // --- Stream Claude response ---
     console.log(`Calling Claude with ${filteredChunks.length} chunks from ${documents.length} documents...`);
+
+    // Build messages array: history + current query with context
+    const claudeMessages = [
+      ...historyMessages,
+      {
+        role: "user",
+        content: context
+          ? `Documentos encontrados:\n\n${context}\n\n---\nPergunta: ${query}`
+          : `Não encontrei documentos relevantes para: "${query}". Informe que não há documentos indexados sobre este tema.`,
+      },
+    ];
+
     const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -178,12 +209,7 @@ Use apenas as informações dos documentos fornecidos para responder.
 Se a informação não estiver nos documentos, diga claramente que não encontrou nos documentos indexados.
 Seja direto e preciso. Cite os documentos quando relevante.
 Formate sua resposta usando markdown: use **negrito** para métricas importantes, listas com - para itens, e organize bem as informações.`,
-        messages: [{
-          role: "user",
-          content: context
-            ? `Documentos encontrados:\n\n${context}\n\n---\nPergunta: ${query}`
-            : `Não encontrei documentos relevantes para: "${query}". Informe que não há documentos indexados sobre este tema.`
-        }],
+        messages: claudeMessages,
       }),
     });
 
