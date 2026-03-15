@@ -15,6 +15,37 @@ Deno.serve(async (req) => {
   let supabase: ReturnType<typeof createClient> | null = null;
 
   try {
+    // --- Auth validation ---
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+    // User-scoped client for DB operations (respects RLS)
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await userClient.auth.getUser(token);
+    if (claimsError || !claimsData?.user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Service role client ONLY for storage (private bucket requires elevated access)
+    const dbKey = Deno.env.get("DB_SERVICE_ROLE_KEY");
+    if (!dbKey) throw new Error("Missing DB_SERVICE_ROLE_KEY");
+    const storageClient = createClient(supabaseUrl, dbKey);
+
+    supabase = userClient;
+
     const formData = await req.formData();
     const file = formData.get("file") as File;
     documentId = formData.get("document_id") as string;
@@ -30,19 +61,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    const dbUrl = Deno.env.get("DB_URL");
-    const dbKey = Deno.env.get("DB_SERVICE_ROLE_KEY");
-    if (!dbUrl || !dbKey) throw new Error("Missing DB_URL or DB_SERVICE_ROLE_KEY");
-
-    supabase = createClient(dbUrl, dbKey);
-
     // STEP 0: Upload file to Supabase Storage bucket 'documents'
     console.log("Step 0: Uploading file to storage...");
     const arrayBuffer = await file.arrayBuffer();
     const fileBytes = new Uint8Array(arrayBuffer);
     const storagePath = `${documentId}/${documentName || "document.pdf"}`;
 
-    const { error: storageError } = await supabase.storage
+    const { error: storageError } = await storageClient.storage
       .from("documents")
       .upload(storagePath, fileBytes, {
         contentType: file.type || "application/pdf",
@@ -51,9 +76,9 @@ Deno.serve(async (req) => {
 
     if (storageError) throw new Error(`Storage upload failed: ${storageError.message}`);
 
-    const { data: urlData } = supabase.storage.from("documents").getPublicUrl(storagePath);
+    const { data: urlData } = storageClient.storage.from("documents").getPublicUrl(storagePath);
     // Since bucket is private, generate a long-lived signed URL instead
-    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+    const { data: signedUrlData, error: signedUrlError } = await storageClient.storage
       .from("documents")
       .createSignedUrl(storagePath, 60 * 60 * 24 * 365 * 10); // 10 years
 
