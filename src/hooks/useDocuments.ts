@@ -53,6 +53,7 @@ export function useDocuments() {
     meta: { name: string; type: string; fund_name: string; period: string }
   ) => {
     // 1. Insert document record
+    const { data: { user } } = await supabase.auth.getUser();
     const { data: doc, error: insertError } = await supabase
       .from("documents")
       .insert({
@@ -61,6 +62,7 @@ export function useDocuments() {
         fund_name: meta.fund_name,
         period: meta.period,
         status: "processing",
+        owner_id: user?.id,
       })
       .select()
       .single();

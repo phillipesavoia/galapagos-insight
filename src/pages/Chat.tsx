@@ -113,12 +113,14 @@ export default function Chat() {
     sid: string,
     filters?: Record<string, string>
   ) => {
+    const { data: { user } } = await supabase.auth.getUser();
     await supabase.from("advisor_chat_history").insert({
       session_id: sid,
       role: msg.role,
       content: msg.content,
       sources: msg.sources ? (msg.sources as any) : null,
       filters: filters ? (filters as any) : null,
+      user_id: user?.id,
     });
   };
 
