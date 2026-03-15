@@ -44,6 +44,90 @@ export type Database = {
         }
         Relationships: []
       }
+      asset_prices: {
+        Row: {
+          created_at: string | null
+          daily_return: number | null
+          date: string
+          id: string
+          price: number
+          ticker: string
+        }
+        Insert: {
+          created_at?: string | null
+          daily_return?: number | null
+          date: string
+          id?: string
+          price: number
+          ticker: string
+        }
+        Update: {
+          created_at?: string | null
+          daily_return?: number | null
+          date?: string
+          id?: string
+          price?: number
+          ticker?: string
+        }
+        Relationships: []
+      }
+      daily_holdings: {
+        Row: {
+          created_at: string | null
+          date: string
+          id: string
+          portfolio_name: string
+          ticker: string
+          weight_percentage: number
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          id?: string
+          portfolio_name: string
+          ticker: string
+          weight_percentage: number
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          id?: string
+          portfolio_name?: string
+          ticker?: string
+          weight_percentage?: number
+        }
+        Relationships: []
+      }
+      daily_navs: {
+        Row: {
+          created_at: string | null
+          daily_return: number | null
+          date: string
+          id: string
+          nav: number
+          portfolio_name: string
+          ytd_return: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          daily_return?: number | null
+          date: string
+          id?: string
+          nav: number
+          portfolio_name: string
+          ytd_return?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          daily_return?: number | null
+          date?: string
+          id?: string
+          nav?: number
+          portfolio_name?: string
+          ytd_return?: number | null
+        }
+        Relationships: []
+      }
       document_chunks: {
         Row: {
           chunk_index: number | null
