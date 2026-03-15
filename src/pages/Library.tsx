@@ -84,15 +84,19 @@ export default function Library() {
           <div className="flex items-center gap-2">
             {documents.length > 0 && (
               <button
+                disabled={deleting}
                 onClick={async () => {
                   if (!confirm(`Excluir todos os ${documents.length} documentos? Esta ação é irreversível.`)) return;
+                  setDeleting(true);
                   for (const doc of documents) {
                     await deleteDocument(doc.id);
                   }
+                  setDeleting(false);
                 }}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:bg-destructive/90 transition-colors"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:bg-destructive/90 transition-colors disabled:opacity-50"
               >
-                <Trash2 className="h-4 w-4" strokeWidth={1.5} /> Excluir Todos
+                {deleting ? <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} /> : <Trash2 className="h-4 w-4" strokeWidth={1.5} />}
+                {deleting ? "Excluindo..." : "Excluir Todos"}
               </button>
             )}
             <button
