@@ -65,10 +65,18 @@ Deno.serve(async (req) => {
     console.log("Step 0: Uploading file to storage...");
     const arrayBuffer = await file.arrayBuffer();
     const fileBytes = new Uint8Array(arrayBuffer);
-    // Sanitize filename: remove accents, replace spaces and special chars
-    const sanitizedName = (documentName || "document.pdf")
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-zA-Z0-9._-]/g, "_");
+    // Sanitize filename: aggressively remove accents, special chars, collapse underscores
+    const rawName = documentName || file.name || "document.pdf";
+    const ext = rawName.lastIndexOf(".") > 0 ? rawName.slice(rawName.lastIndexOf(".")) : ".pdf";
+    const baseName = rawName.slice(0, rawName.length - ext.length);
+    const sanitizedBase = baseName
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")   // strip diacritics
+      .replace(/[^a-zA-Z0-9]/g, "_")     // everything non-alphanumeric → underscore
+      .replace(/_+/g, "_")               // collapse multiple underscores
+      .replace(/^_|_$/g, "");            // trim leading/trailing underscores
+    const sanitizedExt = ext.replace(/[^a-zA-Z0-9.]/g, "");
+    const sanitizedName = (sanitizedBase || "document") + (sanitizedExt || ".pdf");
     const storagePath = `${documentId}/${sanitizedName}`;
 
     const { error: storageError } = await storageClient.storage
