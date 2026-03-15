@@ -89,13 +89,8 @@ export function UploadModal({ open, onClose, onUpload, initialFiles }: UploadMod
     }
 
     setUploading(false);
-    const allDone = files.every((f) => f.status === "done");
-    if (allDone) {
-      setTimeout(() => {
-        setFiles([]);
-        onClose();
-      }, 500);
-    }
+    setFiles([]);
+    onClose();
   };
 
   const handleDrop = (e: React.DragEvent) => {
