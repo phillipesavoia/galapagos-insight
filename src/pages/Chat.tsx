@@ -367,12 +367,24 @@ export default function Chat() {
                         {expandedSources[msg.id] && (
                           <div className="flex flex-wrap gap-1.5 mt-2">
                             {msg.sources.map((src, i) => (
-                              <span
-                                key={i}
-                                className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-100 text-xs text-gray-600 border border-gray-200"
-                              >
-                                {src.name} · {src.period}
-                              </span>
+                              src.file_url ? (
+                                <a
+                                  key={i}
+                                  href={src.file_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center px-2.5 py-1 rounded-md bg-emerald-50 text-xs text-emerald-700 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 transition-colors cursor-pointer"
+                                >
+                                  {src.name} · {src.period}
+                                </a>
+                              ) : (
+                                <span
+                                  key={i}
+                                  className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-100 text-xs text-gray-600 border border-gray-200"
+                                >
+                                  {src.name} · {src.period}
+                                </span>
+                              )
                             ))}
                           </div>
                         )}
