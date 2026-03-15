@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const { query, filter_type, session_id } = await req.json();
+    const { query, filter_type, filter_fund, session_id } = await req.json();
     if (!query) return new Response(JSON.stringify({ error: "query required" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -57,12 +57,13 @@ Deno.serve(async (req) => {
       if (embedding) {
         console.log("Running semantic search via match_chunks...");
         const filterTypeParam = (filter_type && filter_type !== "all") ? filter_type : null;
+        const filterFundParam = filter_fund || null;
         const { data: semanticChunks, error: matchError } = await supabase.rpc("match_chunks", {
           query_embedding: JSON.stringify(embedding),
           match_threshold: 0.3,
           match_count: 15,
           filter_type: filterTypeParam,
-          filter_fund: null,
+          filter_fund: filterFundParam,
         });
         
         if (matchError) {
