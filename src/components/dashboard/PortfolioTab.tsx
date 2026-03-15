@@ -53,6 +53,7 @@ export function PortfolioTab({ portfolio, navData, loading }: PortfolioTabProps)
         <NavChart portfolio={portfolio} data={filtered} loading={loading} hideHeader />
       </div>
       <RiskMetrics data={filtered} loading={loading} />
+      <MonthlyReturnsTable data={navData} loading={loading} />
       <HoldingsTable portfolio={portfolio} />
     </div>
   );
