@@ -64,6 +64,7 @@ export function NavChart({ portfolio, data, loading }: NavChartProps) {
               axisLine={false}
               tickLine={false}
               domain={["dataMin - 1", "dataMax + 1"]}
+              tickFormatter={(v: number) => `US$ ${v.toFixed(2)}`}
             />
             <Tooltip
               contentStyle={{
