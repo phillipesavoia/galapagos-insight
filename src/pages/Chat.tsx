@@ -409,20 +409,32 @@ export default function Chat() {
 
           {/* Input */}
           <div className="border-t border-gray-200 p-4 bg-white">
-            <div className="flex gap-2 mb-3">
-              {filterChips.map((chip) => (
-                <button
-                  key={chip}
-                  onClick={() => setActiveFilter(chip)}
-                  className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${
-                    activeFilter === chip
-                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                      : "bg-gray-100 text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  {chip}
-                </button>
-              ))}
+            <div className="flex items-center gap-4 mb-3">
+              <div className="flex gap-2">
+                {filterChips.map((chip) => (
+                  <button
+                    key={chip}
+                    onClick={() => setActiveFilter(chip)}
+                    className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                      activeFilter === chip
+                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                        : "bg-gray-100 text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
+              <div className="h-5 w-px bg-gray-200" />
+              <select
+                value={activeFund}
+                onChange={(e) => setActiveFund(e.target.value)}
+                className="px-3 py-1.5 rounded-lg text-xs bg-gray-100 text-gray-700 border border-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer"
+              >
+                {["Todos", "Conservative", "Income", "Balanced", "Growth"].map((fund) => (
+                  <option key={fund} value={fund}>{fund === "Todos" ? "Todos os Portfólios" : fund}</option>
+                ))}
+              </select>
             </div>
             <div className="flex items-end gap-3">
               <textarea
