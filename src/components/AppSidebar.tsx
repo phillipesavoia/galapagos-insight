@@ -1,11 +1,13 @@
-import { MessageSquare, FileText, FolderOpen, LogOut } from "lucide-react";
+import { MessageSquare, FileText, FolderOpen, BarChart3, Upload, LogOut } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { supabase } from "@/integrations/supabase/client";
 
 const navItems = [
   { title: "Advisor Chat", label: "Advisor Chat", url: "/chat", icon: MessageSquare },
+  { title: "Performance Analítica", label: "Performance Analítica", url: "/dashboard", icon: BarChart3 },
   { title: "Gerar Documentos", label: "Gerar Documentos", url: "/generator", icon: FileText },
   { title: "Base de Documentos", label: "Base de Documentos", url: "/library", icon: FolderOpen },
+  { title: "Upload NAV", label: "Upload NAV", url: "/admin/nav-upload", icon: Upload },
 ];
 
 export function AppSidebar() {
