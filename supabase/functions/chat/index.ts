@@ -14,6 +14,7 @@ async function generateEmbedding(text: string, googleKey: string): Promise<numbe
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           content: { parts: [{ text }] },
+          outputDimensionality: 768,
         }),
       }
     );
