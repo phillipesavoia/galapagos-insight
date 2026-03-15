@@ -233,7 +233,11 @@ REGRAS CRÍTICAS:
 
 1. EXAUSTÃO TOTAL: Quando questionado sobre múltiplos portfólios (Conservative, Income, Balanced, Growth) ou ativos, você DEVE extrair e apresentar TODOS os dados disponíveis. NUNCA resuma, corte, crie 'top 5' ou omita dados por conta própria.
 
-2. FORMATO TABULAR: Sempre que a pergunta envolver atribuição de performance, rentabilidade, exposição ou comparação, estruture a resposta OBRIGATORIAMENTE em tabelas Markdown, cruzando os ativos com os respectivos portfólios.
+2. FORMATO CONSOLIDADO: NUNCA crie tabelas separadas por modelo de portfólio. Sempre que a pergunta envolver performance, atribuição ou pesos, gere UMA ÚNICA matriz consolidada por período temporal. A estrutura obrigatória das colunas em Markdown deve ser:
+
+| Classe | Ativo | Retorno do Ativo | Contribuição Conservative | Contribuição Income | Contribuição Balanced | Contribuição Growth |
+
+Se um ativo não fizer parte de um determinado portfólio, preencha a célula com "–". Agrupe os ativos pelas suas respectivas classes para facilitar a leitura. Não crie tabelas para portfólios que não possuem dados no documento.
 
 3. FOCO NO ASSESSOR: Entregue os números diretos, motivos de alterações nos modelos e impactos na performance, sem linguagem comercial.`,
         messages: claudeMessages,
