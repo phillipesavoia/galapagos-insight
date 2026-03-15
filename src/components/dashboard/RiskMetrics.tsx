@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { TrendingDown, Activity, BarChart3 } from "lucide-react";
+import { TrendingDown, TrendingUp, Activity, BarChart3 } from "lucide-react";
 import type { NavDataPoint } from "@/pages/Dashboard";
 
 const RISK_FREE_RATE = 0.045;
@@ -20,15 +20,12 @@ function computeMetrics(data: NavDataPoint[]) {
 
   if (returns.length < 2) return null;
 
-  // --- Annualized Volatility ---
   const mean = returns.reduce((s, r) => s + r, 0) / returns.length;
   const variance =
     returns.reduce((s, r) => s + (r - mean) ** 2, 0) / (returns.length - 1);
-  // daily_return is stored as percentage (e.g. 1.5 = 1.5%), convert to decimal
   const dailyStd = Math.sqrt(variance) / 100;
   const annualizedVol = dailyStd * Math.sqrt(TRADING_DAYS);
 
-  // --- CAGR (Annualized Return) ---
   const firstNav = data[0].nav;
   const lastNav = data[data.length - 1].nav;
   const firstDate = new Date(data[0].date);
@@ -37,10 +34,8 @@ function computeMetrics(data: NavDataPoint[]) {
     (lastDate.getTime() - firstDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
   const cagr = years > 0 ? (lastNav / firstNav) ** (1 / years) - 1 : 0;
 
-  // --- Sharpe Ratio ---
   const sharpe = annualizedVol > 0 ? (cagr - RISK_FREE_RATE) / annualizedVol : 0;
 
-  // --- Max Drawdown ---
   let peak = data[0].nav;
   let maxDD = 0;
   for (const d of data) {
@@ -49,10 +44,13 @@ function computeMetrics(data: NavDataPoint[]) {
     if (dd < maxDD) maxDD = dd;
   }
 
+  const accumulatedReturn = ((lastNav / firstNav) - 1);
+
   return {
     volatility: annualizedVol,
     sharpe,
     maxDrawdown: maxDD,
+    accumulatedReturn,
   };
 }
 
@@ -61,8 +59,8 @@ export function RiskMetrics({ data, loading }: RiskMetricsProps) {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[1, 2, 3].map((i) => (
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((i) => (
           <Card key={i} className="border-border bg-card">
             <CardContent className="p-5">
               <div className="h-16 animate-pulse rounded bg-muted" />
@@ -75,7 +73,16 @@ export function RiskMetrics({ data, loading }: RiskMetricsProps) {
 
   if (!metrics) return null;
 
+  const isPositive = metrics.accumulatedReturn >= 0;
+  const returnPrefix = isPositive ? "+" : "";
+
   const cards = [
+    {
+      label: "Retorno Acumulado",
+      value: `${returnPrefix}${(metrics.accumulatedReturn * 100).toFixed(2)}%`,
+      icon: isPositive ? TrendingUp : TrendingDown,
+      color: isPositive ? "text-green-500" : "text-destructive",
+    },
     {
       label: "Volatilidade Anualizada",
       value: `${(metrics.volatility * 100).toFixed(2)}%`,
@@ -97,7 +104,7 @@ export function RiskMetrics({ data, loading }: RiskMetricsProps) {
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
       {cards.map((c) => (
         <Card key={c.label} className="border-border bg-card">
           <CardContent className="p-5 flex items-start gap-4">
@@ -108,7 +115,7 @@ export function RiskMetrics({ data, loading }: RiskMetricsProps) {
               <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase">
                 {c.label}
               </p>
-              <p className="text-2xl font-semibold text-foreground mt-1 tabular-nums">
+              <p className={`text-2xl font-semibold mt-1 tabular-nums ${c.label === "Retorno Acumulado" ? c.color : "text-foreground"}`}>
                 {c.value}
               </p>
             </div>
