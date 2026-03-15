@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { NavChart } from "./NavChart";
 import { RiskMetrics } from "./RiskMetrics";
 import { HoldingsTable } from "./HoldingsTable";
+import { MonthlyReturnsTable } from "./MonthlyReturnsTable";
 import { PeriodFilter, type Period } from "./PeriodFilter";
 import type { PortfolioName, NavDataPoint } from "@/pages/Dashboard";
 
