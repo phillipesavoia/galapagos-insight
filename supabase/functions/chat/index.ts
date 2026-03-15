@@ -176,6 +176,7 @@ Deno.serve(async (req) => {
       period: d.period || "",
       document_name: d.name,
       ticker: d.metadata?.detected_ticker_exchange || d.metadata?.detected_ticker || "",
+      file_url: d.file_url || null,
     }));
 
     // --- Retrieve last 5 conversation turns for context ---
