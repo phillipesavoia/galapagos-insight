@@ -240,20 +240,20 @@ export default function Chat() {
 
   return (
     <Layout>
-      <div className="flex h-screen">
+      <div className="flex h-screen bg-white">
         {/* History Sidebar */}
         {showHistory && (
-          <div className="w-64 border-r border-border bg-card flex flex-col shrink-0">
-            <div className="p-3 border-b border-border flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-foreground">Histórico</h3>
-              <button onClick={() => setShowHistory(false)} className="text-muted-foreground hover:text-foreground">
+          <div className="w-64 border-r border-gray-200 bg-gray-50 flex flex-col shrink-0">
+            <div className="p-3 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-900">Histórico</h3>
+              <button onClick={() => setShowHistory(false)} className="text-gray-400 hover:text-gray-700">
                 <X className="h-4 w-4" strokeWidth={1.5} />
               </button>
             </div>
             <div className="p-2">
               <button
                 onClick={handleNewChat}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-primary hover:bg-primary/10 transition-colors"
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-emerald-600 hover:bg-emerald-50 transition-colors"
               >
                 <Plus className="h-4 w-4" />
                 Nova conversa
@@ -266,34 +266,34 @@ export default function Chat() {
                   onClick={() => handleSelectSession(s.session_id)}
                   className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors truncate ${
                     s.session_id === sessionId
-                      ? "bg-primary/15 text-foreground"
-                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      ? "bg-emerald-50 text-gray-900"
+                      : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
                   }`}
                 >
                   {s.preview || "Conversa sem título"}
                 </button>
               ))}
               {sessions.length === 0 && (
-                <p className="text-xs text-muted-foreground px-3 py-2">Nenhuma conversa anterior.</p>
+                <p className="text-xs text-gray-400 px-3 py-2">Nenhuma conversa anterior.</p>
               )}
             </div>
           </div>
         )}
 
-        {/* Chat Area */}
+        {/* Main Chat Area - now takes full width */}
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Top bar with history toggle */}
-          <div className="flex items-center gap-2 p-3 border-b border-border">
+          {/* Top bar */}
+          <div className="flex items-center gap-2 p-3 border-b border-gray-200 bg-white">
             <button
               onClick={() => setShowHistory(!showHistory)}
-              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
               title="Histórico de conversas"
             >
               <History className="h-4 w-4" strokeWidth={1.5} />
             </button>
             <button
               onClick={handleNewChat}
-              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
               title="Nova conversa"
             >
               <Plus className="h-4 w-4" strokeWidth={1.5} />
@@ -301,12 +301,12 @@ export default function Chat() {
           </div>
 
           {isEmpty ? (
-            <div className="flex-1 flex items-center justify-center p-8">
+            <div className="flex-1 flex items-center justify-center p-8 bg-white">
               <div className="max-w-xl w-full text-center">
-                <h1 className="text-2xl font-semibold tracking-tight text-foreground mb-2">
+                <h1 className="text-2xl font-semibold tracking-tight text-gray-900 mb-2">
                   Olá. O que você quer saber sobre os nossos fundos?
                 </h1>
-                <p className="text-sm text-muted-foreground mb-8">
+                <p className="text-sm text-gray-500 mb-8">
                   Pesquiso na base de documentos indexados para responder.
                 </p>
                 <div className="grid grid-cols-2 gap-3">
@@ -314,7 +314,7 @@ export default function Chat() {
                     <button
                       key={s}
                       onClick={() => handleSend(s)}
-                      className="text-left p-4 rounded-xl border border-border bg-card text-sm text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors"
+                      className="text-left p-4 rounded-xl border border-gray-200 bg-white text-sm text-gray-600 hover:border-emerald-300 hover:text-gray-900 transition-colors shadow-sm"
                     >
                       {s}
                     </button>
@@ -323,30 +323,30 @@ export default function Chat() {
               </div>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto scrollbar-thin p-6 space-y-4" ref={messagesEndRef}>
+            <div className="flex-1 overflow-y-auto scrollbar-thin p-6 space-y-5 bg-white" ref={messagesEndRef}>
               {messages.map((msg) => (
                 <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div
-                    className={`max-w-2xl px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                    className={`max-w-3xl px-5 py-4 rounded-2xl text-[13px] leading-[1.7] ${
                       msg.role === "user"
-                        ? "bg-primary/10 border border-primary/20 text-foreground"
-                        : "bg-card border border-border text-foreground"
+                        ? "bg-emerald-50 border border-emerald-200 text-gray-900"
+                        : "bg-gray-50 border border-gray-200 text-gray-800"
                     }`}
                   >
                     {msg.role === "assistant" ? (
-                      <div className="prose prose-sm prose-invert max-w-none [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0.5 [&_strong]:text-foreground [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm [&_h1]:font-semibold [&_h2]:font-semibold [&_h3]:font-semibold [&_h1]:mt-3 [&_h2]:mt-3 [&_h3]:mt-2 [&_h1]:mb-1 [&_h2]:mb-1 [&_h3]:mb-1">
+                      <div className="prose prose-sm max-w-none text-gray-800 [&_p]:my-2 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-1 [&_strong]:text-gray-900 [&_strong]:font-semibold [&_h1]:text-[15px] [&_h2]:text-[14px] [&_h3]:text-[13px] [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-semibold [&_h1]:mt-4 [&_h2]:mt-4 [&_h3]:mt-3 [&_h1]:mb-2 [&_h2]:mb-2 [&_h3]:mb-1 [&_ul]:pl-5 [&_ol]:pl-5 [&_li]:text-gray-700 [&_hr]:my-3 [&_hr]:border-gray-200">
                         <ReactMarkdown>{msg.content}</ReactMarkdown>
                       </div>
                     ) : (
                       <p className="whitespace-pre-wrap">{msg.content}</p>
                     )}
                     {msg.role === "assistant" && msg.sources && msg.sources.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-border">
+                      <div className="mt-3 pt-3 border-t border-gray-200">
                         <button
                           onClick={() =>
                             setExpandedSources((prev) => ({ ...prev, [msg.id]: !prev[msg.id] }))
                           }
-                          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 transition-colors"
                         >
                           {expandedSources[msg.id] ? (
                             <ChevronDown className="h-3 w-3" />
@@ -360,7 +360,7 @@ export default function Chat() {
                             {msg.sources.map((src, i) => (
                               <span
                                 key={i}
-                                className="inline-flex items-center px-2.5 py-1 rounded-md bg-secondary text-xs text-muted-foreground"
+                                className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-100 text-xs text-gray-600 border border-gray-200"
                               >
                                 {src.name} · {src.period}
                               </span>
@@ -374,18 +374,38 @@ export default function Chat() {
               ))}
               {isLoading && (
                 <div className="flex justify-start animate-fade-in">
-                  <div className="bg-card border border-border rounded-2xl px-4 py-3 flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-primary/60 animate-[pulse_1s_ease-in-out_infinite]" />
-                    <span className="h-2 w-2 rounded-full bg-primary/60 animate-[pulse_1s_ease-in-out_0.2s_infinite]" />
-                    <span className="h-2 w-2 rounded-full bg-primary/60 animate-[pulse_1s_ease-in-out_0.4s_infinite]" />
+                  <div className="bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3 flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-emerald-400 animate-[pulse_1s_ease-in-out_infinite]" />
+                    <span className="h-2 w-2 rounded-full bg-emerald-400 animate-[pulse_1s_ease-in-out_0.2s_infinite]" />
+                    <span className="h-2 w-2 rounded-full bg-emerald-400 animate-[pulse_1s_ease-in-out_0.4s_infinite]" />
                   </div>
                 </div>
               )}
             </div>
           )}
 
+          {/* Sources panel - now at bottom-left */}
+          {showSourcesPanel && lastAssistantSources.length > 0 && !isEmpty && (
+            <div className="border-t border-gray-200 bg-gray-50 px-4 py-3">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Fontes utilizadas</h3>
+                <button onClick={() => setShowSourcesPanel(false)} className="text-gray-400 hover:text-gray-600">
+                  <X className="h-3.5 w-3.5" strokeWidth={1.5} />
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {lastAssistantSources.map((src, i) => (
+                  <div key={i} className="px-3 py-1.5 rounded-lg bg-white border border-gray-200 shadow-sm">
+                    <p className="text-xs font-medium text-gray-800">{src.name}</p>
+                    <p className="text-[10px] text-gray-500">{src.period}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Input */}
-          <div className="border-t border-border p-4">
+          <div className="border-t border-gray-200 p-4 bg-white">
             <div className="flex gap-2 mb-3">
               {filterChips.map((chip) => (
                 <button
@@ -393,8 +413,8 @@ export default function Chat() {
                   onClick={() => setActiveFilter(chip)}
                   className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${
                     activeFilter === chip
-                      ? "bg-primary/15 text-primary border border-primary/30"
-                      : "bg-secondary text-muted-foreground hover:text-foreground"
+                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                      : "bg-gray-100 text-gray-500 hover:text-gray-700"
                   }`}
                 >
                   {chip}
@@ -413,11 +433,11 @@ export default function Chat() {
                 }}
                 placeholder="Pergunte sobre fundos, teses ou performance..."
                 rows={1}
-                className="flex-1 resize-none bg-secondary border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+                className="flex-1 resize-none bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-400"
               />
               <button
                 onClick={() => handleSend()}
-                className="h-11 w-11 rounded-xl bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/90 transition-colors shrink-0"
+                className="h-11 w-11 rounded-xl bg-emerald-500 text-white flex items-center justify-center hover:bg-emerald-600 transition-colors shrink-0"
               >
                 <Send className="h-4 w-4" strokeWidth={1.5} />
               </button>
@@ -425,35 +445,14 @@ export default function Chat() {
           </div>
         </div>
 
-        {/* Sources Panel */}
-        {showSourcesPanel && (
-          <div className="w-72 border-l border-border bg-card flex flex-col shrink-0">
-            <div className="p-4 border-b border-border flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-foreground">Fontes utilizadas</h3>
-              <button onClick={() => setShowSourcesPanel(false)} className="text-muted-foreground hover:text-foreground">
-                <X className="h-4 w-4" strokeWidth={1.5} />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-2">
-              {lastAssistantSources.length > 0 ? (
-                lastAssistantSources.map((src, i) => (
-                  <div key={i} className="p-3 rounded-lg bg-secondary border border-border">
-                    <p className="text-sm font-medium text-foreground">{src.name}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{src.period}</p>
-                  </div>
-                ))
-              ) : (
-                <p className="text-xs text-muted-foreground">Nenhuma fonte disponível.</p>
-              )}
-            </div>
-          </div>
-        )}
-        {!showSourcesPanel && (
+        {/* Floating button to show sources if hidden */}
+        {!showSourcesPanel && !isEmpty && lastAssistantSources.length > 0 && (
           <button
             onClick={() => setShowSourcesPanel(true)}
-            className="absolute right-4 top-4 p-2 rounded-lg bg-card border border-border text-muted-foreground hover:text-foreground"
+            className="fixed bottom-24 left-[280px] px-3 py-1.5 rounded-lg bg-white border border-gray-200 shadow-md text-xs text-gray-600 hover:text-gray-900 transition-colors z-10"
           >
-            <SlidersHorizontal className="h-4 w-4" strokeWidth={1.5} />
+            <SlidersHorizontal className="h-3.5 w-3.5 inline mr-1.5" strokeWidth={1.5} />
+            Fontes
           </button>
         )}
       </div>
