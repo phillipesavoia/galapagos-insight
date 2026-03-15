@@ -35,6 +35,7 @@ export default function Chat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [activeFilter, setActiveFilter] = useState("Todos os documentos");
+  const [activeFund, setActiveFund] = useState("Todos");
   const [expandedSources, setExpandedSources] = useState<Record<string, boolean>>({});
   const [showSourcesPanel, setShowSourcesPanel] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
