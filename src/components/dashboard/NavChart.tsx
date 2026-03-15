@@ -78,6 +78,7 @@ export function NavChart({ portfolio, data, loading }: NavChartProps) {
                 const d = new Date(v);
                 return d.toLocaleDateString("pt-BR");
               }}
+              formatter={(value: number) => [`US$ ${value.toFixed(2)}`, "NAV"]}
             />
             <Line
               type="monotone"

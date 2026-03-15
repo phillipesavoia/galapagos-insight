@@ -47,6 +47,7 @@ export type Database = {
       asset_prices: {
         Row: {
           created_at: string | null
+          currency: string
           daily_return: number | null
           date: string
           id: string
@@ -55,6 +56,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          currency?: string
           daily_return?: number | null
           date: string
           id?: string
@@ -63,6 +65,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          currency?: string
           daily_return?: number | null
           date?: string
           id?: string
@@ -101,6 +104,7 @@ export type Database = {
       daily_navs: {
         Row: {
           created_at: string | null
+          currency: string
           daily_return: number | null
           date: string
           id: string
@@ -110,6 +114,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          currency?: string
           daily_return?: number | null
           date: string
           id?: string
@@ -119,6 +124,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          currency?: string
           daily_return?: number | null
           date?: string
           id?: string
