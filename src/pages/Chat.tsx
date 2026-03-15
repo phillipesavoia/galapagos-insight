@@ -452,7 +452,11 @@ export default function Chat() {
               <div className="flex flex-wrap gap-2">
                 {lastAssistantSources.map((src, i) => (
                   <div key={i} className="px-3 py-1.5 rounded-lg bg-white border border-gray-200 shadow-sm">
-                    <p className="text-xs font-medium text-gray-800">{src.name}</p>
+                    {src.file_url ? (
+                      <a href={src.file_url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-emerald-700 hover:underline">{src.name}</a>
+                    ) : (
+                      <p className="text-xs font-medium text-gray-800">{src.name}</p>
+                    )}
                     <p className="text-[10px] text-gray-500">{src.period}</p>
                   </div>
                 ))}
