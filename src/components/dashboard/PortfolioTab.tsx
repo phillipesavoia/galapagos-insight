@@ -14,6 +14,7 @@ export function PortfolioTab({ portfolio, navData, loading }: PortfolioTabProps)
     <div className="space-y-6">
       <NavChart portfolio={portfolio} data={navData} loading={loading} />
       <RiskMetrics data={navData} loading={loading} />
+      <PerformanceAttribution portfolio={portfolio} />
       <HoldingsTable portfolio={portfolio} />
     </div>
   );
