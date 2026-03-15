@@ -161,7 +161,7 @@ export default function Chat() {
 
     const assistantId = (Date.now() + 1).toString();
     let fullContent = "";
-    let sources: { name: string; period: string }[] = [];
+    let sources: ChatSource[] = [];
 
     try {
       const chatUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
