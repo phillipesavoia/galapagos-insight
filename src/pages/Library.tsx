@@ -80,12 +80,27 @@ export default function Library() {
 
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-xl font-semibold tracking-tight text-foreground">Base de Conhecimento</h1>
-          <button
-            onClick={() => { setDroppedFiles([]); setShowUploadModal(true); }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
-          >
-            <Plus className="h-4 w-4" strokeWidth={1.5} /> Novo Documento
-          </button>
+          <div className="flex items-center gap-2">
+            {documents.length > 0 && (
+              <button
+                onClick={async () => {
+                  if (!confirm(`Excluir todos os ${documents.length} documentos? Esta ação é irreversível.`)) return;
+                  for (const doc of documents) {
+                    await deleteDocument(doc.id);
+                  }
+                }}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:bg-destructive/90 transition-colors"
+              >
+                <Trash2 className="h-4 w-4" strokeWidth={1.5} /> Excluir Todos
+              </button>
+            )}
+            <button
+              onClick={() => { setDroppedFiles([]); setShowUploadModal(true); }}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+            >
+              <Plus className="h-4 w-4" strokeWidth={1.5} /> Novo Documento
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center gap-3 mb-6">
