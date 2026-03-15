@@ -4,11 +4,17 @@ import ReactMarkdown from "react-markdown";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 
+interface ChatSource {
+  name: string;
+  period: string;
+  file_url?: string | null;
+}
+
 interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
-  sources?: { name: string; period: string }[];
+  sources?: ChatSource[];
 }
 
 interface ChatSession {

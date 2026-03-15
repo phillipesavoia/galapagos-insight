@@ -153,7 +153,7 @@ Deno.serve(async (req) => {
     if (docIds.length > 0) {
       const { data } = await supabase
         .from("documents")
-        .select("id, name, fund_name, period, type, metadata")
+        .select("id, name, fund_name, period, type, metadata, file_url")
         .in("id", docIds);
       documents = data || [];
       if (filter_type && filter_type !== "all") {
