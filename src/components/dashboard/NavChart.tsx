@@ -13,29 +13,32 @@ interface NavChartProps {
   portfolio: PortfolioName;
   data: NavDataPoint[];
   loading: boolean;
+  hideHeader?: boolean;
 }
 
-export function NavChart({ portfolio, data, loading }: NavChartProps) {
+export function NavChart({ portfolio, data, loading, hideHeader }: NavChartProps) {
   const isEmpty = data.length === 0;
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-sm font-semibold text-foreground">
-            NAV Diário — {portfolio}
-          </h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {isEmpty && !loading ? "Nenhum dado disponível — faça upload via /admin/nav-upload" : "Evolução YTD"}
-          </p>
+    <div className={hideHeader ? "" : "rounded-xl border border-border bg-card p-5"}>
+      {!hideHeader && (
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">
+              NAV Diário — {portfolio}
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {isEmpty && !loading ? "Nenhum dado disponível" : "Evolução YTD"}
+            </p>
+          </div>
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-primary" />
+              NAV
+            </span>
+          </div>
         </div>
-        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-primary" />
-            NAV
-          </span>
-        </div>
-      </div>
+      )}
 
       {loading ? (
         <div className="h-[280px] flex items-center justify-center text-sm text-muted-foreground">
