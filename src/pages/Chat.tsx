@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, ChevronDown, ChevronRight, X, SlidersHorizontal, Plus, History } from "lucide-react";
+import { Send, ChevronDown, ChevronRight, X, SlidersHorizontal, Plus, History, ThumbsUp, ThumbsDown, RefreshCw, Copy } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
@@ -370,6 +370,41 @@ export default function Chat() {
                             ))}
                           </div>
                         )}
+                      </div>
+                    )}
+                    {msg.role === "assistant" && msg.content && (
+                      <div className="flex items-center gap-1 mt-3 pt-2 border-t border-gray-100">
+                        <button
+                          onClick={() => {/* TODO: feedback */}}
+                          className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                          title="Útil"
+                        >
+                          <ThumbsUp className="h-3.5 w-3.5" strokeWidth={1.5} />
+                        </button>
+                        <button
+                          onClick={() => {/* TODO: feedback */}}
+                          className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                          title="Não útil"
+                        >
+                          <ThumbsDown className="h-3.5 w-3.5" strokeWidth={1.5} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            const lastUserMsg = messages.slice(0, messages.indexOf(msg)).reverse().find(m => m.role === "user");
+                            if (lastUserMsg) handleSend(lastUserMsg.content);
+                          }}
+                          className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                          title="Regenerar"
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.5} />
+                        </button>
+                        <button
+                          onClick={() => navigator.clipboard.writeText(msg.content)}
+                          className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                          title="Copiar"
+                        >
+                          <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
+                        </button>
                       </div>
                     )}
                   </div>
