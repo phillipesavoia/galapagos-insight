@@ -23,8 +23,10 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Navigate to="/chat" replace />} />
             <Route path="/chat" element={<Chat />} />
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/generator" element={<Generator />} />
             <Route path="/library" element={<Library />} />
+            <Route path="/admin/nav-upload" element={<NavUpload />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthGuard>
