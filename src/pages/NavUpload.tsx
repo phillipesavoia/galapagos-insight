@@ -1,25 +1,107 @@
 import { useState, useRef } from "react";
-import { Upload, FileSpreadsheet, Check } from "lucide-react";
+import { Upload, FileSpreadsheet, Check, AlertCircle, Loader2 } from "lucide-react";
+import Papa from "papaparse";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+
+interface NavRow {
+  portfolio_name: string;
+  date: string;
+  nav: number;
+  daily_return: number | null;
+  ytd_return: number | null;
+}
+
+const REQUIRED_COLS = ["portfolio_name", "date", "nav"];
 
 export default function NavUpload() {
   const [file, setFile] = useState<File | null>(null);
-  const [uploaded, setUploaded] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [result, setResult] = useState<{ success: number; errors: number } | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (f && f.name.endsWith(".csv")) {
       setFile(f);
-      setUploaded(false);
+      setResult(null);
+      setValidationError(null);
     }
   };
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (!file) return;
-    // TODO: integrate with Supabase edge function to process CSV
-    setUploaded(true);
+    setUploading(true);
+    setValidationError(null);
+    setResult(null);
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (parsed) => {
+        const headers = parsed.meta.fields || [];
+        const missing = REQUIRED_COLS.filter((c) => !headers.includes(c));
+
+        if (missing.length > 0) {
+          setValidationError(`Colunas obrigatórias ausentes: ${missing.join(", ")}`);
+          setUploading(false);
+          return;
+        }
+
+        const rows: NavRow[] = [];
+        for (const raw of parsed.data as Record<string, string>[]) {
+          const nav = parseFloat(raw.nav);
+          if (!raw.portfolio_name || !raw.date || isNaN(nav)) continue;
+          rows.push({
+            portfolio_name: raw.portfolio_name.trim(),
+            date: raw.date.trim(),
+            nav,
+            daily_return: raw.daily_return ? parseFloat(raw.daily_return) : null,
+            ytd_return: raw.ytd_return ? parseFloat(raw.ytd_return) : null,
+          });
+        }
+
+        if (rows.length === 0) {
+          setValidationError("Nenhuma linha válida encontrada no CSV.");
+          setUploading(false);
+          return;
+        }
+
+        // Upsert in batches of 500
+        let success = 0;
+        let errors = 0;
+        const BATCH = 500;
+
+        for (let i = 0; i < rows.length; i += BATCH) {
+          const batch = rows.slice(i, i + BATCH);
+          const { error } = await supabase
+            .from("daily_navs")
+            .upsert(batch as any, { onConflict: "portfolio_name,date" });
+
+          if (error) {
+            console.error("Upsert error:", error);
+            errors += batch.length;
+          } else {
+            success += batch.length;
+          }
+        }
+
+        setResult({ success, errors });
+        toast({
+          title: "Upload concluído",
+          description: `${success} registros inseridos, ${errors} erros.`,
+        });
+        setUploading(false);
+      },
+      error: (err) => {
+        setValidationError(`Erro ao ler CSV: ${err.message}`);
+        setUploading(false);
+      },
+    });
   };
 
   return (
@@ -30,7 +112,7 @@ export default function NavUpload() {
             Upload de NAV Diário
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Importe arquivos CSV exportados da Bloomberg com os NAVs diários dos modelos
+            Importe arquivos CSV com colunas: <code className="text-xs bg-secondary px-1 py-0.5 rounded">portfolio_name, date, nav, daily_return, ytd_return</code>
           </p>
         </div>
 
@@ -57,7 +139,7 @@ export default function NavUpload() {
                     Clique para selecionar um CSV
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Formato esperado: Data, Portfólio, NAV
+                    Formato: portfolio_name, date, nav, daily_return, ytd_return
                   </p>
                 </>
               )}
@@ -71,17 +153,28 @@ export default function NavUpload() {
               className="hidden"
             />
 
-            {/* Upload button */}
+            {validationError && (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-sm text-destructive">
+                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                {validationError}
+              </div>
+            )}
+
             <Button
               onClick={handleUpload}
-              disabled={!file || uploaded}
+              disabled={!file || uploading}
               className="w-full"
               size="lg"
             >
-              {uploaded ? (
+              {uploading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Processando...
+                </>
+              ) : result ? (
                 <>
                   <Check className="h-4 w-4 mr-2" />
-                  Arquivo recebido
+                  {result.success} registros inseridos
                 </>
               ) : (
                 <>
@@ -91,9 +184,11 @@ export default function NavUpload() {
               )}
             </Button>
 
-            {uploaded && (
+            {result && (
               <p className="text-xs text-center text-muted-foreground">
-                Processamento será integrado na próxima fase com a edge function de ingestão.
+                {result.errors > 0
+                  ? `${result.errors} linhas falharam. Verifique o formato e tente novamente.`
+                  : "Todos os registros foram inseridos com sucesso."}
               </p>
             )}
           </div>
