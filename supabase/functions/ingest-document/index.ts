@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
     const fileBytes = new Uint8Array(arrayBuffer);
     const storagePath = `${documentId}/${documentName || "document.pdf"}`;
 
-    const { error: storageError } = await supabase.storage
+    const { error: storageError } = await storageClient.storage
       .from("documents")
       .upload(storagePath, fileBytes, {
         contentType: file.type || "application/pdf",
@@ -76,9 +76,9 @@ Deno.serve(async (req) => {
 
     if (storageError) throw new Error(`Storage upload failed: ${storageError.message}`);
 
-    const { data: urlData } = supabase.storage.from("documents").getPublicUrl(storagePath);
+    const { data: urlData } = storageClient.storage.from("documents").getPublicUrl(storagePath);
     // Since bucket is private, generate a long-lived signed URL instead
-    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+    const { data: signedUrlData, error: signedUrlError } = await storageClient.storage
       .from("documents")
       .createSignedUrl(storagePath, 60 * 60 * 24 * 365 * 10); // 10 years
 
