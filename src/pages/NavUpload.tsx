@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
+const PORTFOLIO_COLS = ["Conservative", "Income", "Balanced", "Growth"];
+
 interface NavRow {
   portfolio_name: string;
   date: string;
@@ -14,7 +16,15 @@ interface NavRow {
   ytd_return: number | null;
 }
 
-const REQUIRED_COLS = ["portfolio_name", "date", "nav"];
+function parseUSDate(raw: string): string | null {
+  const parts = raw.trim().split("/");
+  if (parts.length !== 3) return null;
+  const [m, d, y] = parts;
+  const mm = m.padStart(2, "0");
+  const dd = d.padStart(2, "0");
+  const yyyy = y.length === 2 ? `20${y}` : y;
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 export default function NavUpload() {
   const [file, setFile] = useState<File | null>(null);
@@ -44,28 +54,86 @@ export default function NavUpload() {
       skipEmptyLines: true,
       complete: async (parsed) => {
         const headers = parsed.meta.fields || [];
-        const missing = REQUIRED_COLS.filter((c) => !headers.includes(c));
 
-        if (missing.length > 0) {
-          setValidationError(`Colunas obrigatórias ausentes: ${missing.join(", ")}`);
+        // Validate: must have "Dates" column and at least one portfolio column
+        if (!headers.includes("Dates")) {
+          setValidationError("Coluna 'Dates' não encontrada. O CSV deve ter o formato: Dates, Conservative, Income, Balanced, Growth");
           setUploading(false);
           return;
         }
 
-        const rows: NavRow[] = [];
-        for (const raw of parsed.data as Record<string, string>[]) {
-          const nav = parseFloat(raw.nav);
-          if (!raw.portfolio_name || !raw.date || isNaN(nav)) continue;
-          rows.push({
-            portfolio_name: raw.portfolio_name.trim(),
-            date: raw.date.trim(),
-            nav,
-            daily_return: raw.daily_return ? parseFloat(raw.daily_return) : null,
-            ytd_return: raw.ytd_return ? parseFloat(raw.ytd_return) : null,
-          });
+        const foundPortfolios = PORTFOLIO_COLS.filter((c) => headers.includes(c));
+        if (foundPortfolios.length === 0) {
+          setValidationError(`Nenhuma coluna de portfólio encontrada. Esperado: ${PORTFOLIO_COLS.join(", ")}`);
+          setUploading(false);
+          return;
         }
 
-        if (rows.length === 0) {
+        // Unpivot wide → long, sorted by date per portfolio
+        const rawData = parsed.data as Record<string, string>[];
+
+        // Build per-portfolio sorted arrays
+        const perPortfolio: Record<string, { date: string; nav: number }[]> = {};
+        for (const col of foundPortfolios) {
+          perPortfolio[col] = [];
+        }
+
+        for (const row of rawData) {
+          const isoDate = parseUSDate(row["Dates"] || "");
+          if (!isoDate) continue;
+
+          for (const col of foundPortfolios) {
+            const val = parseFloat(row[col]);
+            if (!isNaN(val)) {
+              perPortfolio[col].push({ date: isoDate, nav: val });
+            }
+          }
+        }
+
+        // Sort each portfolio by date and compute returns
+        const allRows: NavRow[] = [];
+
+        for (const portfolio of foundPortfolios) {
+          const entries = perPortfolio[portfolio].sort((a, b) => a.date.localeCompare(b.date));
+
+          // Find YTD base NAVs: last NAV of each prior year
+          const navByYear: Record<number, number> = {};
+          for (const e of entries) {
+            const year = parseInt(e.date.substring(0, 4));
+            navByYear[year] = e.nav; // will keep overwriting, last entry of that year wins
+          }
+
+          // We need the last NAV of the PREVIOUS year for YTD calc.
+          // So we first collect all entries sorted, then compute.
+          let prevNav: number | null = null;
+
+          for (const entry of entries) {
+            const year = parseInt(entry.date.substring(0, 4));
+
+            // daily_return
+            const daily_return = prevNav !== null
+              ? parseFloat((((entry.nav - prevNav) / prevNav) * 100).toFixed(4))
+              : null;
+
+            // ytd_return: compare to last NAV of previous year
+            const prevYearBase = navByYear[year - 1] ?? null;
+            const ytd_return = prevYearBase !== null
+              ? parseFloat((((entry.nav - prevYearBase) / prevYearBase) * 100).toFixed(4))
+              : null;
+
+            allRows.push({
+              portfolio_name: portfolio,
+              date: entry.date,
+              nav: entry.nav,
+              daily_return,
+              ytd_return,
+            });
+
+            prevNav = entry.nav;
+          }
+        }
+
+        if (allRows.length === 0) {
           setValidationError("Nenhuma linha válida encontrada no CSV.");
           setUploading(false);
           return;
@@ -76,8 +144,8 @@ export default function NavUpload() {
         let errors = 0;
         const BATCH = 500;
 
-        for (let i = 0; i < rows.length; i += BATCH) {
-          const batch = rows.slice(i, i + BATCH);
+        for (let i = 0; i < allRows.length; i += BATCH) {
+          const batch = allRows.slice(i, i + BATCH);
           const { error } = await supabase
             .from("daily_navs")
             .upsert(batch as any, { onConflict: "portfolio_name,date" });
@@ -112,13 +180,15 @@ export default function NavUpload() {
             Upload de NAV Diário
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Importe arquivos CSV com colunas: <code className="text-xs bg-secondary px-1 py-0.5 rounded">portfolio_name, date, nav, daily_return, ytd_return</code>
+            Importe o CSV no formato:{" "}
+            <code className="text-xs bg-secondary px-1 py-0.5 rounded">
+              Dates, Conservative, Income, Balanced, Growth
+            </code>
           </p>
         </div>
 
         <div className="flex-1 flex items-start justify-center p-8">
           <div className="w-full max-w-lg space-y-6">
-            {/* Drop zone */}
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
@@ -139,7 +209,7 @@ export default function NavUpload() {
                     Clique para selecionar um CSV
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Formato: portfolio_name, date, nav, daily_return, ytd_return
+                    Formato wide: Dates, Conservative, Income, Balanced, Growth
                   </p>
                 </>
               )}
