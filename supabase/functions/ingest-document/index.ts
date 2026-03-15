@@ -26,10 +26,7 @@ Deno.serve(async (req) => {
     if (!file || !documentId) {
       return new Response(
         JSON.stringify({ error: "file and document_id required" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -39,33 +36,50 @@ Deno.serve(async (req) => {
 
     supabase = createClient(dbUrl, dbKey);
 
+    // STEP 0: Upload file to Supabase Storage bucket 'documents'
+    console.log("Step 0: Uploading file to storage...");
+    const arrayBuffer = await file.arrayBuffer();
+    const fileBytes = new Uint8Array(arrayBuffer);
+    const storagePath = `${documentId}/${documentName || "document.pdf"}`;
+
+    const { error: storageError } = await supabase.storage
+      .from("documents")
+      .upload(storagePath, fileBytes, {
+        contentType: file.type || "application/pdf",
+        upsert: true,
+      });
+
+    if (storageError) throw new Error(`Storage upload failed: ${storageError.message}`);
+
+    const { data: urlData } = supabase.storage.from("documents").getPublicUrl(storagePath);
+    // Since bucket is private, generate a long-lived signed URL instead
+    const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+      .from("documents")
+      .createSignedUrl(storagePath, 60 * 60 * 24 * 365 * 10); // 10 years
+
+    const fileUrl = signedUrlError ? urlData.publicUrl : signedUrlData.signedUrl;
+
+    // Save file_url to document record
+    const { error: urlUpdateError } = await supabase
+      .from("documents")
+      .update({ file_url: fileUrl })
+      .eq("id", documentId);
+
+    if (urlUpdateError) console.error("Failed to update file_url:", urlUpdateError.message);
+    console.log(`File uploaded to storage: ${storagePath}`);
+
     // STEP 1: Extract text with Reducto
     console.log("Step 1: Extracting text with Reducto...");
     const reductoKey = Deno.env.get("REDUCTO_API_KEY");
     if (!reductoKey) throw new Error("Missing REDUCTO_API_KEY");
 
-    const arrayBuffer = await file.arrayBuffer();
-    const bytesForBase64 = new Uint8Array(arrayBuffer);
-    let binary = "";
-    for (let i = 0; i < bytesForBase64.length; i++) {
-      binary += String.fromCharCode(bytesForBase64[i]);
-    }
-    const base64 = btoa(binary);
-
-    // Convert base64 to binary and upload as FormData
-    const binaryStr = atob(base64);
-    const bytes = new Uint8Array(binaryStr.length);
-    for (let i = 0; i < binaryStr.length; i++) {
-      bytes[i] = binaryStr.charCodeAt(i);
-    }
-    const blob = new Blob([bytes], { type: "application/pdf" });
+    const blob = new Blob([fileBytes], { type: "application/pdf" });
     const formData2 = new FormData();
     formData2.append("file", blob, documentName || "document.pdf");
 
     const uploadRes = await fetch("https://platform.reducto.ai/upload", {
       method: "POST",
       headers: { Authorization: `Bearer ${reductoKey}` },
-      // NO Content-Type header — FormData sets it automatically
       body: formData2,
     });
 
@@ -73,7 +87,6 @@ Deno.serve(async (req) => {
     const uploadData = await uploadRes.json();
     console.log("Reducto upload response:", JSON.stringify(uploadData));
 
-    // file_id field (not url, not file_url)
     const file_id = uploadData.file_id ?? uploadData.url ?? uploadData.file_url;
     if (!file_id) throw new Error(`No file_id returned: ${JSON.stringify(uploadData)}`);
 
@@ -85,7 +98,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         document_url: file_id,
-        options: { table_output_format: "markdown" }
+        options: { table_output_format: "markdown" },
       }),
     });
 
@@ -97,15 +110,18 @@ Deno.serve(async (req) => {
     const result = parseData.result ?? parseData;
     let fullText = "";
     if (Array.isArray(result.chunks)) {
-      fullText = result.chunks.map((chunk: any) => {
-        if (typeof chunk.content === "string") return chunk.content;
-        if (chunk.content?.markdown) return chunk.content.markdown;
-        if (chunk.content?.text) return chunk.content.text;
-        if (Array.isArray(chunk.blocks)) {
-          return chunk.blocks.map((b: any) => b.content || "").join("\n");
-        }
-        return "";
-      }).filter((t: string) => t.length > 0).join("\n\n");
+      fullText = result.chunks
+        .map((chunk: any) => {
+          if (typeof chunk.content === "string") return chunk.content;
+          if (chunk.content?.markdown) return chunk.content.markdown;
+          if (chunk.content?.text) return chunk.content.text;
+          if (Array.isArray(chunk.blocks)) {
+            return chunk.blocks.map((b: any) => b.content || "").join("\n");
+          }
+          return "";
+        })
+        .filter((t: string) => t.length > 0)
+        .join("\n\n");
     } else if (typeof result.text === "string") {
       fullText = result.text;
     }
@@ -113,10 +129,9 @@ Deno.serve(async (req) => {
     console.log(`Extracted ${fullText.length} characters`);
     if (!fullText || fullText.length < 20) throw new Error("No text extracted from PDF");
 
-    // STEP 2: Extract metadata with Gemini 2.0 Flash
+    // STEP 2: Extract metadata with Gemini
     console.log("Step 2: Extracting metadata with Gemini...");
     const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
-    console.log("Google key exists:", !!googleKey, "length:", googleKey?.length ?? 0);
     if (!googleKey) throw new Error("Missing GOOGLE_AI_API_KEY");
 
     const geminiMetaRes = await fetch(
@@ -138,7 +153,7 @@ Return ONLY a JSON object with these fields:
   "detected_language": "pt-BR|en-US",
   "detected_ticker": "ticker symbol like DTLA, IBTA, etc. or null",
   "detected_isin": "ISIN code like IE00BFM6TC58 or null",
-  "detected_exchange": "exchange code like LN (London), US, GR, etc. or null - look for listing exchange info",
+  "detected_exchange": "exchange code like LN (London), US, GR, etc. or null",
   "detected_ticker_exchange": "ticker with exchange like DTLA LN or null",
   "summary": "2-3 sentence summary in Portuguese",
   "key_metrics": {}
@@ -158,8 +173,7 @@ ${fullText.substring(0, 3000)}`,
     let extractedMetadata: Record<string, unknown> = {};
     if (geminiMetaRes.ok) {
       const geminiData = await geminiMetaRes.json();
-      const metaText =
-        geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+      const metaText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
       try {
         const clean = metaText.replace(/```json|```/g, "").trim();
         extractedMetadata = JSON.parse(clean);
@@ -167,10 +181,8 @@ ${fullText.substring(0, 3000)}`,
         console.log("Metadata parse failed, continuing...");
       }
     } else {
-      console.log(
-        `Gemini metadata call failed [${geminiMetaRes.status}], continuing...`
-      );
-      await geminiMetaRes.text(); // consume body
+      console.log(`Gemini metadata call failed [${geminiMetaRes.status}], continuing...`);
+      await geminiMetaRes.text();
     }
 
     // STEP 3: Chunk the text
@@ -186,7 +198,7 @@ ${fullText.substring(0, 3000)}`,
     }
     console.log(`Created ${chunks.length} chunks`);
 
-    // STEP 4: Generate embeddings with Google text-embedding-004
+    // STEP 4: Generate embeddings
     console.log("Step 4: Generating embeddings...");
     const batchSize = 10;
     const allEmbeddings: { chunk: string; embedding: number[]; index: number }[] = [];
@@ -209,16 +221,10 @@ ${fullText.substring(0, 3000)}`,
           );
           if (!embRes.ok) {
             const errText = await embRes.text();
-            throw new Error(
-              `Embedding failed for chunk ${globalIdx} [${embRes.status}]: ${errText}`
-            );
+            throw new Error(`Embedding failed for chunk ${globalIdx} [${embRes.status}]: ${errText}`);
           }
           const embData = await embRes.json();
-          return {
-            chunk,
-            embedding: embData.embedding.values as number[],
-            index: globalIdx,
-          };
+          return { chunk, embedding: embData.embedding.values as number[], index: globalIdx };
         })
       );
       allEmbeddings.push(...batchResults);
@@ -242,41 +248,25 @@ ${fullText.substring(0, 3000)}`,
       },
     }));
 
-    // Insert in batches of 50
     for (let i = 0; i < chunkRecords.length; i += 50) {
       const batch = chunkRecords.slice(i, i + 50);
-      const { error: chunksError } = await supabase
-        .from("document_chunks")
-        .insert(batch);
-      if (chunksError)
-        throw new Error(`Failed to store chunks batch ${i}: ${chunksError.message}`);
+      const { error: chunksError } = await supabase.from("document_chunks").insert(batch);
+      if (chunksError) throw new Error(`Failed to store chunks batch ${i}: ${chunksError.message}`);
     }
 
-    // Update document status + metadata extracted by Gemini
+    // Update document status + metadata
     const meta = extractedMetadata as Record<string, unknown>;
     const updatePayload: Record<string, unknown> = {
       status: "indexed",
       chunk_count: chunks.length,
       metadata: extractedMetadata,
     };
-    // Persist Gemini-extracted fund_name and period if the user didn't provide them
-    if (!fundName && meta.detected_fund_name) {
-      updatePayload.fund_name = meta.detected_fund_name;
-    }
-    if (!period && meta.detected_period) {
-      updatePayload.period = meta.detected_period;
-    }
-    if (meta.detected_language) {
-      updatePayload.language = meta.detected_language;
-    }
+    if (!fundName && meta.detected_fund_name) updatePayload.fund_name = meta.detected_fund_name;
+    if (!period && meta.detected_period) updatePayload.period = meta.detected_period;
+    if (meta.detected_language) updatePayload.language = meta.detected_language;
 
-    const { error: updateError } = await supabase
-      .from("documents")
-      .update(updatePayload)
-      .eq("id", documentId);
-
-    if (updateError)
-      throw new Error(`Failed to update document: ${updateError.message}`);
+    const { error: updateError } = await supabase.from("documents").update(updatePayload).eq("id", documentId);
+    if (updateError) throw new Error(`Failed to update document: ${updateError.message}`);
 
     console.log("Ingestion complete!");
     return new Response(
@@ -290,19 +280,13 @@ ${fullText.substring(0, 3000)}`,
     );
   } catch (error) {
     console.error("Ingest error:", error);
-
-    // Try to mark document as error
     if (documentId && supabase) {
       try {
-        await supabase
-          .from("documents")
-          .update({ status: "error" })
-          .eq("id", documentId);
+        await supabase.from("documents").update({ status: "error" }).eq("id", documentId);
       } catch (e) {
         console.error("Failed to mark document as error:", e);
       }
     }
-
     const message = error instanceof Error ? error.message : "Unknown error";
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
