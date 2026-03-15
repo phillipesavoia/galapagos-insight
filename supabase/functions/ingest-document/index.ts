@@ -185,18 +185,47 @@ ${fullText.substring(0, 3000)}`,
       await geminiMetaRes.text();
     }
 
-    // STEP 3: Chunk the text
-    console.log("Step 3: Chunking text...");
-    const chunkSize = 500;
-    const overlap = 50;
-    const words = fullText.split(/\s+/);
-    const chunks: string[] = [];
+    // STEP 3: Chunk the text (structure-aware)
+    console.log("Step 3: Chunking text with structure preservation...");
+    const maxChunkChars = 2000;
+    const overlapChars = 200;
 
-    for (let i = 0; i < words.length; i += chunkSize - overlap) {
-      const chunk = words.slice(i, i + chunkSize).join(" ");
-      if (chunk.trim().length > 50) chunks.push(chunk);
+    // Split by structural boundaries (markdown headers, tables, double newlines)
+    const sections = fullText.split(/\n(?=#{1,3}\s|\|[\s-|]+\||\n\n)/);
+    const chunks: string[] = [];
+    let currentChunk = "";
+
+    for (const section of sections) {
+      const trimmed = section.trim();
+      if (!trimmed) continue;
+
+      // If adding this section would exceed limit, finalize current chunk
+      if (currentChunk.length + trimmed.length > maxChunkChars && currentChunk.length > 0) {
+        chunks.push(currentChunk.trim());
+        // Keep overlap from end of previous chunk for continuity
+        const words = currentChunk.split(/\s+/);
+        const overlapWords = words.slice(-Math.floor(overlapChars / 5));
+        currentChunk = overlapWords.join(" ") + "\n\n" + trimmed;
+      } else {
+        currentChunk += (currentChunk ? "\n\n" : "") + trimmed;
+      }
+
+      // If a single section is too large, split it by paragraphs
+      if (currentChunk.length > maxChunkChars) {
+        const paragraphs = currentChunk.split(/\n\n+/);
+        currentChunk = "";
+        for (const para of paragraphs) {
+          if (currentChunk.length + para.length > maxChunkChars && currentChunk.length > 0) {
+            chunks.push(currentChunk.trim());
+            currentChunk = para;
+          } else {
+            currentChunk += (currentChunk ? "\n\n" : "") + para;
+          }
+        }
+      }
     }
-    console.log(`Created ${chunks.length} chunks`);
+    if (currentChunk.trim().length > 50) chunks.push(currentChunk.trim());
+    console.log(`Created ${chunks.length} structure-aware chunks`);
 
     // STEP 4: Generate embeddings
     console.log("Step 4: Generating embeddings...");
