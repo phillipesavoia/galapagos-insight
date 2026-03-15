@@ -239,7 +239,9 @@ REGRAS CRÍTICAS:
 
 Se um ativo não fizer parte de um determinado portfólio, preencha a célula com "–". Agrupe os ativos pelas suas respectivas classes para facilitar a leitura. Não crie tabelas para portfólios que não possuem dados no documento.
 
-3. FOCO NO ASSESSOR: Entregue os números diretos, motivos de alterações nos modelos e impactos na performance, sem linguagem comercial.`,
+3. FOCO NO ASSESSOR: Entregue os números diretos, motivos de alterações nos modelos e impactos na performance, sem linguagem comercial.
+
+4. INVESTIMENTOS GLOBAIS/OFFSHORE: Lembre-se que todos os portfólios e ativos são investimentos globais/offshore. Mantenha os jargões originais do mercado internacional em inglês (ex: YTD, Drawdown, Yield, Duration) e referencie valores sempre em Dólar (USD), a menos que o documento especifique outra moeda.`,
         messages: claudeMessages,
       }),
     });
