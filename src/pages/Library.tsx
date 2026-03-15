@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { Layout } from "@/components/Layout";
-import { Search, Plus, Upload } from "lucide-react";
+import { Search, Plus, Upload, Trash2 } from "lucide-react";
 import { useDocuments } from "@/hooks/useDocuments";
 import { DocumentCard } from "@/components/library/DocumentCard";
 import { UploadModal } from "@/components/library/UploadModal";
