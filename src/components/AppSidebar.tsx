@@ -1,14 +1,18 @@
-import { MessageSquare, FileText, FolderOpen, Settings, User } from "lucide-react";
+import { MessageSquare, FileText, FolderOpen, LogOut } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
+import { supabase } from "@/integrations/supabase/client";
 
 const navItems = [
   { title: "Advisor Chat", label: "Advisor Chat", url: "/chat", icon: MessageSquare },
   { title: "Gerar Documentos", label: "Gerar Documentos", url: "/generator", icon: FileText },
   { title: "Base de Documentos", label: "Base de Documentos", url: "/library", icon: FolderOpen },
-  { title: "Configurações", label: "Configurações", url: "/settings", icon: Settings },
 ];
 
 export function AppSidebar() {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
   return (
     <aside className="fixed left-0 top-0 bottom-0 w-60 bg-sidebar border-r border-border flex flex-col z-50">
       {/* Logo */}
@@ -35,17 +39,15 @@ export function AppSidebar() {
         ))}
       </nav>
 
-      {/* User */}
+      {/* Logout */}
       <div className="p-4 border-t border-border">
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center">
-            <User className="h-4 w-4 text-primary" strokeWidth={1.5} />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-foreground">Advisor</p>
-            <p className="text-xs text-muted-foreground">admin@galapagos.com</p>
-          </div>
-        </div>
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-accent/10 transition-colors"
+        >
+          <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+          <span>Sair</span>
+        </button>
       </div>
     </aside>
   );

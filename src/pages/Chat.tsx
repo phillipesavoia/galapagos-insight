@@ -158,11 +158,13 @@ export default function Chat() {
 
     try {
       const chatUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+      const { data: { session } } = await supabase.auth.getSession();
       const resp = await fetch(chatUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
         body: JSON.stringify({ query: msg, filter_type }),
       });

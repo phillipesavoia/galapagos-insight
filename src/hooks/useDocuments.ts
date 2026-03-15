@@ -70,7 +70,7 @@ export function useDocuments() {
       return false;
     }
 
-    // 2. Call edge function
+    // 2. Call edge function with auth token
     const formData = new FormData();
     formData.append("file", file);
     formData.append("document_id", doc.id);
@@ -81,9 +81,18 @@ export function useDocuments() {
 
     toast({ title: "Processando documento...", description: "Isso pode levar alguns segundos." });
 
-    const { error: fnError } = await supabase.functions.invoke("ingest-document", {
+    const { data: { session } } = await supabase.auth.getSession();
+    const ingestUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ingest-document`;
+    const resp = await fetch(ingestUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      },
       body: formData,
     });
+
+    const fnError = !resp.ok ? { message: `HTTP ${resp.status}` } : null;
 
     if (fnError) {
       toast({ title: "Erro no processamento", description: fnError.message, variant: "destructive" });
