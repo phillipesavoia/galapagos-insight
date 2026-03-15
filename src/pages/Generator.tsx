@@ -81,16 +81,16 @@ export default function Generator() {
         };
       }
 
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const { data: { session } } = await supabase.auth.getSession();
       const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
       const resp = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/generate-document`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-document`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${anonKey}`,
+            Authorization: `Bearer ${session?.access_token || anonKey}`,
             apikey: anonKey,
           },
           body: JSON.stringify(body),

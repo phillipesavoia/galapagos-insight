@@ -34,18 +34,36 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
+    // --- Auth validation ---
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabase.auth.getUser(token);
+    if (claimsError || !claimsData?.user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { query, filter_type, filter_fund, session_id } = await req.json();
     if (!query) return new Response(JSON.stringify({ error: "query required" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
-    const dbUrl = Deno.env.get("DB_URL");
-    const dbKey = Deno.env.get("DB_SERVICE_ROLE_KEY");
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
     const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
-    if (!dbUrl || !dbKey || !anthropicKey) throw new Error("Missing env vars");
-
-    const supabase = createClient(dbUrl, dbKey);
+    if (!anthropicKey) throw new Error("Missing ANTHROPIC_API_KEY");
 
     // --- 1. Semantic vector search (primary) ---
     let allChunks: any[] = [];

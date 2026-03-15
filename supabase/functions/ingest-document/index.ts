@@ -15,6 +15,37 @@ Deno.serve(async (req) => {
   let supabase: ReturnType<typeof createClient> | null = null;
 
   try {
+    // --- Auth validation ---
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+    // User-scoped client for DB operations (respects RLS)
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await userClient.auth.getUser(token);
+    if (claimsError || !claimsData?.user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Service role client ONLY for storage (private bucket requires elevated access)
+    const dbKey = Deno.env.get("DB_SERVICE_ROLE_KEY");
+    if (!dbKey) throw new Error("Missing DB_SERVICE_ROLE_KEY");
+    const storageClient = createClient(supabaseUrl, dbKey);
+
+    supabase = userClient;
+
     const formData = await req.formData();
     const file = formData.get("file") as File;
     documentId = formData.get("document_id") as string;
@@ -29,12 +60,6 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    const dbUrl = Deno.env.get("DB_URL");
-    const dbKey = Deno.env.get("DB_SERVICE_ROLE_KEY");
-    if (!dbUrl || !dbKey) throw new Error("Missing DB_URL or DB_SERVICE_ROLE_KEY");
-
-    supabase = createClient(dbUrl, dbKey);
 
     // STEP 0: Upload file to Supabase Storage bucket 'documents'
     console.log("Step 0: Uploading file to storage...");
