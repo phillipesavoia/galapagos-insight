@@ -20,6 +20,7 @@ export default function Library() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [droppedFiles, setDroppedFiles] = useState<File[]>([]);
+  const [deleting, setDeleting] = useState(false);
   const { documents, loading, uploadDocument, deleteDocument } = useDocuments();
 
   const filtered = documents.filter((doc) => {
