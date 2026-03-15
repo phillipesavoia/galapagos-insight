@@ -65,7 +65,11 @@ Deno.serve(async (req) => {
     console.log("Step 0: Uploading file to storage...");
     const arrayBuffer = await file.arrayBuffer();
     const fileBytes = new Uint8Array(arrayBuffer);
-    const storagePath = `${documentId}/${documentName || "document.pdf"}`;
+    // Sanitize filename: remove accents, replace spaces and special chars
+    const sanitizedName = (documentName || "document.pdf")
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9._-]/g, "_");
+    const storagePath = `${documentId}/${sanitizedName}`;
 
     const { error: storageError } = await storageClient.storage
       .from("documents")
