@@ -421,20 +421,17 @@ export default function Chat() {
                                 <ReactMarkdown>{cleanContent}</ReactMarkdown>
                               </div>
                               {followUps.length > 0 && (
-                                <div className="mt-3 pt-3 border-t border-gray-200 space-y-1.5">
-                                  <span className="text-[11px] font-medium text-gray-400">💡 Explorar mais</span>
-                                  <div className="flex flex-col gap-1.5">
-                                    {followUps.map((q, i) => (
-                                      <button
-                                        key={i}
-                                        onClick={() => handleSend(q)}
-                                        disabled={isLoading}
-                                        className="text-left px-3 py-2 rounded-lg text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 transition-colors disabled:opacity-50"
-                                      >
-                                        {q}
-                                      </button>
-                                    ))}
-                                  </div>
+                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                  {followUps.map((q, i) => (
+                                    <button
+                                      key={i}
+                                      onClick={() => handleSend(q)}
+                                      disabled={isLoading}
+                                      className="px-2.5 py-1 rounded-full text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 transition-colors disabled:opacity-50 truncate max-w-xs"
+                                    >
+                                      {q}
+                                    </button>
+                                  ))}
                                 </div>
                               )}
                             </>
