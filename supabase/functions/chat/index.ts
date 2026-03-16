@@ -376,6 +376,35 @@ Exemplos:
       required: ["query"],
     },
   },
+  {
+    name: "get_company_ticker_news",
+    description: `Obtém as últimas notícias e manchetes financeiras atreladas a um símbolo (Ticker) específico no mercado americano ou global. Use para verificar fatos relevantes, balanços ou notícias corporativas de um ativo.
+
+Use esta ferramenta quando o assessor pedir notícias específicas de um ticker, quiser saber o que aconteceu com uma empresa, ou quando precisar de contexto corporativo para complementar a análise macro.
+
+Exemplos:
+- "Quais as últimas notícias do KWEB?"
+- "O que aconteceu com a Apple em março?"
+- "Tem alguma notícia sobre o ETF FXI?"`,
+    input_schema: {
+      type: "object",
+      properties: {
+        symbol: {
+          type: "string",
+          description: "O ticker do ativo financeiro. Exemplo: 'KWEB', 'AAPL', 'FXI'.",
+        },
+        from_date: {
+          type: "string",
+          description: "A data inicial da busca no formato YYYY-MM-DD. Exemplo: '2026-02-01'.",
+        },
+        to_date: {
+          type: "string",
+          description: "A data final da busca no formato YYYY-MM-DD. Exemplo: '2026-02-28'.",
+        },
+      },
+      required: ["symbol", "from_date", "to_date"],
+    },
+  },
 ];
 
 Deno.serve(async (req) => {
