@@ -332,21 +332,14 @@ export default function Chat() {
       <div className="flex h-screen bg-white">
         {/* History Sidebar */}
         {showHistory && (
-          <div className="w-72 border-r border-gray-200 bg-gray-50 flex flex-col shrink-0 relative">
-            <div className="p-3 border-b border-gray-200 flex items-center gap-2">
+          <div className="w-72 border-r border-gray-200 bg-gray-50 flex flex-col shrink-0">
+            <div className="p-3 border-b border-gray-200">
               <button
                 onClick={handleNewChat}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition-colors shadow-sm"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition-colors shadow-sm"
               >
                 <Plus className="h-4 w-4" strokeWidth={2} />
                 Nova conversa
-              </button>
-              <button
-                onClick={() => setShowHistory(false)}
-                className="h-9 w-9 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors shrink-0"
-                title="Fechar histórico"
-              >
-                <X className="h-4 w-4" strokeWidth={2} />
               </button>
             </div>
             <div className="px-3 pt-3 pb-1">
