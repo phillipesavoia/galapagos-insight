@@ -368,6 +368,15 @@ export default function Chat() {
 
         {/* Main Chat Area */}
         <div className="flex-1 flex flex-col min-w-0">
+          {/* Fixed header */}
+          <div className="h-10 border-b border-gray-200 bg-white flex items-center justify-between px-4 shrink-0">
+            <div className="flex items-center gap-2">
+              <img src="/galapagos-logo.png" alt="Galapagos" className="h-5 w-5 object-contain" />
+              <span className="text-xs font-semibold text-gray-700 tracking-wide">Galapagos RIA</span>
+              <span className="text-[10px] text-gray-400 font-medium tracking-widest uppercase">Offshore</span>
+            </div>
+            <span className="text-[10px] text-gray-400">Advisor Chat</span>
+          </div>
 
           {isEmpty ? (
             <div className="flex-1 flex items-center justify-center p-8 bg-white">
