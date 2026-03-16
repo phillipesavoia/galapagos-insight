@@ -80,6 +80,56 @@ Exemplos de quando usar:
       required: ["title", "data", "bars"],
     },
   },
+  {
+    name: "renderizar_flash_factsheet",
+    description: `Use esta ferramenta SEMPRE que o usuário pedir informações detalhadas, características, tese ou perfil de um ativo/fundo específico. Em vez de escrever textos longos, chame esta ferramenta para renderizar um card visual estilo Factsheet no frontend.
+
+Exemplos de quando usar:
+- "Me fale sobre o ativo X"
+- "Qual a tese do fundo Y?"
+- "Detalhe as características do ETF Z"
+- "Explique a posição em crédito high yield"
+- Qualquer pedido focado em UM ativo/fundo específico`,
+    input_schema: {
+      type: "object",
+      properties: {
+        assetName: {
+          type: "string",
+          description: "Nome completo do ativo ou fundo (ex: 'iShares USD Treasury Bond 1-3yr ETF')",
+        },
+        ticker: {
+          type: "string",
+          description: "Ticker do ativo se disponível (ex: 'SHY', 'HYG'). Deixe vazio se não houver.",
+        },
+        assetClass: {
+          type: "string",
+          description: "Classe do ativo (ex: 'Fixed Income', 'Equities', 'Alternatives', 'Cash & Equivalents', 'Commodities')",
+        },
+        portfolios: {
+          type: "array",
+          description: "Lista dos portfólios onde o ativo está presente",
+          items: { type: "string" },
+        },
+        radarMetrics: {
+          type: "array",
+          description: "Métricas para o gráfico radar. Cada item tem 'metric' (nome) e 'score' (0-10).",
+          items: {
+            type: "object",
+            properties: {
+              metric: { type: "string", description: "Nome da métrica (ex: 'Risco', 'Liquidez', 'Retorno Esperado', 'Correlação S&P')" },
+              score: { type: "number", description: "Nota de 0 a 10" },
+            },
+            required: ["metric", "score"],
+          },
+        },
+        thesis: {
+          type: "string",
+          description: "Tese resumida do ativo na carteira (máximo 2 frases curtas explicando o racional da posição)",
+        },
+      },
+      required: ["assetName", "assetClass", "portfolios", "radarMetrics", "thesis"],
+    },
+  },
 ];
 
 Deno.serve(async (req) => {
