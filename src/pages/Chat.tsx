@@ -86,6 +86,8 @@ export default function Chat() {
   const [isLoading, setIsLoading] = useState(false);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [randomSuggestions] = useState(() => getRandomSuggestions(4));
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const isEmpty = messages.length === 0;
