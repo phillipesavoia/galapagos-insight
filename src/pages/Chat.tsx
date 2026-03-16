@@ -23,6 +23,7 @@ interface ChatMessage {
   content: string;
   sources?: ChatSource[];
   toolCalls?: ToolCallData[];
+  toolPending?: string | null;
 }
 
 interface ChatSession {
@@ -224,7 +225,7 @@ export default function Chat() {
       }
 
       // Create initial assistant message
-      setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "", sources: [], toolCalls: [] }]);
+      setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "", sources: [], toolCalls: [], toolPending: null }]);
 
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
@@ -252,7 +253,13 @@ export default function Chat() {
               const tcSnap = [...toolCalls];
               setMessages((prev) =>
                 prev.map((m) =>
-                  m.id === assistantId ? { ...m, content: snap, toolCalls: tcSnap } : m
+                  m.id === assistantId ? { ...m, content: snap, toolCalls: tcSnap, toolPending: null } : m
+                )
+              );
+            } else if (event.type === "tool_pending") {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId ? { ...m, toolPending: event.label || "Processando..." } : m
                 )
               );
             } else if (event.type === "tool_call") {
@@ -261,14 +268,14 @@ export default function Chat() {
               const tcSnap = [...toolCalls];
               setMessages((prev) =>
                 prev.map((m) =>
-                  m.id === assistantId ? { ...m, content: snap, toolCalls: tcSnap } : m
+                  m.id === assistantId ? { ...m, content: snap, toolCalls: tcSnap, toolPending: null } : m
                 )
               );
             } else if (event.type === "sources") {
               sources = event.sources || [];
               setMessages((prev) =>
                 prev.map((m) =>
-                  m.id === assistantId ? { ...m, sources } : m
+                  m.id === assistantId ? { ...m, sources, toolPending: null } : m
                 )
               );
             }
@@ -453,6 +460,13 @@ export default function Chat() {
                         {msg.toolCalls && msg.toolCalls.length > 0 && (
                           <div className="mt-2">
                             {msg.toolCalls.map((tc, i) => renderToolCall(tc, i))}
+                          </div>
+                        )}
+                        {/* Tool pending indicator */}
+                        {msg.toolPending && (
+                          <div className="mt-3 flex items-center gap-2 text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 animate-pulse">
+                            <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                            <span>{msg.toolPending}</span>
                           </div>
                         )}
                       </>
