@@ -23,6 +23,7 @@ interface ChatMessage {
   content: string;
   sources?: ChatSource[];
   toolCalls?: ToolCallData[];
+  toolPending?: string | null;
 }
 
 interface ChatSession {
