@@ -12,6 +12,7 @@ const benchmarkPlaceholders = [
   { title: "MSCI World", ticker: "MXWO Index" },
   { title: "MSCI Emerging Markets", ticker: "MXEF Index" },
   { title: "US Corporate High Yield", ticker: "LF98TRUU Index" },
+  { title: "Wilshire Liquid Alternative", ticker: "WLIQA Index" },
 ];
 
 function CardSkeleton() {
