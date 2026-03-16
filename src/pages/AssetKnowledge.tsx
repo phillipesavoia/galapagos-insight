@@ -137,80 +137,138 @@ export default function AssetKnowledge() {
     fetchAssets();
   };
 
-  // --- Bulk file parsing ---
+  // --- Bulk file parsing (Bloomberg-compatible) ---
   const parseFile = useCallback((file: File) => {
+    if (!selectedPortfolio) {
+      toast.error("Selecione um portfólio antes de importar");
+      return;
+    }
     setDroppedFileName(file.name);
     const isExcel = /\.(xlsx?|xls)$/i.test(file.name);
 
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        let rows: Record<string, string>[] = [];
+        let rows: string[][] = [];
 
         if (isExcel) {
           const data = new Uint8Array(e.target?.result as ArrayBuffer);
           const workbook = XLSX.read(data, { type: "array" });
-          // Read first sheet
           const sheet = workbook.Sheets[workbook.SheetNames[0]];
-          rows = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { defval: "" });
+          rows = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: "" });
         } else {
-          // CSV via xlsx
           const text = e.target?.result as string;
           const workbook = XLSX.read(text, { type: "string" });
           const sheet = workbook.Sheets[workbook.SheetNames[0]];
-          rows = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { defval: "" });
+          rows = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: "" });
         }
 
-        if (rows.length === 0) { toast.error("Arquivo vazio ou sem dados"); return; }
+        if (rows.length === 0) { toast.error("Arquivo vazio"); return; }
 
-        // Normalize headers
-        const rawHeaders = Object.keys(rows[0]);
-        const headerMap: Record<string, string> = {};
-        rawHeaders.forEach((h) => { headerMap[h] = normalizeHeader(h); });
-
-        // Detect portfolio name from filename if no portfolio column
-        const hasPortfolioCol = Object.values(headerMap).includes("portfolio");
-        let filePortfolio = "";
-        if (!hasPortfolioCol) {
-          const fn = file.name.toLowerCase();
-          if (fn.includes("income")) filePortfolio = "Income";
-          else if (fn.includes("growth")) filePortfolio = "Growth";
-          else if (fn.includes("balanced")) filePortfolio = "Balanced";
-          else if (fn.includes("conservative")) filePortfolio = "Conservative";
-          else if (fn.includes("bond")) filePortfolio = "Bond Portfolio";
-          else if (fn.includes("liquidity") || fn.includes("liquid")) filePortfolio = "Liquidity";
-          else filePortfolio = file.name.replace(/\.(csv|xlsx?|xls)$/i, "").trim();
-        }
-
-        const parsed: ParsedRow[] = rows.map((row) => {
-          // Map raw columns to normalized
-          const mapped: Record<string, string> = {};
-          Object.entries(row).forEach(([k, v]) => { mapped[headerMap[k]] = String(v).trim(); });
-
-          const ticker = (mapped.ticker || "").toUpperCase().slice(0, 20);
-          const isin = (mapped.isin || "").toUpperCase().slice(0, 12);
-          const name = (mapped.name || "").slice(0, 200);
-          const portfolio = mapped.portfolio || filePortfolio;
-          const rawClass = mapped.asset_class || "";
-          const asset_class = ASSET_CLASSES.find((c) => c.toLowerCase() === rawClass.toLowerCase()) || inferAssetClass(name, ticker);
-          const thesis = (mapped.thesis || "").slice(0, 5000);
-
-          // Parse weight — handle "5.2%", "5,2", "0.052" etc.
-          let weight = 0;
-          const rawWeight = (mapped.weight || "").replace(/[%\s]/g, "").replace(",", ".");
-          if (rawWeight) {
-            const parsed = parseFloat(rawWeight);
-            if (!isNaN(parsed)) weight = parsed > 1 ? parsed : parsed * 100; // auto-detect 0.05 vs 5.0
+        // --- Bloomberg detection: find the header row containing "PK" ---
+        let headerRowIndex = -1;
+        let isBloomberg = false;
+        for (let i = 0; i < Math.min(rows.length, 15); i++) {
+          const firstCell = String(rows[i][0] || "").trim().toUpperCase();
+          if (firstCell === "PK") {
+            headerRowIndex = i;
+            isBloomberg = true;
+            break;
           }
+        }
 
-          let valid = true;
-          let error: string | undefined;
-          if (!ticker && !name) { valid = false; error = "Ticker e nome vazios"; }
-          else if (!ticker) { valid = false; error = "Ticker obrigatório"; }
-          else if (!name) { valid = false; error = "Nome obrigatório"; }
+        let parsed: ParsedRow[] = [];
 
-          return { portfolio, ticker, isin, name, asset_class, weight, thesis, valid, error };
-        }).filter((r) => r.ticker || r.name); // remove fully empty rows
+        if (isBloomberg) {
+          // Bloomberg format: PK, Descr, ISIN, Weight (+ possibly other cols)
+          const headers = rows[headerRowIndex].map((h) => String(h).trim().toUpperCase());
+          const pkIdx = headers.indexOf("PK");
+          const descrIdx = headers.findIndex((h) => h.startsWith("DESCR") || h === "NAME" || h === "NOME");
+          const isinIdx = headers.indexOf("ISIN");
+          const weightIdx = headers.findIndex((h) => h === "WEIGHT" || h === "PESO" || h.includes("WEIGHT") || h.includes("PESO"));
+
+          const dataRows = rows.slice(headerRowIndex + 1);
+
+          parsed = dataRows
+            .map((row) => {
+              const ticker = String(row[pkIdx] || "").trim().toUpperCase();
+              // Filter junk rows
+              if (!ticker || ticker === "<SEARCH>" || ticker === "TOTALS" || ticker === "TOTAL") {
+                return null;
+              }
+              const name = String(row[descrIdx >= 0 ? descrIdx : 1] || "").trim();
+              const isin = String(row[isinIdx >= 0 ? isinIdx : 2] || "").trim().toUpperCase();
+
+              let weight = 0;
+              if (weightIdx >= 0) {
+                const rawWeight = String(row[weightIdx] || "").replace(/[%\s]/g, "").replace(",", ".");
+                if (rawWeight) {
+                  const p = parseFloat(rawWeight);
+                  if (!isNaN(p)) weight = p > 1 ? p : p * 100;
+                }
+              }
+
+              const asset_class = inferAssetClass(name, ticker);
+              let valid = true;
+              let error: string | undefined;
+              if (!ticker) { valid = false; error = "Ticker vazio"; }
+
+              return {
+                portfolio: selectedPortfolio,
+                ticker,
+                isin: isin.length === 12 ? isin : "",
+                name: name || ticker,
+                asset_class,
+                weight,
+                thesis: "",
+                valid,
+                error,
+              } as ParsedRow;
+            })
+            .filter(Boolean) as ParsedRow[];
+
+          toast.info(`Formato Bloomberg detectado — ${parsed.length} linhas lidas`);
+        } else {
+          // Legacy / generic format: use normalized headers from first row
+          const rawHeaders = rows[0].map((h) => String(h));
+          const headerMap: Record<number, string> = {};
+          rawHeaders.forEach((h, idx) => { headerMap[idx] = normalizeHeader(h); });
+
+          const dataRows = rows.slice(1);
+          parsed = dataRows
+            .map((row) => {
+              const mapped: Record<string, string> = {};
+              row.forEach((v, idx) => {
+                const key = headerMap[idx];
+                if (key) mapped[key] = String(v).trim();
+              });
+
+              const ticker = (mapped.ticker || "").toUpperCase().slice(0, 20);
+              const isin = (mapped.isin || "").toUpperCase().slice(0, 12);
+              const name = (mapped.name || "").slice(0, 200);
+              const rawClass = mapped.asset_class || "";
+              const asset_class = ASSET_CLASSES.find((c) => c.toLowerCase() === rawClass.toLowerCase()) || inferAssetClass(name, ticker);
+              const thesis = (mapped.thesis || "").slice(0, 5000);
+
+              let weight = 0;
+              const rawWeight = (mapped.weight || "").replace(/[%\s]/g, "").replace(",", ".");
+              if (rawWeight) {
+                const p = parseFloat(rawWeight);
+                if (!isNaN(p)) weight = p > 1 ? p : p * 100;
+              }
+
+              let valid = true;
+              let error: string | undefined;
+              if (!ticker && !name) { valid = false; error = "Ticker e nome vazios"; }
+              else if (!ticker) { valid = false; error = "Ticker obrigatório"; }
+
+              return {
+                portfolio: mapped.portfolio || selectedPortfolio,
+                ticker, isin, name: name || ticker, asset_class, weight, thesis, valid, error,
+              } as ParsedRow;
+            })
+            .filter((r) => r.ticker || r.name);
+        }
 
         setParsedRows(parsed);
         setImportDialogOpen(true);
@@ -222,7 +280,7 @@ export default function AssetKnowledge() {
 
     if (isExcel) reader.readAsArrayBuffer(file);
     else reader.readAsText(file);
-  }, []);
+  }, [selectedPortfolio]);
 
   // Dropzone
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
