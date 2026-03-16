@@ -1022,6 +1022,9 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
                   googleKey,
                 );
               }
+            } else if (toolResult.toolName === "ask_perplexity_researcher") {
+              console.log(`Executing ask_perplexity_researcher`);
+              toolResultData = await askPerplexityResearcher(toolResult.toolInput.research_prompt);
             }
 
             // Send tool result back to Claude for final response
