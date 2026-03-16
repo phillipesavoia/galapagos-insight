@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, ChevronDown, ChevronRight, X, Plus, History, ThumbsUp, ThumbsDown, RefreshCw, Copy } from "lucide-react";
+import { Send, ChevronDown, ChevronRight, X, Plus, History, ThumbsUp, ThumbsDown, RefreshCw, Copy, PanelLeftClose, PanelLeft } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
@@ -371,6 +371,13 @@ export default function Chat() {
           {/* Fixed header */}
           <div className="h-10 border-b border-gray-200 bg-white flex items-center justify-between px-4 shrink-0">
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowHistory((prev) => !prev)}
+                className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                title={showHistory ? "Esconder histórico" : "Mostrar histórico"}
+              >
+                {showHistory ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeft className="h-4 w-4" />}
+              </button>
               <img src="/galapagos-logo.png" alt="Galapagos" className="h-5 w-5 object-contain" />
               <span className="text-xs font-semibold text-gray-700 tracking-wide">Galapagos RIA</span>
               <span className="text-[10px] text-gray-400 font-medium tracking-widest uppercase">Offshore</span>
