@@ -31,6 +31,7 @@ const App = () => (
             <Route path="/reports" element={<Reports />} />
             <Route path="/library" element={<AdminRoute><Library /></AdminRoute>} />
             <Route path="/admin/nav-upload" element={<AdminRoute><NavUpload /></AdminRoute>} />
+            <Route path="/admin/assets" element={<AdminRoute><AssetKnowledge /></AdminRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthGuard>
