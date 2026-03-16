@@ -1,88 +1,59 @@
 import { Layout } from "@/components/Layout";
-import { MarketCard, MarketCardProps } from "@/components/dashboard/MarketCard";
+import { MarketCard } from "@/components/dashboard/MarketCard";
+import { usePortfolioMarketData } from "@/hooks/usePortfolioMarketData";
+import { Skeleton } from "@/components/ui/skeleton";
+import { AlertTriangle } from "lucide-react";
 
-// --- Mock sparkline generator ---
-function generateSparkline(base: number, volatility: number, trend: number, days = 30) {
-  const data: { value: number }[] = [];
-  let v = base;
-  for (let i = 0; i < days; i++) {
-    v += (Math.random() - 0.5 + trend * 0.01) * volatility;
-    data.push({ value: parseFloat(v.toFixed(2)) });
-  }
-  return data;
-}
-
-// --- High-fidelity mock data ---
-const benchmarks: MarketCardProps[] = [
+// Benchmarks: placeholder until asset_prices or external API is connected
+const benchmarkPlaceholders = [
   {
     title: "US T-Bills (1-3M)",
     ticker: "BIL US",
-    lastPrice: 91.67,
-    change1D: 0.01,
-    changeMTD: 0.12,
-    changeYTD: 0.98,
-    sparklineData: generateSparkline(91.5, 0.05, 0.3),
+    lastPrice: 0,
+    change1D: 0,
+    changeMTD: 0,
+    changeYTD: 0,
+    sparklineData: [] as { value: number }[],
   },
   {
     title: "US Aggregate Bond",
     ticker: "AGG US",
-    lastPrice: 98.34,
-    change1D: -0.08,
-    changeMTD: -0.42,
-    changeYTD: -1.23,
-    sparklineData: generateSparkline(99.5, 0.4, -0.5),
+    lastPrice: 0,
+    change1D: 0,
+    changeMTD: 0,
+    changeYTD: 0,
+    sparklineData: [] as { value: number }[],
   },
   {
     title: "MSCI All Country World",
     ticker: "ACWI US",
-    lastPrice: 109.52,
-    change1D: 0.34,
-    changeMTD: 1.87,
-    changeYTD: 6.41,
-    sparklineData: generateSparkline(103, 1.2, 1),
+    lastPrice: 0,
+    change1D: 0,
+    changeMTD: 0,
+    changeYTD: 0,
+    sparklineData: [] as { value: number }[],
   },
 ];
 
-const portfolios: MarketCardProps[] = [
-  {
-    title: "Conservative",
-    ticker: "Model Portfolio",
-    lastPrice: 1042.18,
-    change1D: 0.03,
-    changeMTD: 0.28,
-    changeYTD: 1.74,
-    sparklineData: generateSparkline(1030, 2, 0.5),
-  },
-  {
-    title: "Income",
-    ticker: "Model Portfolio",
-    lastPrice: 1087.55,
-    change1D: 0.07,
-    changeMTD: 0.51,
-    changeYTD: 3.12,
-    sparklineData: generateSparkline(1055, 4, 0.8),
-  },
-  {
-    title: "Balanced",
-    ticker: "Model Portfolio",
-    lastPrice: 1134.92,
-    change1D: 0.18,
-    changeMTD: 1.02,
-    changeYTD: 5.47,
-    sparklineData: generateSparkline(1075, 6, 1),
-  },
-  {
-    title: "Growth",
-    ticker: "Model Portfolio",
-    lastPrice: 1198.30,
-    change1D: 0.31,
-    changeMTD: 1.64,
-    changeYTD: 8.23,
-    sparklineData: generateSparkline(1105, 9, 1.2),
-  },
-];
+function CardSkeleton() {
+  return (
+    <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+      <Skeleton className="h-4 w-24" />
+      <Skeleton className="h-8 w-32" />
+      <Skeleton className="h-3 w-40" />
+    </div>
+  );
+}
 
 export default function LiveDashboard() {
+  const { data: portfolios, loading } = usePortfolioMarketData();
+
+  // Determine last date from portfolios data
+  const lastDate = portfolios.length > 0 ? portfolios[0].lastDate : null;
+  const formattedDate = lastDate
+    ? new Date(lastDate + "T00:00:00").toLocaleDateString("pt-BR")
+    : "—";
+
   return (
     <Layout>
       <div className="w-full px-6 py-6 space-y-10 overflow-x-hidden">
@@ -94,19 +65,34 @@ export default function LiveDashboard() {
           <p className="text-sm text-muted-foreground mt-1">
             Preços de fechamento (D-1) e performance de curto prazo ·{" "}
             <span className="text-primary font-medium">
-              📅 Data Base: {new Date(Date.now() - 86400000).toLocaleDateString("pt-BR")}
+              📅 Data Base: {formattedDate}
             </span>
           </p>
         </div>
 
         {/* Benchmarks */}
         <section>
-          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-4">
-            Benchmarks de Mercado
-          </h2>
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+              Benchmarks de Mercado
+            </h2>
+            <span className="inline-flex items-center gap-1 text-[10px] text-warning bg-warning/10 px-2 py-0.5 rounded-full font-medium">
+              <AlertTriangle className="h-3 w-3" />
+              Aguardando API
+            </span>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {benchmarks.map((b) => (
-              <MarketCard key={b.ticker} {...b} />
+            {benchmarkPlaceholders.map((b) => (
+              <div
+                key={b.ticker}
+                className="rounded-xl border border-dashed border-border bg-card/50 p-5 flex flex-col items-center justify-center text-center min-h-[140px]"
+              >
+                <p className="text-sm font-semibold text-foreground">{b.title}</p>
+                <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{b.ticker}</p>
+                <p className="text-xs text-muted-foreground mt-3">
+                  Dados disponíveis quando a API de mercado for conectada
+                </p>
+              </div>
             ))}
           </div>
         </section>
@@ -116,11 +102,32 @@ export default function LiveDashboard() {
           <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-4">
             Portfólios Modelo Galapagos
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {portfolios.map((p) => (
-              <MarketCard key={p.title} {...p} />
-            ))}
-          </div>
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <CardSkeleton key={i} />
+              ))}
+            </div>
+          ) : portfolios.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nenhum dado de NAV encontrado na base.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {portfolios.map((p) => (
+                <MarketCard
+                  key={p.name}
+                  title={p.name}
+                  ticker={p.ticker}
+                  lastPrice={p.lastPrice}
+                  change1D={p.change1D}
+                  changeMTD={p.changeMTD}
+                  changeYTD={p.changeYTD}
+                  sparklineData={p.sparklineData}
+                />
+              ))}
+            </div>
+          )}
         </section>
 
         {/* Disclaimer */}
