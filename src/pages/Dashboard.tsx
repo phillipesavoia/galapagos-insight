@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import type { Period } from "@/components/dashboard/PeriodFilter";
 import { Layout } from "@/components/Layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PortfolioTab } from "@/components/dashboard/PortfolioTab";
