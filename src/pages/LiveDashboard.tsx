@@ -4,35 +4,14 @@ import { usePortfolioMarketData } from "@/hooks/usePortfolioMarketData";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle } from "lucide-react";
 
-// Benchmarks: placeholder until asset_prices or external API is connected
 const benchmarkPlaceholders = [
-  {
-    title: "US T-Bills (1-3M)",
-    ticker: "BIL US",
-    lastPrice: 0,
-    change1D: 0,
-    changeMTD: 0,
-    changeYTD: 0,
-    sparklineData: [] as { value: number }[],
-  },
-  {
-    title: "US Aggregate Bond",
-    ticker: "AGG US",
-    lastPrice: 0,
-    change1D: 0,
-    changeMTD: 0,
-    changeYTD: 0,
-    sparklineData: [] as { value: number }[],
-  },
-  {
-    title: "MSCI All Country World",
-    ticker: "ACWI US",
-    lastPrice: 0,
-    change1D: 0,
-    changeMTD: 0,
-    changeYTD: 0,
-    sparklineData: [] as { value: number }[],
-  },
+  { title: "S&P 500 Total Return", ticker: "SPXT Index" },
+  { title: "US Agg Total Return", ticker: "LUATTRUU Index" },
+  { title: "US T-Bills 1-3 Month", ticker: "BKT0 Index" },
+  { title: "NASDAQ 100", ticker: "NDX Index" },
+  { title: "MSCI World", ticker: "MXWO Index" },
+  { title: "MSCI Emerging Markets", ticker: "MXEF Index" },
+  { title: "US Corporate High Yield", ticker: "LF98TRUU Index" },
 ];
 
 function CardSkeleton() {
@@ -81,7 +60,7 @@ export default function LiveDashboard() {
               Aguardando API
             </span>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {benchmarkPlaceholders.map((b) => (
               <div
                 key={b.ticker}
