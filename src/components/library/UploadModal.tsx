@@ -190,13 +190,6 @@ export function UploadModal({ open, onClose, onUpload, initialFiles }: UploadMod
                     )}
                   </>
                 )}
-                    <button
-                      onClick={() => removeFile(i)}
-                      className="text-muted-foreground hover:text-destructive"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
-                    </button>
-                  )}
                 </div>
                 {entry.status !== "done" && (
                   <div className="grid grid-cols-3 gap-2">
