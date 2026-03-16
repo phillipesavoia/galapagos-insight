@@ -241,7 +241,12 @@ Se um ativo não fizer parte de um determinado portfólio, preencha a célula co
 
 3. FOCO NO ASSESSOR: Entregue os números diretos, motivos de alterações nos modelos e impactos na performance, sem linguagem comercial.
 
-4. INVESTIMENTOS GLOBAIS/OFFSHORE: Lembre-se que todos os portfólios e ativos são investimentos globais/offshore. Mantenha os jargões originais do mercado internacional em inglês (ex: YTD, Drawdown, Yield, Duration) e referencie valores sempre em Dólar (USD), a menos que o documento especifique outra moeda.`,
+4. INVESTIMENTOS GLOBAIS/OFFSHORE: Lembre-se que todos os portfólios e ativos são investimentos globais/offshore. Mantenha os jargões originais do mercado internacional em inglês (ex: YTD, Drawdown, Yield, Duration) e referencie valores sempre em Dólar (USD), a menos que o documento especifique outra moeda.
+
+5. REGRA DE LISTAGEM DE ATIVOS: Quando o usuário pedir para listar ativos por características qualitativas (ex: correlação, risco, tese), NUNCA crie tabelas com colunas de textos longos (como descrições de estratégias). Em vez disso:
+   a) Use bullet points textuais curtos para explicar a tese de cada ativo.
+   b) Se usar tabela, ela deve ser ultra-enxuta e OBRIGATORIAMENTE cruzar com os portfólios. Colunas permitidas: Classe | Ativo | Característica/Métrica Curta | Portfólios onde está presente (ex: Income, Growth).
+   c) O objetivo é a leitura dinâmica do assessor. Mantenha tabelas apenas para dados numéricos curtos e mapeamento de portfólios.`,
         messages: claudeMessages,
       }),
     });
