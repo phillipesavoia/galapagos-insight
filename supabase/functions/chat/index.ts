@@ -30,6 +30,58 @@ async function generateEmbedding(text: string, googleKey: string): Promise<numbe
   }
 }
 
+const TOOLS = [
+  {
+    name: "renderizar_grafico_barras",
+    description: `Use esta ferramenta SEMPRE que precisar comparar dados numéricos entre ativos ou portfólios (ex: YTD, retorno mensal, drawdown, peso, contribuição). Em vez de criar uma tabela markdown, chame esta ferramenta com os dados estruturados para que o frontend renderize um gráfico de barras interativo. 
+    
+Exemplos de quando usar:
+- "Compare a performance YTD dos portfólios"
+- "Qual o drawdown máximo de cada fundo?"  
+- "Mostre os pesos dos ativos no portfólio Growth"
+- Qualquer comparação numérica entre 2+ itens`,
+    input_schema: {
+      type: "object",
+      properties: {
+        title: {
+          type: "string",
+          description: "Título descritivo do gráfico (ex: 'Performance YTD por Portfólio')",
+        },
+        data: {
+          type: "array",
+          description: "Array de objetos com os dados. Cada objeto deve ter 'name' (label) e um ou mais campos numéricos.",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string", description: "Nome/label do item (ex: nome do ativo ou portfólio)" },
+            },
+            required: ["name"],
+            additionalProperties: true,
+          },
+        },
+        bars: {
+          type: "array",
+          description: "Array definindo quais campos numéricos renderizar como barras.",
+          items: {
+            type: "object",
+            properties: {
+              dataKey: { type: "string", description: "Nome do campo numérico no objeto de dados" },
+              label: { type: "string", description: "Label legível para a legenda" },
+              color: { type: "string", description: "Cor hex opcional (ex: '#10b981')" },
+            },
+            required: ["dataKey", "label"],
+          },
+        },
+        yAxisLabel: {
+          type: "string",
+          description: "Label do eixo Y (ex: '%', 'USD', 'bps')",
+        },
+      },
+      required: ["title", "data", "bars"],
+    },
+  },
+];
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -99,12 +151,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    // --- 2. Keyword fallback (if semantic search found nothing or no API key) ---
+    // --- 2. Keyword fallback ---
     if (allChunks.length === 0) {
       console.log("Falling back to keyword search...");
       const words = query.split(/\s+/).filter((w: string) => w.length >= 2);
       const searchTerms = words.length > 0 ? words : [query.trim()];
-
       for (const term of searchTerms.slice(0, 5)) {
         const { data } = await supabase
           .from("document_chunks")
@@ -115,7 +166,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // --- 3. Also search by document metadata (fund name, ticker) ---
+    // --- 3. Document metadata search ---
     const words = query.split(/\s+/).filter((w: string) => w.length >= 2);
     const searchTerms = words.length > 0 ? words : [query.trim()];
     let docMatchIds: string[] = [];
@@ -179,7 +230,7 @@ Deno.serve(async (req) => {
       file_url: d.file_url || null,
     }));
 
-    // --- Retrieve last 5 conversation turns for context ---
+    // --- Retrieve conversation history ---
     let historyMessages: { role: string; content: string }[] = [];
     if (session_id) {
       const { data: historyData } = await supabase
@@ -187,7 +238,7 @@ Deno.serve(async (req) => {
         .select("role, content")
         .eq("session_id", session_id)
         .order("created_at", { ascending: false })
-        .limit(10); // 5 pairs = 10 messages
+        .limit(10);
 
       if (historyData && historyData.length > 0) {
         historyMessages = historyData.reverse().map((h: any) => ({
@@ -198,10 +249,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    // --- Stream Claude response ---
-    console.log(`Calling Claude with ${filteredChunks.length} chunks from ${documents.length} documents...`);
+    // --- Stream Claude response with tool calling ---
+    console.log(`Calling Claude with ${filteredChunks.length} chunks, tools enabled...`);
 
-    // Build messages array: history + current query with context
     const claudeMessages = [
       ...historyMessages,
       {
@@ -211,6 +261,34 @@ Deno.serve(async (req) => {
           : `Não encontrei documentos relevantes para: "${query}". Informe que não há documentos indexados sobre este tema.`,
       },
     ];
+
+    const systemPrompt = `Você é um assistente técnico e quantitativo da Galapagos Capital Advisory, desenvolvido exclusivamente para dar suporte diário a assessores de investimentos no Brasil.
+
+Responda sempre em português brasileiro de forma técnica, analítica e ultra-direta, utilizando jargões de mercado financeiro apropriados.
+
+Use estritamente as informações dos documentos fornecidos. Se a informação não estiver lá, diga claramente que não encontrou.
+
+REGRAS CRÍTICAS:
+
+1. EXAUSTÃO TOTAL: Quando questionado sobre múltiplos portfólios (Conservative, Income, Balanced, Growth) ou ativos, você DEVE extrair e apresentar TODOS os dados disponíveis. NUNCA resuma, corte, crie 'top 5' ou omita dados por conta própria.
+
+2. GRÁFICOS EM VEZ DE TABELAS: Quando a pergunta envolver comparação numérica entre ativos ou portfólios (performance, retorno, drawdown, peso, contribuição), você DEVE usar a ferramenta 'renderizar_grafico_barras' para enviar os dados estruturados. O frontend renderizará um gráfico de barras interativo. NUNCA crie tabelas markdown para dados comparativos numéricos — use SEMPRE a ferramenta de gráfico.
+
+3. FOCO NO ASSESSOR: Entregue os números diretos, motivos de alterações nos modelos e impactos na performance, sem linguagem comercial.
+
+4. INVESTIMENTOS GLOBAIS/OFFSHORE: Lembre-se que todos os portfólios e ativos são investimentos globais/offshore. Mantenha os jargões originais do mercado internacional em inglês (ex: YTD, Drawdown, Yield, Duration) e referencie valores sempre em Dólar (USD), a menos que o documento especifique outra moeda.
+
+5. REGRA DE LISTAGEM DE ATIVOS: Quando o usuário pedir para listar ativos por características qualitativas (ex: correlação, risco, tese), NUNCA crie tabelas com colunas de textos longos. Em vez disso:
+   a) Use bullet points textuais curtos para explicar a tese de cada ativo.
+   b) O objetivo é a leitura dinâmica do assessor.
+
+6. REGRA DE FORMATAÇÃO PARA UI ESTREITA: A interface do chat é estreita. É ESTRITAMENTE PROIBIDO gerar tabelas markdown com mais de 3 colunas. Para dados numéricos comparativos, USE A FERRAMENTA renderizar_grafico_barras. Para informações qualitativas, use bullet points:
+
+- **[Nome do Ativo]** ([Classe]) | Métrica: [X%]
+  ↳ Portfólios: [Conservative, Income, ...]
+  ↳ [Breve comentário]
+
+7. COMBINAÇÃO TEXTO + GRÁFICO: Você pode e deve combinar texto explicativo com chamadas de ferramentas. Primeiro explique brevemente o contexto/análise em bullet points, depois chame a ferramenta com os dados numéricos para visualização gráfica.`;
 
     const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -223,38 +301,8 @@ Deno.serve(async (req) => {
         model: "claude-sonnet-4-20250514",
         max_tokens: 4096,
         stream: true,
-        system: `Você é um assistente técnico e quantitativo da Galapagos Capital Advisory, desenvolvido exclusivamente para dar suporte diário a assessores de investimentos no Brasil.
-
-Responda sempre em português brasileiro de forma técnica, analítica e ultra-direta, utilizando jargões de mercado financeiro apropriados.
-
-Use estritamente as informações dos documentos fornecidos. Se a informação não estiver lá, diga claramente que não encontrou.
-
-REGRAS CRÍTICAS:
-
-1. EXAUSTÃO TOTAL: Quando questionado sobre múltiplos portfólios (Conservative, Income, Balanced, Growth) ou ativos, você DEVE extrair e apresentar TODOS os dados disponíveis. NUNCA resuma, corte, crie 'top 5' ou omita dados por conta própria.
-
-2. FORMATO CONSOLIDADO: NUNCA crie tabelas separadas por modelo de portfólio. Sempre que a pergunta envolver performance, atribuição ou pesos, gere UMA ÚNICA matriz consolidada por período temporal. A estrutura obrigatória das colunas em Markdown deve ser:
-
-| Classe | Ativo | Retorno do Ativo | Contribuição Conservative | Contribuição Income | Contribuição Balanced | Contribuição Growth |
-
-Se um ativo não fizer parte de um determinado portfólio, preencha a célula com "–". Agrupe os ativos pelas suas respectivas classes para facilitar a leitura. Não crie tabelas para portfólios que não possuem dados no documento.
-
-3. FOCO NO ASSESSOR: Entregue os números diretos, motivos de alterações nos modelos e impactos na performance, sem linguagem comercial.
-
-4. INVESTIMENTOS GLOBAIS/OFFSHORE: Lembre-se que todos os portfólios e ativos são investimentos globais/offshore. Mantenha os jargões originais do mercado internacional em inglês (ex: YTD, Drawdown, Yield, Duration) e referencie valores sempre em Dólar (USD), a menos que o documento especifique outra moeda.
-
-5. REGRA DE LISTAGEM DE ATIVOS: Quando o usuário pedir para listar ativos por características qualitativas (ex: correlação, risco, tese), NUNCA crie tabelas com colunas de textos longos (como descrições de estratégias). Em vez disso:
-   a) Use bullet points textuais curtos para explicar a tese de cada ativo.
-   b) Se usar tabela, ela deve ser ultra-enxuta e OBRIGATORIAMENTE cruzar com os portfólios. Colunas permitidas: Classe | Ativo | Característica/Métrica Curta | Portfólios onde está presente (ex: Income, Growth).
-   c) O objetivo é a leitura dinâmica do assessor. Mantenha tabelas apenas para dados numéricos curtos e mapeamento de portfólios.
-
-6. REGRA DE FORMATAÇÃO PARA UI ESTREITA: A interface do chat é muito estreita (sidebar). É ESTRITAMENTE PROIBIDO gerar tabelas com mais de 3 colunas. NUNCA crie uma coluna para cada portfólio (não use checkmarks em múltiplas colunas). Para listar ativos, características e portfólios, o formato preferencial é LISTA (bullet points). Se o usuário pedir a lista de ativos, use EXATAMENTE este formato:
-
-- **[Nome do Ativo]** ([Classe]) | Rentabilidade/Métrica: [X%]
-  ↳ Portfólios: [Liste os nomes separados por vírgula, ex: Conservative, Income]
-  ↳ [Breve comentário se houver]
-
-Se for estritamente necessário usar tabela, use NO MÁXIMO 3 colunas (ex: Ativo | Métrica | Portfólios). Agrupe os nomes dos portfólios em uma única coluna em formato de texto.`,
+        system: systemPrompt,
+        tools: TOOLS,
         messages: claudeMessages,
       }),
     });
@@ -264,13 +312,19 @@ Se for estritamente necessário usar tabela, use NO MÁXIMO 3 colunas (ex: Ativo
       throw new Error(`Claude error: ${errText}`);
     }
 
-    // Transform Claude's SSE stream into our own SSE stream
+    // Transform Claude's SSE stream into our custom SSE stream
+    // Handle both text deltas and tool_use blocks
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
         const reader = claudeRes.body!.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
+        
+        // Track tool use blocks being built
+        let currentToolId = "";
+        let currentToolName = "";
+        let toolInputJson = "";
 
         try {
           while (true) {
@@ -289,10 +343,43 @@ Se for estritamente necessário usar tabela, use NO MÁXIMO 3 colunas (ex: Ativo
 
               try {
                 const event = JSON.parse(jsonStr);
-                if (event.type === "content_block_delta" && event.delta?.text) {
+
+                // Text delta
+                if (event.type === "content_block_delta" && event.delta?.type === "text_delta" && event.delta?.text) {
                   controller.enqueue(
                     encoder.encode(`data: ${JSON.stringify({ type: "delta", text: event.delta.text })}\n\n`)
                   );
+                }
+
+                // Tool use block start
+                if (event.type === "content_block_start" && event.content_block?.type === "tool_use") {
+                  currentToolId = event.content_block.id || "";
+                  currentToolName = event.content_block.name || "";
+                  toolInputJson = "";
+                }
+
+                // Tool input delta (JSON string chunks)
+                if (event.type === "content_block_delta" && event.delta?.type === "input_json_delta") {
+                  toolInputJson += event.delta.partial_json || "";
+                }
+
+                // Content block stop — if we were building a tool call, emit it
+                if (event.type === "content_block_stop" && currentToolName) {
+                  try {
+                    const toolInput = JSON.parse(toolInputJson);
+                    controller.enqueue(
+                      encoder.encode(`data: ${JSON.stringify({
+                        type: "tool_call",
+                        tool: currentToolName,
+                        input: toolInput,
+                      })}\n\n`)
+                    );
+                  } catch (e) {
+                    console.error("Failed to parse tool input JSON:", e, toolInputJson);
+                  }
+                  currentToolId = "";
+                  currentToolName = "";
+                  toolInputJson = "";
                 }
               } catch {
                 // partial JSON, ignore
