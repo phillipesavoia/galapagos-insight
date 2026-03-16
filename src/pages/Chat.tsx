@@ -421,37 +421,6 @@ export default function Chat() {
                 ))}
               </select>
             </div>
-
-            {/* Sources panel - top */}
-            {showSourcesPanel && lastAssistantSources.length > 0 && !isEmpty && (
-              <div className="border-t border-gray-100 px-4 py-2.5 bg-gray-50/80">
-                <div className="flex items-center justify-between mb-1.5">
-                  <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Fontes utilizadas</h3>
-                  <button onClick={() => setShowSourcesPanel(false)} className="text-gray-400 hover:text-gray-600">
-                    <X className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {lastAssistantSources.map((src, i) => (
-                    src.file_url ? (
-                      <a
-                        key={i}
-                        href={src.file_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-emerald-700 hover:text-emerald-800 underline underline-offset-2 decoration-emerald-300 hover:decoration-emerald-500 transition-colors"
-                      >
-                        {src.name} <span className="text-gray-400 no-underline">({src.period})</span>
-                      </a>
-                    ) : (
-                      <span key={i} className="text-xs text-gray-600">
-                        {src.name} <span className="text-gray-400">({src.period})</span>
-                      </span>
-                    )
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
 
           {isEmpty ? (
