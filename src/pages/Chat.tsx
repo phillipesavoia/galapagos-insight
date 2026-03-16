@@ -450,7 +450,7 @@ export default function Chat() {
               {messages.map((msg) => (
                 <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div
-                    className={`max-w-3xl px-5 py-4 rounded-2xl text-[13px] leading-[1.7] shadow-sm ${
+                    className={`max-w-4xl w-full px-5 py-4 rounded-2xl text-[13px] leading-[1.7] shadow-sm ${
                       msg.role === "user"
                         ? "bg-emerald-600 text-white border border-emerald-700"
                         : "bg-white border border-gray-300 text-gray-900"
