@@ -270,9 +270,13 @@ Deno.serve(async (req) => {
       });
       
       if (matchedAssets.length > 0) {
-        assetKnowledgeContext = matchedAssets.map((a: any) =>
-          `[ASSET DICTIONARY — ${a.ticker}${a.isin ? ` | ISIN: ${a.isin}` : ""}]\nNome: ${a.name}\nClasse: ${a.asset_class}\nPerfil de Risco: ${a.risk_profile}\nTese Oficial da Gestão: ${a.official_thesis}`
-        ).join("\n\n---\n\n");
+        assetKnowledgeContext = matchedAssets.map((a: any) => {
+          const portfolios = a.portfolios?.length > 0 ? `\nPortfólios: ${a.portfolios.join(", ")}` : "";
+          const weights = a.weight_pct && Object.keys(a.weight_pct).length > 0
+            ? `\nPesos: ${Object.entries(a.weight_pct).map(([k, v]) => `${k}: ${v}%`).join(", ")}`
+            : "";
+          return `[ASSET DICTIONARY — ${a.ticker}${a.isin ? ` | ISIN: ${a.isin}` : ""}]\nNome: ${a.name}\nClasse: ${a.asset_class}\nPerfil de Risco: ${a.risk_profile}${portfolios}${weights}\nTese Oficial da Gestão: ${a.official_thesis}`;
+        }).join("\n\n---\n\n");
         console.log(`Asset Knowledge: matched ${matchedAssets.length} assets from dictionary`);
       }
     }
