@@ -78,6 +78,78 @@ async function fetchLiveMarketData(ticker: string, isin: string | null): Promise
   }
 }
 
+// --- Macro Market Context Search via Gemini + Google Search Grounding ---
+async function searchMacroMarketContext(query: string, googleKey: string): Promise<any> {
+  try {
+    console.log(`Searching macro context: "${query}"`);
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${googleKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  text: `Você é um analista macroeconômico sênior. Responda em português brasileiro de forma técnica e concisa.\n\nPesquise e resuma os principais fatores macroeconômicos, geopolíticos e de mercado que explicam o seguinte:\n\n${query}\n\nEstruture sua resposta em:\n1. **Principais Drivers Macro** (políticas monetárias, dados econômicos, decisões de bancos centrais)\n2. **Fatores Geopolíticos** (tensões comerciais, regulação, eventos políticos)\n3. **Dinâmica de Mercado** (fluxos, sentimento, posicionamento técnico)\n4. **Resultados Corporativos / Setoriais** (se aplicável)\n\nSeja factual e cite fontes/datas quando possível. Máximo 400 palavras.`,
+                },
+              ],
+            },
+          ],
+          tools: [{ googleSearch: {} }],
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 1024,
+          },
+        }),
+      }
+    );
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`Gemini search error [${res.status}]:`, errText);
+      return {
+        status: "error",
+        message: `Erro na busca macro: HTTP ${res.status}`,
+        query,
+      };
+    }
+
+    const data = await res.json();
+    const textParts = data?.candidates?.[0]?.content?.parts || [];
+    const textContent = textParts
+      .filter((p: any) => p.text)
+      .map((p: any) => p.text)
+      .join("\n");
+
+    // Extract grounding metadata (sources)
+    const groundingMetadata = data?.candidates?.[0]?.groundingMetadata;
+    const searchSuggestions = groundingMetadata?.searchEntryPoint?.renderedContent || null;
+    const groundingSources = groundingMetadata?.groundingChunks?.map((c: any) => ({
+      title: c.web?.title || "",
+      url: c.web?.uri || "",
+    })) || [];
+
+    return {
+      status: "success",
+      query,
+      analysis: textContent,
+      sources: groundingSources,
+      searchSuggestions,
+    };
+  } catch (err) {
+    console.error("Macro search error:", err);
+    return {
+      status: "fetch_error",
+      message: `Falha na busca de contexto macro para: "${query}"`,
+      query,
+    };
+  }
+}
+
+
 const TOOLS = [
   {
     name: "renderizar_grafico_barras",
@@ -212,6 +284,27 @@ Exemplos de quando usar:
         },
       },
       required: ["ticker"],
+    },
+  },
+  {
+    name: "search_macro_market_context",
+    description: `Busca na internet por eventos macroeconômicos, notícias financeiras e drivers de mercado recentes para explicar a performance de um ativo financeiro em um período específico. Ideal para entender o 'porquê' de um movimento de mercado.
+
+Use esta ferramenta SEMPRE que o assessor perguntar 'por que o ativo X caiu/subiu?', 'o que aconteceu com o mercado de Y?', ou qualquer questão que exija contexto macroeconômico externo que NÃO está nas atas de gestão.
+
+Exemplos:
+- "Por que o KWEB caiu tanto em fevereiro?"
+- "O que explica a alta dos treasuries este mês?"
+- "Quais fatores macro impactaram ações de tecnologia na China?"`,
+    input_schema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "A pergunta exata a ser pesquisada. Exemplo: 'Principais motivos macroeconômicos para a queda do ETF KWEB em fevereiro de 2026'",
+        },
+      },
+      required: ["query"],
     },
   },
 ];
@@ -521,6 +614,13 @@ REGRAS DE RECONHECIMENTO (OBRIGATÓRIAS):
 - Se o ativo NÃO estiver cadastrado no Asset Dictionary, NÃO use a ferramenta — informe que o ativo precisa ser cadastrado primeiro pela equipe de gestão.
 - Os dados retornados pela ferramenta são a GOLDEN SOURCE. Não os misture com dados de documentos antigos sem indicar claramente a data de referência de cada fonte.
 
+### REGRA DE CONTEXTO MACROECONÔMICO (BUSCA EXTERNA):
+
+- Quando o assessor perguntar "por que" um ativo subiu/caiu, ou pedir contexto macroeconômico que NÃO está disponível nas atas de gestão, você DEVE usar a ferramenta 'search_macro_market_context' para buscar na internet os drivers de mercado relevantes.
+- Os resultados desta ferramenta são CONTEXTO EXTERNO e devem ser apresentados como tal, separados da visão oficial da gestão.
+- Formato obrigatório ao usar dados desta ferramenta: iniciar com "🌐 **Contexto de Mercado (Fontes Externas):**" para diferenciar claramente da visão da casa.
+- Após apresentar o contexto externo, SEMPRE adicione a visão da gestão (se disponível nos documentos) para complementar.
+
 ---
 
 ## REGRAS OPERACIONAIS
@@ -679,7 +779,7 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
                   try {
                     const toolInput = JSON.parse(toolInputJson);
                     
-                    if (handleServerTool && currentToolName === "fetch_live_asset_data") {
+                    if (handleServerTool && (currentToolName === "fetch_live_asset_data" || currentToolName === "search_macro_market_context")) {
                       // Server-side tool — don't emit to client yet
                       serverToolCall = { id: currentToolId, name: currentToolName, input: toolInput };
                     } else {
@@ -720,13 +820,23 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
         try {
           const toolResult = await processStream(initialClaudeRes, true);
 
-          if (toolResult?.needsToolResult && toolResult.toolName === "fetch_live_asset_data") {
-            // Execute the market data fetch server-side
-            console.log(`Executing fetch_live_asset_data for ticker: ${toolResult.toolInput.ticker}`);
-            const marketData = await fetchLiveMarketData(
-              toolResult.toolInput.ticker,
-              toolResult.toolInput.isin || null,
-            );
+          if (toolResult?.needsToolResult) {
+            let toolResultData: any;
+            
+            if (toolResult.toolName === "fetch_live_asset_data") {
+              console.log(`Executing fetch_live_asset_data for ticker: ${toolResult.toolInput.ticker}`);
+              toolResultData = await fetchLiveMarketData(
+                toolResult.toolInput.ticker,
+                toolResult.toolInput.isin || null,
+              );
+            } else if (toolResult.toolName === "search_macro_market_context") {
+              console.log(`Executing search_macro_market_context: "${toolResult.toolInput.query}"`);
+              if (!googleKey) {
+                toolResultData = { status: "error", message: "GOOGLE_AI_API_KEY não configurada para busca macro." };
+              } else {
+                toolResultData = await searchMacroMarketContext(toolResult.toolInput.query, googleKey);
+              }
+            }
 
             // Send tool result back to Claude for final response
             const continuationMessages = [
@@ -734,13 +844,13 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
               {
                 role: "assistant",
                 content: [
-                  { type: "tool_use", id: toolResult.toolId, name: "fetch_live_asset_data", input: toolResult.toolInput },
+                  { type: "tool_use", id: toolResult.toolId, name: toolResult.toolName, input: toolResult.toolInput },
                 ],
               },
               {
                 role: "user",
                 content: [
-                  { type: "tool_result", tool_use_id: toolResult.toolId, content: JSON.stringify(marketData) },
+                  { type: "tool_result", tool_use_id: toolResult.toolId, content: JSON.stringify(toolResultData) },
                 ],
               },
             ];
