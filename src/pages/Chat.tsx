@@ -451,7 +451,7 @@ export default function Chat() {
                       <p className="whitespace-pre-wrap">{msg.content}</p>
                     )}
                     {msg.role === "assistant" && msg.sources && msg.sources.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-gray-200">
+                      <div className="mt-4 pt-3 border-t border-gray-100">
                         <button
                           onClick={() =>
                             setExpandedSources((prev) => ({ ...prev, [msg.id]: !prev[msg.id] }))
