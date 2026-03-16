@@ -339,38 +339,35 @@ export default function Chat() {
       <div className="flex h-screen bg-white">
         {/* History Sidebar */}
         {showHistory && (
-          <div className="w-64 border-r border-gray-200 bg-gray-50 flex flex-col shrink-0">
-            <div className="p-3 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-900">Histórico</h3>
-              <button onClick={() => setShowHistory(false)} className="text-gray-400 hover:text-gray-700">
-                <X className="h-4 w-4" strokeWidth={1.5} />
-              </button>
-            </div>
-            <div className="p-2">
+          <div className="w-72 border-r border-gray-200 bg-gray-50 flex flex-col shrink-0">
+            <div className="p-3 border-b border-gray-200">
               <button
                 onClick={handleNewChat}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-emerald-600 hover:bg-emerald-50 transition-colors"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition-colors shadow-sm"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-4 w-4" strokeWidth={2} />
                 Nova conversa
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto scrollbar-thin px-2 pb-2 space-y-1">
+            <div className="px-3 pt-3 pb-1">
+              <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Conversas anteriores</h3>
+            </div>
+            <div className="flex-1 overflow-y-auto scrollbar-thin px-2 pb-2 space-y-0.5">
               {sessions.map((s) => (
                 <button
                   key={s.session_id}
                   onClick={() => handleSelectSession(s.session_id)}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors truncate ${
+                  className={`w-full text-left px-3 py-2.5 rounded-lg text-xs transition-colors truncate ${
                     s.session_id === sessionId
-                      ? "bg-emerald-50 text-gray-900"
-                      : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                      ? "bg-emerald-50 text-gray-900 font-medium border border-emerald-200"
+                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-800"
                   }`}
                 >
                   {s.preview || "Conversa sem título"}
                 </button>
               ))}
               {sessions.length === 0 && (
-                <p className="text-xs text-gray-400 px-3 py-2">Nenhuma conversa anterior.</p>
+                <p className="text-xs text-gray-400 px-3 py-4 text-center">Nenhuma conversa anterior.</p>
               )}
             </div>
           </div>
@@ -378,22 +375,15 @@ export default function Chat() {
 
         {/* Main Chat Area */}
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Top bar with filters, sources, and actions */}
+          {/* Top bar with filters and actions */}
           <div className="border-b border-gray-200 bg-white">
             <div className="flex items-center gap-2 px-4 py-2">
               <button
                 onClick={() => setShowHistory(!showHistory)}
-                className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                className={`p-2 rounded-lg transition-colors ${showHistory ? 'text-emerald-600 bg-emerald-50' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
                 title="Histórico de conversas"
               >
                 <History className="h-4 w-4" strokeWidth={1.5} />
-              </button>
-              <button
-                onClick={handleNewChat}
-                className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-                title="Nova conversa"
-              >
-                <Plus className="h-4 w-4" strokeWidth={1.5} />
               </button>
               <div className="h-5 w-px bg-gray-200 mx-1" />
               <div className="flex gap-2 flex-1">
