@@ -149,6 +149,10 @@ export default function AssetKnowledge() {
       toast.error("Selecione um portfólio antes de importar");
       return;
     }
+    if (!referenceDate) {
+      toast.error("Selecione a Data Base (Reference Date) antes de importar");
+      return;
+    }
     setDroppedFileName(file.name);
     const isExcel = /\.(xlsx?|xls)$/i.test(file.name);
 
