@@ -99,6 +99,7 @@ export default function Chat() {
     }
   }, [messages, isLoading]);
 
+  // Load sessions and auto-restore last session on first mount
   useEffect(() => {
     const loadSessions = async () => {
       const { data } = await supabase
@@ -121,6 +122,18 @@ export default function Chat() {
           }
         }
         setSessions(unique.slice(0, 20));
+
+        // Auto-load the most recent session on first mount
+        if (!initialLoadDone && unique.length > 0) {
+          setInitialLoadDone(true);
+          const lastSid = unique[0].session_id;
+          setSessionId(lastSid as any);
+          loadSession(lastSid);
+        } else {
+          setInitialLoadDone(true);
+        }
+      } else {
+        setInitialLoadDone(true);
       }
     };
     loadSessions();
