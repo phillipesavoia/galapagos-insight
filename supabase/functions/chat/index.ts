@@ -538,6 +538,61 @@ NÃO use para buscas simples de notícias (use get_company_ticker_news) ou conte
       required: ["research_prompt"],
     },
   },
+  {
+    name: "tavily_web_search",
+    description: `Busca na web usando a API Tavily para obter informações factuais e atualizadas. Ideal para pesquisas gerais sobre mercado, economia, empresas ou eventos que não são cobertos pelas outras ferramentas especializadas.
+
+Use quando precisar de informações atualizadas da web que não são específicas de um ticker (use finnhub_ticker_news para isso) nem exigem análise profunda (use ask_perplexity_researcher para isso).
+
+Exemplos:
+- "Qual a taxa de juros atual do Fed?"
+- "Quais os últimos dados de inflação nos EUA?"
+- "O que aconteceu na reunião do FOMC de março?"`,
+    input_schema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "A consulta de busca. Ex: 'Federal Reserve interest rate decision March 2026'",
+        },
+        search_depth: {
+          type: "string",
+          description: "Profundidade da busca: 'basic' (rápido) ou 'advanced' (mais detalhado). Default: 'basic'.",
+          enum: ["basic", "advanced"],
+        },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "finnhub_ticker_news",
+    description: `Obtém notícias reais e estruturadas de um ticker específico via API Finnhub (dados de mercado americano). Retorna manchetes, resumos e fontes verificáveis.
+
+Use esta ferramenta como COMPLEMENTO ao get_company_ticker_news (Gemini) para obter notícias com dados estruturados e fontes verificáveis de APIs financeiras profissionais.
+
+Exemplos:
+- "Notícias recentes da Apple"
+- "O que aconteceu com TSLA esta semana?"
+- "Últimas manchetes do KWEB"`,
+    input_schema: {
+      type: "object",
+      properties: {
+        symbol: {
+          type: "string",
+          description: "O ticker do ativo financeiro. Exemplo: 'KWEB', 'AAPL', 'FXI'.",
+        },
+        from_date: {
+          type: "string",
+          description: "Data inicial no formato YYYY-MM-DD. Exemplo: '2026-02-01'.",
+        },
+        to_date: {
+          type: "string",
+          description: "Data final no formato YYYY-MM-DD. Exemplo: '2026-02-28'.",
+        },
+      },
+      required: ["symbol", "from_date", "to_date"],
+    },
+  },
 ];
 
 Deno.serve(async (req) => {
