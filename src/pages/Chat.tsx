@@ -333,13 +333,13 @@ export default function Chat() {
         {/* History Sidebar */}
         {showHistory && (
           <div className="w-72 border-r border-gray-200 bg-gray-50 flex flex-col shrink-0">
-            <div className="p-3 border-b border-gray-200">
+            <div className="p-2 flex justify-end">
               <button
                 onClick={handleNewChat}
-                className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 text-white text-xs font-medium hover:bg-emerald-600 transition-colors shadow-sm"
+                className="p-1.5 rounded-md text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                title="Nova conversa"
               >
-                <Plus className="h-3.5 w-3.5" strokeWidth={2} />
-                Nova conversa
+                <Plus className="h-4 w-4" strokeWidth={2} />
               </button>
             </div>
             <div className="px-3 pt-3 pb-1">
