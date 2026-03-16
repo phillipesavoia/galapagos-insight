@@ -8,6 +8,7 @@ import { AdminRoute } from "@/components/AdminRoute";
 import Chat from "./pages/Chat";
 import Dashboard from "./pages/Dashboard";
 import Generator from "./pages/Generator";
+import Reports from "./pages/Reports";
 import Library from "./pages/Library";
 import NavUpload from "./pages/NavUpload";
 import NotFound from "./pages/NotFound";
