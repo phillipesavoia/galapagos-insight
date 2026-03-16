@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthGuard } from "@/components/AuthGuard";
 import { AdminRoute } from "@/components/AdminRoute";
 import Chat from "./pages/Chat";
+import LiveDashboard from "./pages/LiveDashboard";
 import Dashboard from "./pages/Dashboard";
 import Generator from "./pages/Generator";
 import Reports from "./pages/Reports";
@@ -24,9 +25,10 @@ const App = () => (
       <BrowserRouter>
         <AuthGuard>
           <Routes>
-            <Route path="/" element={<Navigate to="/chat" replace />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<LiveDashboard />} />
+            <Route path="/analytics" element={<Dashboard />} />
             <Route path="/chat" element={<Chat />} />
-            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/generator" element={<Generator />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/library" element={<AdminRoute><Library /></AdminRoute>} />
