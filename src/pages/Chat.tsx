@@ -197,14 +197,9 @@ export default function Chat() {
     setInput("");
     setIsLoading(true);
 
-    const filterMap: Record<string, string> = {
-      "Factsheets": "factsheet",
-      "Cartas Mensais": "carta_mensal",
-      "Apresentações": "apresentacao",
-    };
-    const filter_type = filterMap[activeFilter] || "all";
+      const filter_type = "all";
 
-    await persistMessage(newMsg, sessionId, { filter_type });
+      await persistMessage(newMsg, sessionId, { filter_type });
 
     const assistantId = (Date.now() + 1).toString();
     let fullContent = "";
