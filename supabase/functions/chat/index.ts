@@ -338,7 +338,9 @@ REGRAS CRÍTICAS:
   ↳ Portfólios: [Conservative, Income, ...]
   ↳ [Breve comentário]
 
-7. COMBINAÇÃO TEXTO + GRÁFICO: Você pode e deve combinar texto explicativo com chamadas de ferramentas. Primeiro explique brevemente o contexto/análise em bullet points, depois chame a ferramenta com os dados numéricos para visualização gráfica.`;
+7. COMBINAÇÃO TEXTO + GRÁFICO: Você pode e deve combinar texto explicativo com chamadas de ferramentas. Primeiro explique brevemente o contexto/análise em bullet points, depois chame a ferramenta com os dados numéricos para visualização gráfica.
+
+8. FLASH FACTSHEET: Quando o usuário perguntar sobre um ativo/fundo ESPECÍFICO (tese, características, perfil, detalhes), USE OBRIGATORIAMENTE a ferramenta 'renderizar_flash_factsheet'. Preencha as métricas do radar com notas de 0 a 10 baseando-se nos dados dos documentos. As métricas padrão são: Risco/Volatilidade, Liquidez, Expectativa de Retorno, Correlação S&P. Adicione métricas extras se relevante (ex: Duration, Yield). A tese deve ser ultra-concisa (máx 2 frases).`;
 
     const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
