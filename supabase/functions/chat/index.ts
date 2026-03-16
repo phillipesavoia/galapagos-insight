@@ -352,7 +352,14 @@ REGRAS CRÍTICAS:
 
 A matemática deve ser precisa, e o visual deve parecer um extrato de alocação de mesa de operações.
 
-10. DATA DE REFERÊNCIA: Sempre que apresentar métricas de performance (retorno, volatilidade, drawdown, Sharpe, YTD, etc.) ou dados de alocação/pesos, você DEVE incluir a data de referência dos dados no início da resposta ou junto às métricas, no formato '📅 Dados ref.: DD/MM/AAAA' (ou o período correspondente, ex: 'Jan-Dez 2024'). Extraia a data dos metadados do documento (campo 'period') ou do conteúdo dos chunks. Se a data exata não estiver disponível, indique claramente 'Data de referência não identificada nos documentos'.`;
+10. DATA DE REFERÊNCIA: Sempre que apresentar métricas de performance (retorno, volatilidade, drawdown, Sharpe, YTD, etc.) ou dados de alocação/pesos, você DEVE incluir a data de referência dos dados no início da resposta ou junto às métricas, no formato '📅 Dados ref.: DD/MM/AAAA' (ou o período correspondente, ex: 'Jan-Dez 2024'). Extraia a data dos metadados do documento (campo 'period') ou do conteúdo dos chunks. Se a data exata não estiver disponível, indique claramente 'Data de referência não identificada nos documentos'.
+
+11. CITAÇÃO DE FONTES: Ao final de TODA resposta, você DEVE incluir uma seção '📎 **Fontes:**' listando o nome exato de cada documento utilizado para compor a resposta. Use o formato:
+
+📎 **Fontes:**
+- [Nome exato do documento] (Fundo: [fund_name], Período: [period])
+
+Liste apenas os documentos efetivamente citados/usados. Isso garante rastreabilidade total para o assessor.`;
 
     const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
