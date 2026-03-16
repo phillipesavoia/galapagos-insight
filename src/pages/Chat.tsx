@@ -492,7 +492,7 @@ export default function Chat() {
                       </div>
                     )}
                     {msg.role === "assistant" && (msg.content || (msg.toolCalls && msg.toolCalls.length > 0)) && (
-                      <div className="flex items-center gap-1 mt-3 pt-2 border-t border-gray-100">
+                      <div className="flex items-center gap-1 mt-3 pt-2">
                         <button
                           onClick={() => {/* TODO: feedback */}}
                           className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
