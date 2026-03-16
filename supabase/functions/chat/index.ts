@@ -149,6 +149,75 @@ async function searchMacroMarketContext(query: string, googleKey: string): Promi
   }
 }
 
+// --- Company/Ticker News Search via Gemini + Google Search Grounding ---
+async function getCompanyTickerNews(symbol: string, fromDate: string, toDate: string, googleKey: string): Promise<any> {
+  try {
+    console.log(`Fetching news for ${symbol} from ${fromDate} to ${toDate}`);
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${googleKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  text: `Você é um analista financeiro sênior. Pesquise e liste as principais notícias, manchetes e eventos corporativos relacionados ao ticker "${symbol}" no período de ${fromDate} a ${toDate}.
+
+Estruture sua resposta em ordem cronológica com:
+- **Data** — Manchete/Evento
+- Breve contexto (1-2 frases) sobre o impacto no preço/mercado
+
+Foque em:
+1. Resultados trimestrais / balanços
+2. Mudanças regulatórias que afetem o ativo
+3. Notícias corporativas relevantes (M&A, guidance, downgrades/upgrades)
+4. Eventos de mercado que moveram o preço significativamente
+
+Responda em português brasileiro. Seja factual. Máximo 500 palavras.`,
+                },
+              ],
+            },
+          ],
+          tools: [{ googleSearch: {} }],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 1200,
+          },
+        }),
+      }
+    );
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`Gemini news error [${res.status}]:`, errText);
+      return { status: "error", message: `Erro ao buscar notícias para ${symbol}: HTTP ${res.status}`, symbol };
+    }
+
+    const data = await res.json();
+    const textParts = data?.candidates?.[0]?.content?.parts || [];
+    const textContent = textParts.filter((p: any) => p.text).map((p: any) => p.text).join("\n");
+
+    const groundingMetadata = data?.candidates?.[0]?.groundingMetadata;
+    const groundingSources = groundingMetadata?.groundingChunks?.map((c: any) => ({
+      title: c.web?.title || "",
+      url: c.web?.uri || "",
+    })) || [];
+
+    return {
+      status: "success",
+      symbol,
+      period: `${fromDate} a ${toDate}`,
+      news: textContent,
+      sources: groundingSources,
+    };
+  } catch (err) {
+    console.error("Ticker news error:", err);
+    return { status: "fetch_error", message: `Falha ao buscar notícias para ${symbol}`, symbol };
+  }
+}
 
 const TOOLS = [
   {
@@ -305,6 +374,35 @@ Exemplos:
         },
       },
       required: ["query"],
+    },
+  },
+  {
+    name: "get_company_ticker_news",
+    description: `Obtém as últimas notícias e manchetes financeiras atreladas a um símbolo (Ticker) específico no mercado americano ou global. Use para verificar fatos relevantes, balanços ou notícias corporativas de um ativo.
+
+Use esta ferramenta quando o assessor pedir notícias específicas de um ticker, quiser saber o que aconteceu com uma empresa, ou quando precisar de contexto corporativo para complementar a análise macro.
+
+Exemplos:
+- "Quais as últimas notícias do KWEB?"
+- "O que aconteceu com a Apple em março?"
+- "Tem alguma notícia sobre o ETF FXI?"`,
+    input_schema: {
+      type: "object",
+      properties: {
+        symbol: {
+          type: "string",
+          description: "O ticker do ativo financeiro. Exemplo: 'KWEB', 'AAPL', 'FXI'.",
+        },
+        from_date: {
+          type: "string",
+          description: "A data inicial da busca no formato YYYY-MM-DD. Exemplo: '2026-02-01'.",
+        },
+        to_date: {
+          type: "string",
+          description: "A data final da busca no formato YYYY-MM-DD. Exemplo: '2026-02-28'.",
+        },
+      },
+      required: ["symbol", "from_date", "to_date"],
     },
   },
 ];
@@ -621,6 +719,12 @@ REGRAS DE RECONHECIMENTO (OBRIGATÓRIAS):
 - Formato obrigatório ao usar dados desta ferramenta: iniciar com "🌐 **Contexto de Mercado (Fontes Externas):**" para diferenciar claramente da visão da casa.
 - Após apresentar o contexto externo, SEMPRE adicione a visão da gestão (se disponível nos documentos) para complementar.
 
+### REGRA DE NOTÍCIAS POR TICKER (BUSCA EXTERNA):
+
+- Quando o assessor pedir notícias específicas de um ticker/ativo, ou quiser entender eventos corporativos recentes, use a ferramenta 'get_company_ticker_news' passando o ticker e o período desejado.
+- Os resultados devem ser apresentados sob o header "📰 **Notícias Recentes ({TICKER}):**" para diferenciar de dados internos.
+- Combine as notícias com dados do Asset Dictionary quando disponível para dar contexto completo ao assessor.
+
 ---
 
 ## REGRAS OPERACIONAIS
@@ -779,7 +883,7 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
                   try {
                     const toolInput = JSON.parse(toolInputJson);
                     
-                    if (handleServerTool && (currentToolName === "fetch_live_asset_data" || currentToolName === "search_macro_market_context")) {
+                    if (handleServerTool && (currentToolName === "fetch_live_asset_data" || currentToolName === "search_macro_market_context" || currentToolName === "get_company_ticker_news")) {
                       // Server-side tool — don't emit to client yet
                       serverToolCall = { id: currentToolId, name: currentToolName, input: toolInput };
                     } else {
@@ -835,6 +939,18 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
                 toolResultData = { status: "error", message: "GOOGLE_AI_API_KEY não configurada para busca macro." };
               } else {
                 toolResultData = await searchMacroMarketContext(toolResult.toolInput.query, googleKey);
+              }
+            } else if (toolResult.toolName === "get_company_ticker_news") {
+              console.log(`Executing get_company_ticker_news for: ${toolResult.toolInput.symbol}`);
+              if (!googleKey) {
+                toolResultData = { status: "error", message: "GOOGLE_AI_API_KEY não configurada para busca de notícias." };
+              } else {
+                toolResultData = await getCompanyTickerNews(
+                  toolResult.toolInput.symbol,
+                  toolResult.toolInput.from_date,
+                  toolResult.toolInput.to_date,
+                  googleKey,
+                );
               }
             }
 
