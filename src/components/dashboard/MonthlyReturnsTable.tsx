@@ -223,7 +223,7 @@ export function MonthlyReturnsTable({ data, loading }: MonthlyReturnsTableProps)
               </TableRow>
             </TableHeader>
             <TableBody>
-              {years.map((year) => (
+              {displayYears.map((year) => (
                 <TableRow key={year} className="border-border">
                   <TableCell className="text-sm font-semibold text-foreground tabular-nums">
                     {year}
