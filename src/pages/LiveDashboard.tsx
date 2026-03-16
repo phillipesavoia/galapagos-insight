@@ -85,7 +85,7 @@ const portfolios: MarketCardProps[] = [
 export default function LiveDashboard() {
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto space-y-10">
+      <div className="w-full px-6 py-6 space-y-10 overflow-x-hidden">
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">
