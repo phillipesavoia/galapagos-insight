@@ -1,0 +1,1 @@
+ALTER TABLE public.asset_knowledge ADD COLUMN IF NOT EXISTS as_of_date date;
