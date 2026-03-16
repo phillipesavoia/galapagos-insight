@@ -275,7 +275,8 @@ Deno.serve(async (req) => {
           const weights = a.weight_pct && Object.keys(a.weight_pct).length > 0
             ? `\nPesos: ${Object.entries(a.weight_pct).map(([k, v]) => `${k}: ${v}%`).join(", ")}`
             : "";
-          return `[ASSET DICTIONARY — ${a.ticker}${a.isin ? ` | ISIN: ${a.isin}` : ""}]\nNome: ${a.name}\nClasse: ${a.asset_class}\nPerfil de Risco: ${a.risk_profile}${portfolios}${weights}\nTese Oficial da Gestão: ${a.official_thesis}`;
+          const asOfDate = a.as_of_date ? `\n📅 Data Base (As of Date): ${a.as_of_date}` : "";
+          return `[ASSET DICTIONARY — ${a.ticker}${a.isin ? ` | ISIN: ${a.isin}` : ""}]\nNome: ${a.name}\nClasse: ${a.asset_class}\nPerfil de Risco: ${a.risk_profile}${portfolios}${weights}${asOfDate}\nTese Oficial da Gestão: ${a.official_thesis}`;
         }).join("\n\n---\n\n");
         console.log(`Asset Knowledge: matched ${matchedAssets.length} assets from dictionary`);
       }
@@ -451,6 +452,13 @@ Você é o assistente oficial e ESPECIALISTA EM ATIVOS da equipe de gestão da G
 - Você SÓ pode citar pesos/percentuais atuais se estiver lendo DIRETAMENTE dos dados da tabela de alocação ou dos documentos fornecidos na requisição. NUNCA invente números.
 - Você é o ESPECIALISTA DOS ATIVOS DA CASA. Se questionado sobre um fundo/ativo, use PRIORITARIAMENTE as informações do Asset Dictionary fornecidas na seção "BASE DE CONHECIMENTO DE ATIVOS". Se o ativo não estiver no dicionário NEM nos documentos, afirme claramente: "Não possuo o descritivo oficial da gestão para este ativo."
 - É PROIBIDO inventar matemática de portfólio, calcular diferenças entre alocações históricas, ou narrar operações de compra/venda que não estejam explicitamente descritas nos documentos.
+
+### REGRA DE FIREWALL DE DADOS — QUANTS vs QUALIS (INQUEBRÁVEL):
+
+- Para fornecer PESOS, ALOCAÇÕES e PORCENTAGENS de fundos/ativos, a ÚNICA fonte da verdade permitida é a base de dados oficial (Asset Dictionary / Bloomberg). Você está TERMINANTEMENTE PROIBIDO de citar pesos, mudanças de percentuais ou operações táticas mencionadas nos PDFs (ex: "reduzimos de X% para Y%", "aumentamos a posição para Z%").
+- Os PDFs (atas, apresentações, cenários) servem EXCLUSIVAMENTE para a TESE QUALITATIVA e CENÁRIO MACRO. IGNORE COMPLETAMENTE qualquer matemática de portfólio, percentuais de alocação ou movimentações táticas presentes nos textos dos PDFs.
+- Sempre que informar a alocação de um fundo/ativo, você DEVE exibir claramente a 'Data Base' (As of Date) proveniente do banco de dados no formato: '📅 Data Base: DD/MM/AAAA'. Se a Data Base não estiver disponível, indique: '📅 Data Base: não informada'.
+- Se houver conflito entre um peso citado num PDF e o peso do Asset Dictionary, USE SEMPRE o Asset Dictionary e IGNORE o PDF. Explique: "O peso oficial vigente conforme a Data Base é X%. Dados de PDFs históricos podem divergir."
 
 ### REGRA DE DADOS DE MERCADO EM TEMPO REAL (GOLDEN SOURCE):
 
