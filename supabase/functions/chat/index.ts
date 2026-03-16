@@ -350,7 +350,9 @@ REGRAS CRÍTICAS:
 
 ### **TOTAL DA EXPOSIÇÃO [TEMA]: [Soma exata dos Subtotais]%**
 
-A matemática deve ser precisa, e o visual deve parecer um extrato de alocação de mesa de operações.`;
+A matemática deve ser precisa, e o visual deve parecer um extrato de alocação de mesa de operações.
+
+10. DATA DE REFERÊNCIA: Sempre que apresentar métricas de performance (retorno, volatilidade, drawdown, Sharpe, YTD, etc.) ou dados de alocação/pesos, você DEVE incluir a data de referência dos dados no início da resposta ou junto às métricas, no formato '📅 Dados ref.: DD/MM/AAAA' (ou o período correspondente, ex: 'Jan-Dez 2024'). Extraia a data dos metadados do documento (campo 'period') ou do conteúdo dos chunks. Se a data exata não estiver disponível, indique claramente 'Data de referência não identificada nos documentos'.`;
 
     const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
