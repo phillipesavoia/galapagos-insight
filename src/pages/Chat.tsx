@@ -273,6 +273,19 @@ export default function Chat() {
         />
       );
     }
+    if (tc.tool === "renderizar_flash_factsheet" && tc.input) {
+      return (
+        <FlashFactsheet
+          key={idx}
+          assetName={tc.input.assetName || ""}
+          ticker={tc.input.ticker}
+          assetClass={tc.input.assetClass || ""}
+          portfolios={tc.input.portfolios || []}
+          radarMetrics={tc.input.radarMetrics || []}
+          thesis={tc.input.thesis || ""}
+        />
+      );
+    }
     return null;
   };
 
