@@ -17,6 +17,7 @@ export interface NavDataPoint {
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<string>("Conservative");
+  const [period, setPeriod] = useState<Period>("YTD");
   const [navData, setNavData] = useState<NavDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
 
