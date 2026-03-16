@@ -55,9 +55,11 @@ export type Database = {
           isin: string | null
           name: string
           official_thesis: string
+          portfolios: string[] | null
           risk_profile: string
           ticker: string
           updated_at: string
+          weight_pct: Json | null
         }
         Insert: {
           asset_class: string
@@ -66,9 +68,11 @@ export type Database = {
           isin?: string | null
           name: string
           official_thesis?: string
+          portfolios?: string[] | null
           risk_profile?: string
           ticker: string
           updated_at?: string
+          weight_pct?: Json | null
         }
         Update: {
           asset_class?: string
@@ -77,9 +81,11 @@ export type Database = {
           isin?: string | null
           name?: string
           official_thesis?: string
+          portfolios?: string[] | null
           risk_profile?: string
           ticker?: string
           updated_at?: string
+          weight_pct?: Json | null
         }
         Relationships: []
       }
