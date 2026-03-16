@@ -49,7 +49,7 @@ export function PortfolioTab({ portfolio, navData, loading, period, onPeriodChan
                 : "Evolução do período selecionado"}
             </p>
           </div>
-          <PeriodFilter value={period} onChange={setPeriod} />
+          <PeriodFilter value={period} onChange={onPeriodChange} />
         </div>
         <NavChart portfolio={portfolio} data={filtered} loading={loading} hideHeader />
       </div>
