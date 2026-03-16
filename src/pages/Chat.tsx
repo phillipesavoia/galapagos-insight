@@ -69,7 +69,7 @@ function extractFollowUps(content: string): { cleanContent: string; followUps: s
   return { cleanContent, followUps };
 }
 
-const filterChips = ["Todos os documentos", "Factsheets", "Cartas Mensais", "Apresentações"];
+
 
 function generateSessionId() {
   return crypto.randomUUID();
@@ -79,8 +79,6 @@ export default function Chat() {
   const [sessionId, setSessionId] = useState(() => generateSessionId());
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
-  const [activeFilter, setActiveFilter] = useState("Todos os documentos");
-  const [activeFund, setActiveFund] = useState("Todos");
   const [expandedSources, setExpandedSources] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -199,14 +197,9 @@ export default function Chat() {
     setInput("");
     setIsLoading(true);
 
-    const filterMap: Record<string, string> = {
-      "Factsheets": "factsheet",
-      "Cartas Mensais": "carta_mensal",
-      "Apresentações": "apresentacao",
-    };
-    const filter_type = filterMap[activeFilter] || "all";
+      const filter_type = "all";
 
-    await persistMessage(newMsg, sessionId, { filter_type });
+      await persistMessage(newMsg, sessionId, { filter_type });
 
     const assistantId = (Date.now() + 1).toString();
     let fullContent = "";
@@ -223,7 +216,7 @@ export default function Chat() {
           Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
-        body: JSON.stringify({ query: msg, filter_type, filter_fund: activeFund === "Todos" ? null : activeFund, session_id: sessionId }),
+        body: JSON.stringify({ query: msg, filter_type, session_id: sessionId }),
       });
 
       if (!resp.ok || !resp.body) {
@@ -375,43 +368,6 @@ export default function Chat() {
 
         {/* Main Chat Area */}
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Top bar with filters and actions */}
-          <div className="border-b border-gray-200 bg-white">
-            <div className="flex items-center gap-2 px-4 py-2">
-              <button
-                onClick={() => setShowHistory(!showHistory)}
-                className={`p-2 rounded-lg transition-colors ${showHistory ? 'text-emerald-600 bg-emerald-50' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
-                title="Histórico de conversas"
-              >
-                <History className="h-4 w-4" strokeWidth={1.5} />
-              </button>
-              <div className="h-5 w-px bg-gray-200 mx-1" />
-              <div className="flex gap-2 flex-1">
-                {filterChips.map((chip) => (
-                  <button
-                    key={chip}
-                    onClick={() => setActiveFilter(chip)}
-                    className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${
-                      activeFilter === chip
-                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                        : "bg-gray-100 text-gray-500 hover:text-gray-700"
-                    }`}
-                  >
-                    {chip}
-                  </button>
-                ))}
-              </div>
-              <select
-                value={activeFund}
-                onChange={(e) => setActiveFund(e.target.value)}
-                className="px-3 py-1.5 rounded-lg text-xs bg-gray-100 text-gray-700 border border-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer"
-              >
-                {["Todos", "Conservative", "Income", "Balanced", "Growth"].map((fund) => (
-                  <option key={fund} value={fund}>{fund === "Todos" ? "Todos os Portfólios" : fund}</option>
-                ))}
-              </select>
-            </div>
-          </div>
 
           {isEmpty ? (
             <div className="flex-1 flex items-center justify-center p-8 bg-white">
@@ -578,7 +534,14 @@ export default function Chat() {
 
           {/* Input */}
           <div className="border-t border-gray-200 p-4 bg-white">
-            <div className="flex items-end gap-3">
+            <div className="flex items-end gap-2">
+              <button
+                onClick={() => setShowHistory(!showHistory)}
+                className={`h-11 w-11 rounded-xl flex items-center justify-center transition-colors shrink-0 ${showHistory ? 'text-emerald-600 bg-emerald-50 border border-emerald-200' : 'text-gray-400 bg-gray-50 border border-gray-200 hover:text-gray-700 hover:bg-gray-100'}`}
+                title="Histórico de conversas"
+              >
+                <History className="h-4 w-4" strokeWidth={1.5} />
+              </button>
               <textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
