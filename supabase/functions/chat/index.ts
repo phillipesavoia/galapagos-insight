@@ -387,6 +387,7 @@ Liste apenas os documentos efetivamente citados/usados. Isso garante rastreabili
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
         max_tokens: 4096,
+        temperature: 0,
         stream: true,
         system: systemPrompt,
         tools: TOOLS,
