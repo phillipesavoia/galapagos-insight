@@ -38,6 +38,20 @@ const suggestions = [
   "Mostre os retornos mensais dos portfólios em gráfico",
 ];
 
+function extractFollowUps(content: string): { cleanContent: string; followUps: string[] } {
+  const regex = /💡\s*\*{0,2}Explorar mais:?\*{0,2}\s*\n([\s\S]*?)$/;
+  const match = content.match(regex);
+  if (!match) return { cleanContent: content, followUps: [] };
+
+  const cleanContent = content.slice(0, match.index).trimEnd();
+  const lines = match[1].trim().split("\n").map(l => l.trim()).filter(Boolean);
+  const followUps = lines
+    .map(l => l.replace(/^\d+\.\s*/, "").trim())
+    .filter(q => q.length > 5);
+
+  return { cleanContent, followUps };
+}
+
 const filterChips = ["Todos os documentos", "Factsheets", "Cartas Mensais", "Apresentações"];
 
 function generateSessionId() {
