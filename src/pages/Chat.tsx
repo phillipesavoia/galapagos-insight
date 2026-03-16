@@ -465,7 +465,7 @@ export default function Chat() {
                   Pesquiso na base de documentos indexados para responder.
                 </p>
                 <div className="grid grid-cols-2 gap-3">
-                  {suggestions.map((s) => (
+                  {randomSuggestions.map((s) => (
                     <button
                       key={s}
                       onClick={() => handleSend(s)}
