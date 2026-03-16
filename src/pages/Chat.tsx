@@ -31,12 +31,29 @@ interface ChatSession {
   created_at: string;
 }
 
-const suggestions = [
+const allSuggestions = [
   "Qual foi o drawdown máximo no último trimestre?",
   "Compare a performance YTD de todos os portfólios",
   "Como explicar nossa posição em crédito para um cliente conservador?",
   "Mostre os retornos mensais dos portfólios em gráfico",
+  "Qual a composição atual do portfólio Growth?",
+  "Quais ativos têm menor correlação com o S&P 500?",
+  "Qual o Sharpe ratio de cada portfólio no último ano?",
+  "Me fale sobre a tese do fundo Conservative",
+  "Quais foram as maiores contribuições positivas para o portfólio Balanced?",
+  "Compare o risco dos portfólios Income e Growth",
+  "Qual a exposição cambial atual dos portfólios?",
+  "Quais ativos foram adicionados ou removidos recentemente?",
+  "Qual o retorno acumulado do portfólio Income desde o início?",
+  "Explique a alocação em renda fixa dos portfólios",
+  "Quais são os ativos com maior peso no portfólio Balanced?",
+  "Qual a duration média da carteira de bonds?",
 ];
+
+function getRandomSuggestions(count: number) {
+  const shuffled = [...allSuggestions].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
 
 function extractFollowUps(content: string): { cleanContent: string; followUps: string[] } {
   const regex = /💡\s*\*{0,2}Explorar mais:?\*{0,2}\s*\n([\s\S]*?)$/;
