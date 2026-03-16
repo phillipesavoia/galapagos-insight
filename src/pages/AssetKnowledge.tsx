@@ -366,6 +366,7 @@ export default function AssetKnowledge() {
         official_thesis: entry.thesis || undefined,
         portfolios: mergedPortfolios,
         weight_pct: mergedWeights,
+        as_of_date: referenceDate ? format(referenceDate, "yyyy-MM-dd") : null,
         updated_at: new Date().toISOString(),
       } as any;
 
