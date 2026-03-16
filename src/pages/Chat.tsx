@@ -79,8 +79,6 @@ export default function Chat() {
   const [sessionId, setSessionId] = useState(() => generateSessionId());
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
-  const [activeFilter, setActiveFilter] = useState("Todos os documentos");
-  const [activeFund, setActiveFund] = useState("Todos");
   const [expandedSources, setExpandedSources] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
