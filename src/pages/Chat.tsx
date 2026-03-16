@@ -612,16 +612,6 @@ export default function Chat() {
           </div>
         </div>
 
-        {/* Floating button to show sources if hidden */}
-        {!showSourcesPanel && !isEmpty && lastAssistantSources.length > 0 && (
-          <button
-            onClick={() => setShowSourcesPanel(true)}
-            className="fixed top-16 right-6 px-3 py-1.5 rounded-lg bg-white border border-gray-200 shadow-md text-xs text-gray-600 hover:text-gray-900 transition-colors z-10"
-          >
-            <SlidersHorizontal className="h-3.5 w-3.5 inline mr-1.5" strokeWidth={1.5} />
-            Fontes
-          </button>
-        )}
       </div>
     </Layout>
   );
