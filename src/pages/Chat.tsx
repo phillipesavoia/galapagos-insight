@@ -3,6 +3,7 @@ import { Send, ChevronDown, ChevronRight, X, SlidersHorizontal, Plus, History, T
 import ReactMarkdown from "react-markdown";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
+import { InlineBarChart } from "@/components/chat/InlineBarChart";
 
 interface ChatSource {
   name: string;
@@ -10,11 +11,17 @@ interface ChatSource {
   file_url?: string | null;
 }
 
+interface ToolCallData {
+  tool: string;
+  input: any;
+}
+
 interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
   sources?: ChatSource[];
+  toolCalls?: ToolCallData[];
 }
 
 interface ChatSession {
@@ -25,9 +32,9 @@ interface ChatSession {
 
 const suggestions = [
   "Qual foi o drawdown máximo no último trimestre?",
-  "Compare os fundos de menor correlação com S&P 500",
+  "Compare a performance YTD de todos os portfólios",
   "Como explicar nossa posição em crédito para um cliente conservador?",
-  "O que dissemos sobre Duration na carta de fevereiro?",
+  "Mostre os retornos mensais dos portfólios em gráfico",
 ];
 
 const filterChips = ["Todos os documentos", "Factsheets", "Cartas Mensais", "Apresentações"];
@@ -48,18 +55,15 @@ export default function Chat() {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const hasLoadedRef = useRef(false);
 
   const isEmpty = messages.length === 0;
   const lastAssistantSources = [...messages].reverse().find((m) => m.role === "assistant")?.sources || [];
 
-  // Auto-scroll to bottom when messages change or loading state changes
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollTop = messagesEndRef.current.scrollHeight;
     }
   }, [messages, isLoading]);
-
 
   useEffect(() => {
     const loadSessions = async () => {
@@ -88,7 +92,6 @@ export default function Chat() {
     loadSessions();
   }, [messages.length]);
 
-  // Load messages for current session
   const loadSession = useCallback(async (sid: string) => {
     const { data } = await supabase
       .from("advisor_chat_history")
@@ -107,7 +110,6 @@ export default function Chat() {
     }
   }, []);
 
-  // Persist a message to Supabase
   const persistMessage = async (
     msg: ChatMessage,
     sid: string,
@@ -158,12 +160,12 @@ export default function Chat() {
     };
     const filter_type = filterMap[activeFilter] || "all";
 
-    // Persist user message
     await persistMessage(newMsg, sessionId, { filter_type });
 
     const assistantId = (Date.now() + 1).toString();
     let fullContent = "";
     let sources: ChatSource[] = [];
+    let toolCalls: ToolCallData[] = [];
 
     try {
       const chatUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
@@ -183,7 +185,7 @@ export default function Chat() {
       }
 
       // Create initial assistant message
-      setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "", sources: [] }]);
+      setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "", sources: [], toolCalls: [] }]);
 
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
@@ -207,10 +209,20 @@ export default function Chat() {
             const event = JSON.parse(jsonStr);
             if (event.type === "delta" && event.text) {
               fullContent += event.text;
-              const contentSnapshot = fullContent;
+              const snap = fullContent;
+              const tcSnap = [...toolCalls];
               setMessages((prev) =>
                 prev.map((m) =>
-                  m.id === assistantId ? { ...m, content: contentSnapshot } : m
+                  m.id === assistantId ? { ...m, content: snap, toolCalls: tcSnap } : m
+                )
+              );
+            } else if (event.type === "tool_call") {
+              toolCalls.push({ tool: event.tool, input: event.input });
+              const snap = fullContent;
+              const tcSnap = [...toolCalls];
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId ? { ...m, content: snap, toolCalls: tcSnap } : m
                 )
               );
             } else if (event.type === "sources") {
@@ -227,7 +239,6 @@ export default function Chat() {
         }
       }
 
-      // Persist final assistant message
       await persistMessage(
         { id: assistantId, role: "assistant", content: fullContent, sources },
         sessionId
@@ -247,6 +258,21 @@ export default function Chat() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const renderToolCall = (tc: ToolCallData, idx: number) => {
+    if (tc.tool === "renderizar_grafico_barras" && tc.input) {
+      return (
+        <InlineBarChart
+          key={idx}
+          title={tc.input.title || ""}
+          data={tc.input.data || []}
+          bars={tc.input.bars || []}
+          yAxisLabel={tc.input.yAxisLabel}
+        />
+      );
+    }
+    return null;
   };
 
   return (
@@ -291,7 +317,7 @@ export default function Chat() {
           </div>
         )}
 
-        {/* Main Chat Area - now takes full width */}
+        {/* Main Chat Area */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Top bar */}
           <div className="flex items-center gap-2 p-3 border-b border-gray-200 bg-white">
@@ -345,9 +371,19 @@ export default function Chat() {
                     }`}
                   >
                     {msg.role === "assistant" ? (
-                      <div className="prose prose-sm max-w-none text-gray-800 [&_p]:my-2 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-1 [&_strong]:text-gray-900 [&_strong]:font-semibold [&_h1]:text-[15px] [&_h2]:text-[14px] [&_h3]:text-[13px] [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-semibold [&_h1]:mt-4 [&_h2]:mt-4 [&_h3]:mt-3 [&_h1]:mb-2 [&_h2]:mb-2 [&_h3]:mb-1 [&_ul]:pl-5 [&_ol]:pl-5 [&_li]:text-gray-700 [&_hr]:my-3 [&_hr]:border-gray-200">
-                        <ReactMarkdown>{msg.content}</ReactMarkdown>
-                      </div>
+                      <>
+                        {msg.content && (
+                          <div className="prose prose-sm max-w-none text-gray-800 [&_p]:my-2 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-1 [&_strong]:text-gray-900 [&_strong]:font-semibold [&_h1]:text-[15px] [&_h2]:text-[14px] [&_h3]:text-[13px] [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-semibold [&_h1]:mt-4 [&_h2]:mt-4 [&_h3]:mt-3 [&_h1]:mb-2 [&_h2]:mb-2 [&_h3]:mb-1 [&_ul]:pl-5 [&_ol]:pl-5 [&_li]:text-gray-700 [&_hr]:my-3 [&_hr]:border-gray-200">
+                            <ReactMarkdown>{msg.content}</ReactMarkdown>
+                          </div>
+                        )}
+                        {/* Render tool call components (Generative UI) */}
+                        {msg.toolCalls && msg.toolCalls.length > 0 && (
+                          <div className="mt-2">
+                            {msg.toolCalls.map((tc, i) => renderToolCall(tc, i))}
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <p className="whitespace-pre-wrap">{msg.content}</p>
                     )}
@@ -392,7 +428,7 @@ export default function Chat() {
                         )}
                       </div>
                     )}
-                    {msg.role === "assistant" && msg.content && (
+                    {msg.role === "assistant" && (msg.content || (msg.toolCalls && msg.toolCalls.length > 0)) && (
                       <div className="flex items-center gap-1 mt-3 pt-2 border-t border-gray-100">
                         <button
                           onClick={() => {/* TODO: feedback */}}
@@ -442,7 +478,7 @@ export default function Chat() {
             </div>
           )}
 
-          {/* Sources panel - now at bottom-left */}
+          {/* Sources panel */}
           {showSourcesPanel && lastAssistantSources.length > 0 && !isEmpty && (
             <div className="border-t border-gray-200 bg-gray-50 px-4 py-3">
               <div className="flex items-center justify-between mb-2">
