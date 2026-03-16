@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,8 +7,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, BookOpen, Upload, Download, FileSpreadsheet, X, CheckCircle2, AlertCircle } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Pencil, Trash2, BookOpen, Download, FileSpreadsheet, X, CheckCircle2, AlertCircle, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
+import { useDropzone } from "react-dropzone";
+import * as XLSX from "xlsx";
 
 interface Asset {
   id: string;
@@ -18,65 +22,55 @@ interface Asset {
   asset_class: string;
   official_thesis: string;
   risk_profile: string;
+  portfolios: string[];
+  weight_pct: Record<string, number>;
 }
 
-interface CsvRow {
+interface ParsedRow {
+  portfolio: string;
   ticker: string;
   isin: string;
   name: string;
   asset_class: string;
-  official_thesis: string;
-  risk_profile: string;
+  weight: number;
+  thesis: string;
   valid: boolean;
   error?: string;
 }
 
 const ASSET_CLASSES = [
-  "Fixed Income",
-  "Equities",
-  "Alternatives",
-  "Commodities",
-  "Cash & Equivalents",
-  "Real Estate",
-  "Private Credit",
-  "Crypto",
+  "Fixed Income", "Equities", "Alternatives", "Commodities",
+  "Cash & Equivalents", "Real Estate", "Private Credit", "Crypto",
 ];
-
 const RISK_PROFILES = ["Conservative", "Moderate", "Aggressive"];
 
 const emptyAsset = { ticker: "", isin: "", name: "", asset_class: "Fixed Income", official_thesis: "", risk_profile: "Moderate" };
 
-function parseCsvLine(line: string): string[] {
-  const result: string[] = [];
-  let current = "";
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    if (char === '"') {
-      if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
-      else { inQuotes = !inQuotes; }
-    } else if ((char === "," || char === ";") && !inQuotes) {
-      result.push(current.trim());
-      current = "";
-    } else {
-      current += char;
-    }
-  }
-  result.push(current.trim());
-  return result;
+// Normalize header names to match expected columns
+function normalizeHeader(h: string): string {
+  const s = h.toLowerCase().trim().replace(/[^a-z0-9]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
+  const map: Record<string, string> = {
+    portfolio: "portfolio", modelo: "portfolio", model: "portfolio", portf_lio: "portfolio",
+    ticker: "ticker", symbol: "ticker", s_mbolo: "ticker",
+    isin: "isin",
+    nome: "name", name: "name", ativo: "name", asset: "name", fund: "name", fundo: "name", nome_do_ativo: "name", asset_name: "name",
+    asset_class: "asset_class", classe: "asset_class", class: "asset_class", classe_do_ativo: "asset_class", tipo: "asset_class",
+    peso: "weight", weight: "weight", peso___: "weight", weight___: "weight", aloca__o: "weight", allocation: "weight", peso____: "weight", weight____: "weight",
+    tese: "thesis", thesis: "thesis", tese_da_gest_o: "thesis", official_thesis: "thesis", coment_rio: "thesis", comment: "thesis",
+    risk_profile: "risk_profile", perfil_de_risco: "risk_profile", risco: "risk_profile",
+  };
+  return map[s] || s;
 }
 
-function validateRow(row: CsvRow, existingTickers: Set<string>, seenTickers: Set<string>): CsvRow {
-  if (!row.ticker) return { ...row, valid: false, error: "Ticker obrigatório" };
-  if (!row.name) return { ...row, valid: false, error: "Nome obrigatório" };
-  if (row.ticker.length > 20) return { ...row, valid: false, error: "Ticker muito longo" };
-  if (row.name.length > 200) return { ...row, valid: false, error: "Nome muito longo" };
-  if (row.isin && !/^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(row.isin)) return { ...row, valid: false, error: "ISIN inválido (formato: XX0000000000)" };
-  if (row.official_thesis.length > 5000) return { ...row, valid: false, error: "Tese muito longa (max 5000)" };
-  if (seenTickers.has(row.ticker)) return { ...row, valid: false, error: "Ticker duplicado no CSV" };
-  const isDuplicate = existingTickers.has(row.ticker);
-  seenTickers.add(row.ticker);
-  return { ...row, valid: true, error: isDuplicate ? "Será atualizado (já existe)" : undefined };
+function inferAssetClass(name: string, ticker: string): string {
+  const combined = `${name} ${ticker}`.toLowerCase();
+  if (/bond|treasury|credit|income|yield|duration|tips|mbs|bil|shy|ief|tlt|hyg|lqd|bnd|agg|emb|vcsh/i.test(combined)) return "Fixed Income";
+  if (/equity|stock|spy|qqq|iwm|eem|vti|vwo|growth|value|dividend/i.test(combined)) return "Equities";
+  if (/gold|silver|commodity|oil|gld|slv|dba|dbc/i.test(combined)) return "Commodities";
+  if (/real estate|reit|vnq|ire/i.test(combined)) return "Real Estate";
+  if (/alternative|hedge|private|arbitr/i.test(combined)) return "Alternatives";
+  if (/cash|money market|liquidity|savings/i.test(combined)) return "Cash & Equivalents";
+  return "Fixed Income";
 }
 
 export default function AssetKnowledge() {
@@ -86,11 +80,12 @@ export default function AssetKnowledge() {
   const [editing, setEditing] = useState<Asset | null>(null);
   const [form, setForm] = useState(emptyAsset);
 
-  // CSV import state
-  const [csvDialogOpen, setCsvDialogOpen] = useState(false);
-  const [csvRows, setCsvRows] = useState<CsvRow[]>([]);
+  // Bulk import state
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
   const [importing, setImporting] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importProgress, setImportProgress] = useState(0);
+  const [droppedFileName, setDroppedFileName] = useState("");
 
   const fetchAssets = async () => {
     const { data } = await supabase.from("asset_knowledge").select("*").order("ticker");
@@ -100,6 +95,7 @@ export default function AssetKnowledge() {
 
   useEffect(() => { fetchAssets(); }, []);
 
+  // --- Single asset CRUD ---
   const openNew = () => { setEditing(null); setForm(emptyAsset); setDialogOpen(true); };
   const openEdit = (a: Asset) => {
     setEditing(a);
@@ -109,10 +105,6 @@ export default function AssetKnowledge() {
 
   const handleSave = async () => {
     if (!form.ticker || !form.name) { toast.error("Ticker e nome são obrigatórios"); return; }
-    if (form.isin && !/^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(form.isin.toUpperCase())) {
-      toast.error("ISIN inválido. Formato esperado: 12 caracteres (ex: US4642874659)");
-      return;
-    }
     const payload = {
       ticker: form.ticker.toUpperCase(),
       isin: form.isin ? form.isin.toUpperCase() : null,
@@ -123,15 +115,12 @@ export default function AssetKnowledge() {
     } as any;
 
     if (editing) {
-      const { error } = await supabase.from("asset_knowledge").update({
-        ...payload,
-        updated_at: new Date().toISOString(),
-      }).eq("id", editing.id);
-      if (error) { toast.error("Erro ao atualizar: " + error.message); return; }
+      const { error } = await supabase.from("asset_knowledge").update({ ...payload, updated_at: new Date().toISOString() }).eq("id", editing.id);
+      if (error) { toast.error("Erro: " + error.message); return; }
       toast.success("Ativo atualizado");
     } else {
       const { error } = await supabase.from("asset_knowledge").insert(payload);
-      if (error) { toast.error("Erro ao criar: " + error.message); return; }
+      if (error) { toast.error("Erro: " + error.message); return; }
       toast.success("Ativo cadastrado");
     }
     setDialogOpen(false);
@@ -139,111 +128,194 @@ export default function AssetKnowledge() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Tem certeza que deseja excluir este ativo?")) return;
-    const { error } = await supabase.from("asset_knowledge").delete().eq("id", id);
-    if (error) { toast.error("Erro: " + error.message); return; }
+    if (!confirm("Tem certeza?")) return;
+    await supabase.from("asset_knowledge").delete().eq("id", id);
     toast.success("Ativo excluído");
     fetchAssets();
   };
 
-  const handleDownloadTemplate = () => {
-    const header = "ticker,isin,name,asset_class,risk_profile,official_thesis";
-    const example = 'HYG,US4642885135,"iShares High Yield Corp Bond",Fixed Income,Moderate,"Exposição a crédito high yield americano para capturar spread em ambiente de soft landing."';
-    const blob = new Blob([header + "\n" + example + "\n"], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "asset_knowledge_template.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.name.endsWith(".csv")) { toast.error("Apenas arquivos .csv são aceitos"); return; }
-    if (file.size > 2 * 1024 * 1024) { toast.error("Arquivo muito grande (max 2MB)"); return; }
+  // --- Bulk file parsing ---
+  const parseFile = useCallback((file: File) => {
+    setDroppedFileName(file.name);
+    const isExcel = /\.(xlsx?|xls)$/i.test(file.name);
 
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result as string;
-      const lines = text.split(/\r?\n/).filter((l) => l.trim());
-      if (lines.length < 2) { toast.error("CSV vazio ou sem dados"); return; }
+    reader.onload = (e) => {
+      try {
+        let rows: Record<string, string>[] = [];
 
-      const header = parseCsvLine(lines[0]).map((h) => h.toLowerCase().replace(/\s+/g, "_"));
-      const tickerIdx = header.indexOf("ticker");
-      const isinIdx = header.indexOf("isin");
-      const nameIdx = header.indexOf("name");
-      const classIdx = header.indexOf("asset_class");
-      const riskIdx = header.indexOf("risk_profile");
-      const thesisIdx = header.indexOf("official_thesis");
+        if (isExcel) {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: "array" });
+          // Read first sheet
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          rows = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { defval: "" });
+        } else {
+          // CSV via xlsx
+          const text = e.target?.result as string;
+          const workbook = XLSX.read(text, { type: "string" });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          rows = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { defval: "" });
+        }
 
-      if (tickerIdx === -1 || nameIdx === -1) {
-        toast.error("CSV deve conter colunas 'ticker' e 'name'");
-        return;
+        if (rows.length === 0) { toast.error("Arquivo vazio ou sem dados"); return; }
+
+        // Normalize headers
+        const rawHeaders = Object.keys(rows[0]);
+        const headerMap: Record<string, string> = {};
+        rawHeaders.forEach((h) => { headerMap[h] = normalizeHeader(h); });
+
+        // Detect portfolio name from filename if no portfolio column
+        const hasPortfolioCol = Object.values(headerMap).includes("portfolio");
+        let filePortfolio = "";
+        if (!hasPortfolioCol) {
+          const fn = file.name.toLowerCase();
+          if (fn.includes("income")) filePortfolio = "Income";
+          else if (fn.includes("growth")) filePortfolio = "Growth";
+          else if (fn.includes("balanced")) filePortfolio = "Balanced";
+          else if (fn.includes("conservative")) filePortfolio = "Conservative";
+          else if (fn.includes("bond")) filePortfolio = "Bond Portfolio";
+          else if (fn.includes("liquidity") || fn.includes("liquid")) filePortfolio = "Liquidity";
+          else filePortfolio = file.name.replace(/\.(csv|xlsx?|xls)$/i, "").trim();
+        }
+
+        const parsed: ParsedRow[] = rows.map((row) => {
+          // Map raw columns to normalized
+          const mapped: Record<string, string> = {};
+          Object.entries(row).forEach(([k, v]) => { mapped[headerMap[k]] = String(v).trim(); });
+
+          const ticker = (mapped.ticker || "").toUpperCase().slice(0, 20);
+          const isin = (mapped.isin || "").toUpperCase().slice(0, 12);
+          const name = (mapped.name || "").slice(0, 200);
+          const portfolio = mapped.portfolio || filePortfolio;
+          const rawClass = mapped.asset_class || "";
+          const asset_class = ASSET_CLASSES.find((c) => c.toLowerCase() === rawClass.toLowerCase()) || inferAssetClass(name, ticker);
+          const thesis = (mapped.thesis || "").slice(0, 5000);
+
+          // Parse weight — handle "5.2%", "5,2", "0.052" etc.
+          let weight = 0;
+          const rawWeight = (mapped.weight || "").replace(/[%\s]/g, "").replace(",", ".");
+          if (rawWeight) {
+            const parsed = parseFloat(rawWeight);
+            if (!isNaN(parsed)) weight = parsed > 1 ? parsed : parsed * 100; // auto-detect 0.05 vs 5.0
+          }
+
+          let valid = true;
+          let error: string | undefined;
+          if (!ticker && !name) { valid = false; error = "Ticker e nome vazios"; }
+          else if (!ticker) { valid = false; error = "Ticker obrigatório"; }
+          else if (!name) { valid = false; error = "Nome obrigatório"; }
+
+          return { portfolio, ticker, isin, name, asset_class, weight, thesis, valid, error };
+        }).filter((r) => r.ticker || r.name); // remove fully empty rows
+
+        setParsedRows(parsed);
+        setImportDialogOpen(true);
+      } catch (err) {
+        console.error("Parse error:", err);
+        toast.error("Erro ao ler arquivo. Verifique o formato.");
       }
-
-      const existingTickers = new Set(assets.map((a) => a.ticker.toUpperCase()));
-      const seenTickers = new Set<string>();
-
-      const rows: CsvRow[] = lines.slice(1).map((line) => {
-        const cols = parseCsvLine(line);
-        const ticker = (cols[tickerIdx] || "").toUpperCase().slice(0, 20);
-        const isin = isinIdx >= 0 ? (cols[isinIdx] || "").toUpperCase().slice(0, 12) : "";
-        const name = (cols[nameIdx] || "").slice(0, 200);
-        const rawClass = classIdx >= 0 ? cols[classIdx] || "" : "";
-        const asset_class = ASSET_CLASSES.find((c) => c.toLowerCase() === rawClass.toLowerCase()) || "Fixed Income";
-        const rawRisk = riskIdx >= 0 ? cols[riskIdx] || "" : "";
-        const risk_profile = RISK_PROFILES.find((r) => r.toLowerCase() === rawRisk.toLowerCase()) || "Moderate";
-        const official_thesis = thesisIdx >= 0 ? (cols[thesisIdx] || "").slice(0, 5000) : "";
-
-        const row: CsvRow = { ticker, isin, name, asset_class, official_thesis, risk_profile, valid: true };
-        return validateRow(row, existingTickers, seenTickers);
-      });
-
-      setCsvRows(rows);
-      setCsvDialogOpen(true);
     };
-    reader.readAsText(file);
-    e.target.value = "";
-  };
 
-  const handleImportCsv = async () => {
-    const validRows = csvRows.filter((r) => r.valid);
-    if (validRows.length === 0) { toast.error("Nenhuma linha válida para importar"); return; }
+    if (isExcel) reader.readAsArrayBuffer(file);
+    else reader.readAsText(file);
+  }, []);
+
+  // Dropzone
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop: (files) => { if (files[0]) parseFile(files[0]); },
+    accept: {
+      "text/csv": [".csv"],
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
+      "application/vnd.ms-excel": [".xls"],
+    },
+    maxFiles: 1,
+    maxSize: 10 * 1024 * 1024,
+  });
+
+  // --- Bulk upsert logic ---
+  const handleBulkImport = async () => {
+    const validRows = parsedRows.filter((r) => r.valid);
+    if (validRows.length === 0) { toast.error("Nenhuma linha válida"); return; }
 
     setImporting(true);
-    let inserted = 0;
-    let updated = 0;
-    let errors = 0;
+    setImportProgress(0);
 
-    const existingTickers = new Set(assets.map((a) => a.ticker.toUpperCase()));
+    // Group by ticker to merge portfolio info
+    const tickerMap = new Map<string, {
+      ticker: string; isin: string; name: string; asset_class: string;
+      thesis: string; portfolios: Set<string>; weights: Record<string, number>;
+    }>();
 
     for (const row of validRows) {
-      const payload = {
-        ticker: row.ticker,
-        isin: row.isin || null,
-        name: row.name,
-        asset_class: row.asset_class,
-        official_thesis: row.official_thesis,
-        risk_profile: row.risk_profile,
-      } as any;
-
-      if (existingTickers.has(row.ticker)) {
-        const { error } = await supabase.from("asset_knowledge").update({
-          ...payload,
-          updated_at: new Date().toISOString(),
-        }).eq("ticker", row.ticker);
-        if (error) { errors++; } else { updated++; }
+      const existing = tickerMap.get(row.ticker);
+      if (existing) {
+        if (row.portfolio) existing.portfolios.add(row.portfolio);
+        if (row.portfolio && row.weight > 0) existing.weights[row.portfolio] = row.weight;
+        if (row.isin && !existing.isin) existing.isin = row.isin;
+        if (row.thesis && !existing.thesis) existing.thesis = row.thesis;
       } else {
-        const { error } = await supabase.from("asset_knowledge").insert(payload);
-        if (error) { errors++; } else { inserted++; }
+        const portfolios = new Set<string>();
+        const weights: Record<string, number> = {};
+        if (row.portfolio) { portfolios.add(row.portfolio); if (row.weight > 0) weights[row.portfolio] = row.weight; }
+        tickerMap.set(row.ticker, {
+          ticker: row.ticker, isin: row.isin, name: row.name,
+          asset_class: row.asset_class, thesis: row.thesis,
+          portfolios, weights,
+        });
       }
     }
 
+    const entries = Array.from(tickerMap.values());
+    const existingTickers = new Set(assets.map((a) => a.ticker.toUpperCase()));
+    // Also fetch existing data to merge portfolios
+    const { data: existingData } = await supabase.from("asset_knowledge").select("ticker, portfolios, weight_pct");
+    const existingMap = new Map<string, { portfolios: string[]; weight_pct: Record<string, number> }>();
+    if (existingData) {
+      for (const row of existingData as any[]) {
+        existingMap.set(row.ticker, { portfolios: row.portfolios || [], weight_pct: row.weight_pct || {} });
+      }
+    }
+
+    let inserted = 0, updated = 0, errors = 0;
+
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i];
+
+      // Merge with existing portfolios/weights
+      const existing = existingMap.get(entry.ticker);
+      const mergedPortfolios = [...new Set([...(existing?.portfolios || []), ...entry.portfolios])];
+      const mergedWeights = { ...(existing?.weight_pct || {}), ...entry.weights };
+
+      const payload = {
+        ticker: entry.ticker,
+        isin: entry.isin || null,
+        name: entry.name,
+        asset_class: entry.asset_class,
+        official_thesis: entry.thesis || undefined,
+        portfolios: mergedPortfolios,
+        weight_pct: mergedWeights,
+        updated_at: new Date().toISOString(),
+      } as any;
+
+      if (existingTickers.has(entry.ticker)) {
+        // Don't overwrite thesis if new one is empty
+        if (!entry.thesis) delete payload.official_thesis;
+        const { error } = await supabase.from("asset_knowledge").update(payload).eq("ticker", entry.ticker);
+        if (error) { errors++; console.error(`Update error for ${entry.ticker}:`, error); } else { updated++; }
+      } else {
+        if (!payload.official_thesis) payload.official_thesis = "";
+        payload.risk_profile = "Moderate";
+        const { error } = await supabase.from("asset_knowledge").insert(payload);
+        if (error) { errors++; console.error(`Insert error for ${entry.ticker}:`, error); } else { inserted++; }
+      }
+
+      setImportProgress(Math.round(((i + 1) / entries.length) * 100));
+    }
+
     setImporting(false);
-    setCsvDialogOpen(false);
-    setCsvRows([]);
+    setImportDialogOpen(false);
+    setParsedRows([]);
 
     const parts: string[] = [];
     if (inserted > 0) parts.push(`${inserted} inserido(s)`);
@@ -253,65 +325,67 @@ export default function AssetKnowledge() {
     fetchAssets();
   };
 
-  const validCount = csvRows.filter((r) => r.valid).length;
-  const invalidCount = csvRows.filter((r) => !r.valid).length;
+  const validCount = parsedRows.filter((r) => r.valid).length;
+  const invalidCount = parsedRows.filter((r) => !r.valid).length;
+  const uniqueTickers = new Set(parsedRows.filter((r) => r.valid).map((r) => r.ticker)).size;
+  const detectedPortfolios = [...new Set(parsedRows.filter((r) => r.valid && r.portfolio).map((r) => r.portfolio))];
 
   return (
     <Layout>
       <div className="p-6 max-w-6xl mx-auto space-y-6">
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <BookOpen className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-bold text-foreground">Asset Dictionary</h1>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={handleDownloadTemplate} className="gap-2 text-sm">
-              <Download className="h-4 w-4" /> Template CSV
-            </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv"
-              className="hidden"
-              onChange={handleFileSelect}
-            />
-            <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="gap-2 text-sm">
-              <Upload className="h-4 w-4" /> Importar CSV
-            </Button>
             <Button onClick={openNew} className="gap-2">
               <Plus className="h-4 w-4" /> Novo Ativo
             </Button>
           </div>
         </div>
 
-        <p className="text-sm text-muted-foreground">
-          Cadastre a tese oficial da gestão para cada ativo com Ticker e ISIN. Esses identificadores são a chave primária para busca de dados de mercado em tempo real.
-        </p>
+        {/* Dropzone */}
+        <div
+          {...getRootProps()}
+          className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
+            isDragActive
+              ? "border-primary bg-primary/5"
+              : "border-border hover:border-primary/50 hover:bg-muted/30"
+          }`}
+        >
+          <input {...getInputProps()} />
+          <UploadCloud className={`h-10 w-10 mx-auto mb-3 ${isDragActive ? "text-primary" : "text-muted-foreground/50"}`} />
+          <p className="text-sm font-medium text-foreground">
+            {isDragActive ? "Solte o arquivo aqui..." : "Arraste planilhas dos Modelos aqui ou clique para selecionar"}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            CSV, XLSX, XLS — Colunas esperadas: Portfolio, Nome, Ticker, ISIN, Asset Class, Peso (%), Tese
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Se a planilha não tiver coluna "Portfolio", o nome do modelo será extraído do nome do arquivo
+          </p>
+        </div>
 
+        {/* Assets table */}
         {loading ? (
           <div className="text-sm text-muted-foreground">Carregando...</div>
         ) : assets.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            <BookOpen className="h-12 w-12 mx-auto mb-3 opacity-40" />
-            <p>Nenhum ativo cadastrado ainda.</p>
-            <div className="flex items-center justify-center gap-3 mt-4">
-              <Button onClick={openNew} variant="outline">Cadastrar primeiro ativo</Button>
-              <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="gap-2">
-                <FileSpreadsheet className="h-4 w-4" /> Importar via CSV
-              </Button>
-            </div>
+          <div className="text-center py-8 text-muted-foreground">
+            <p>Nenhum ativo cadastrado. Faça upload das planilhas dos modelos acima.</p>
           </div>
         ) : (
           <div className="border rounded-lg">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[90px]">Ticker</TableHead>
-                  <TableHead className="w-[140px]">ISIN</TableHead>
+                  <TableHead className="w-[80px]">Ticker</TableHead>
+                  <TableHead className="w-[130px]">ISIN</TableHead>
                   <TableHead>Nome</TableHead>
-                  <TableHead className="w-[130px]">Classe</TableHead>
-                  <TableHead className="w-[110px]">Perfil de Risco</TableHead>
-                  <TableHead className="w-[80px]">Ações</TableHead>
+                  <TableHead className="w-[120px]">Classe</TableHead>
+                  <TableHead>Portfólios</TableHead>
+                  <TableHead className="w-[70px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -319,13 +393,22 @@ export default function AssetKnowledge() {
                   <TableRow key={a.id}>
                     <TableCell className="font-mono font-semibold text-primary">{a.ticker}</TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground">{a.isin || "—"}</TableCell>
-                    <TableCell>{a.name}</TableCell>
-                    <TableCell className="text-sm">{a.asset_class}</TableCell>
-                    <TableCell className="text-sm">{a.risk_profile}</TableCell>
+                    <TableCell className="text-sm">{a.name}</TableCell>
+                    <TableCell className="text-xs">{a.asset_class}</TableCell>
                     <TableCell>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(a)}><Pencil className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(a.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      <div className="flex flex-wrap gap-1">
+                        {(a.portfolios || []).map((p) => (
+                          <Badge key={p} variant="secondary" className="text-[10px] px-1.5 py-0">
+                            {p}{a.weight_pct?.[p] ? ` ${a.weight_pct[p]}%` : ""}
+                          </Badge>
+                        ))}
+                        {(!a.portfolios || a.portfolios.length === 0) && <span className="text-xs text-muted-foreground">—</span>}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-0.5">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(a)}><Pencil className="h-3.5 w-3.5" /></Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDelete(a.id)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -335,14 +418,13 @@ export default function AssetKnowledge() {
           </div>
         )}
 
-        {/* Edit/Create Dialog */}
+        {/* Single edit dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>{editing ? "Editar Ativo" : "Novo Ativo"}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              {/* Identifiers section - prominent */}
               <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3">
                 <p className="text-xs font-semibold text-primary uppercase tracking-wider">Identificadores (Golden Source)</p>
                 <div className="grid grid-cols-2 gap-4">
@@ -356,7 +438,6 @@ export default function AssetKnowledge() {
                   </div>
                 </div>
               </div>
-
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Nome *</label>
                 <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ex: iShares High Yield Corp Bond ETF" />
@@ -366,24 +447,20 @@ export default function AssetKnowledge() {
                   <label className="text-sm font-medium">Classe do Ativo</label>
                   <Select value={form.asset_class} onValueChange={(v) => setForm({ ...form, asset_class: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {ASSET_CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </SelectContent>
+                    <SelectContent>{ASSET_CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Perfil de Risco</label>
                   <Select value={form.risk_profile} onValueChange={(v) => setForm({ ...form, risk_profile: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {RISK_PROFILES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                    </SelectContent>
+                    <SelectContent>{RISK_PROFILES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Tese Oficial da Gestão</label>
-                <Textarea value={form.official_thesis} onChange={(e) => setForm({ ...form, official_thesis: e.target.value })} placeholder="Descreva a tese oficial e o racional da posição..." rows={4} />
+                <Textarea value={form.official_thesis} onChange={(e) => setForm({ ...form, official_thesis: e.target.value })} placeholder="Descreva a tese oficial..." rows={4} />
               </div>
             </div>
             <DialogFooter>
@@ -393,55 +470,73 @@ export default function AssetKnowledge() {
           </DialogContent>
         </Dialog>
 
-        {/* CSV Import Preview Dialog */}
-        <Dialog open={csvDialogOpen} onOpenChange={(open) => { if (!importing) { setCsvDialogOpen(open); if (!open) setCsvRows([]); } }}>
-          <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
+        {/* Bulk import preview dialog */}
+        <Dialog open={importDialogOpen} onOpenChange={(open) => { if (!importing) { setImportDialogOpen(open); if (!open) setParsedRows([]); } }}>
+          <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <FileSpreadsheet className="h-5 w-5" />
-                Preview da Importação CSV
+                Preview — {droppedFileName}
               </DialogTitle>
             </DialogHeader>
 
-            <div className="flex items-center gap-4 text-sm">
+            {/* Summary bar */}
+            <div className="flex flex-wrap items-center gap-4 text-sm">
               <span className="flex items-center gap-1.5 text-emerald-600">
-                <CheckCircle2 className="h-4 w-4" /> {validCount} válido(s)
+                <CheckCircle2 className="h-4 w-4" /> {validCount} linha(s) válida(s)
               </span>
               {invalidCount > 0 && (
                 <span className="flex items-center gap-1.5 text-destructive">
-                  <AlertCircle className="h-4 w-4" /> {invalidCount} inválido(s)
+                  <AlertCircle className="h-4 w-4" /> {invalidCount} inválida(s)
                 </span>
               )}
-              <span className="text-muted-foreground">Total: {csvRows.length} linha(s)</span>
+              <span className="text-muted-foreground">→ {uniqueTickers} ativo(s) único(s)</span>
+              {detectedPortfolios.length > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-muted-foreground text-xs">Portfólios:</span>
+                  {detectedPortfolios.map((p) => (
+                    <Badge key={p} variant="outline" className="text-[10px]">{p}</Badge>
+                  ))}
+                </div>
+              )}
             </div>
 
-            <div className="flex-1 overflow-auto border rounded-lg">
+            {/* Progress bar during import */}
+            {importing && (
+              <div className="space-y-1.5">
+                <Progress value={importProgress} className="h-2" />
+                <p className="text-xs text-muted-foreground text-center">{importProgress}% concluído</p>
+              </div>
+            )}
+
+            {/* Data preview table */}
+            <div className="flex-1 overflow-auto border rounded-lg min-h-0">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[40px]">Status</TableHead>
-                    <TableHead className="w-[80px]">Ticker</TableHead>
-                    <TableHead className="w-[120px]">ISIN</TableHead>
+                    <TableHead className="w-[35px]" />
+                    <TableHead className="w-[90px]">Portfolio</TableHead>
+                    <TableHead className="w-[75px]">Ticker</TableHead>
+                    <TableHead className="w-[110px]">ISIN</TableHead>
                     <TableHead>Nome</TableHead>
                     <TableHead className="w-[110px]">Classe</TableHead>
-                    <TableHead>Observação</TableHead>
+                    <TableHead className="w-[65px]">Peso</TableHead>
+                    <TableHead>Obs</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {csvRows.map((row, i) => (
-                    <TableRow key={i} className={!row.valid ? "opacity-50" : ""}>
+                  {parsedRows.map((row, i) => (
+                    <TableRow key={i} className={!row.valid ? "opacity-40" : ""}>
                       <TableCell>
-                        {row.valid ? (
-                          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                        ) : (
-                          <X className="h-4 w-4 text-destructive" />
-                        )}
+                        {row.valid ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <X className="h-3.5 w-3.5 text-destructive" />}
                       </TableCell>
+                      <TableCell className="text-xs">{row.portfolio || "—"}</TableCell>
                       <TableCell className="font-mono text-xs font-semibold">{row.ticker}</TableCell>
-                      <TableCell className="font-mono text-xs">{row.isin || "—"}</TableCell>
-                      <TableCell className="text-sm">{row.name}</TableCell>
-                      <TableCell className="text-xs">{row.asset_class}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{row.error || "—"}</TableCell>
+                      <TableCell className="font-mono text-[10px]">{row.isin || "—"}</TableCell>
+                      <TableCell className="text-xs">{row.name}</TableCell>
+                      <TableCell className="text-[10px]">{row.asset_class}</TableCell>
+                      <TableCell className="text-xs font-mono">{row.weight > 0 ? `${row.weight}%` : "—"}</TableCell>
+                      <TableCell className="text-[10px] text-muted-foreground">{row.error || "—"}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -449,11 +544,11 @@ export default function AssetKnowledge() {
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => { setCsvDialogOpen(false); setCsvRows([]); }} disabled={importing}>
+              <Button variant="outline" onClick={() => { setImportDialogOpen(false); setParsedRows([]); }} disabled={importing}>
                 Cancelar
               </Button>
-              <Button onClick={handleImportCsv} disabled={importing || validCount === 0} className="gap-2">
-                {importing ? "Importando..." : `Importar ${validCount} ativo(s)`}
+              <Button onClick={handleBulkImport} disabled={importing || validCount === 0} className="gap-2">
+                {importing ? "Importando..." : `Importar ${uniqueTickers} ativo(s)`}
               </Button>
             </DialogFooter>
           </DialogContent>
