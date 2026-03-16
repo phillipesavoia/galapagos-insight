@@ -38,6 +38,8 @@ interface ParsedRow {
   error?: string;
 }
 
+const PORTFOLIO_OPTIONS = ["Conservative", "Income", "Balanced", "Growth", "Bond Portfolio", "Liquidity"];
+
 const ASSET_CLASSES = [
   "Fixed Income", "Equities", "Alternatives", "Commodities",
   "Cash & Equivalents", "Real Estate", "Private Credit", "Crypto",
