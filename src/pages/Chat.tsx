@@ -90,7 +90,7 @@ export default function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const isEmpty = messages.length === 0;
-  const lastAssistantSources = [...messages].reverse().find((m) => m.role === "assistant")?.sources || [];
+  
 
   useEffect(() => {
     if (messagesEndRef.current) {
