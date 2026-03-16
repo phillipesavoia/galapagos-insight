@@ -52,6 +52,7 @@ export type Database = {
           asset_class: string
           created_at: string
           id: string
+          isin: string | null
           name: string
           official_thesis: string
           risk_profile: string
@@ -62,6 +63,7 @@ export type Database = {
           asset_class: string
           created_at?: string
           id?: string
+          isin?: string | null
           name: string
           official_thesis?: string
           risk_profile?: string
@@ -72,6 +74,7 @@ export type Database = {
           asset_class?: string
           created_at?: string
           id?: string
+          isin?: string | null
           name?: string
           official_thesis?: string
           risk_profile?: string
