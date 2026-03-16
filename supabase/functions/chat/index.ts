@@ -268,6 +268,69 @@ async function askPerplexityResearcher(researchPrompt: string): Promise<any> {
   }
 }
 
+// --- Tavily Web Search ---
+async function tavilyWebSearch(query: string, searchDepth: string = "basic"): Promise<any> {
+  const apiKey = Deno.env.get("TAVILY_API_KEY");
+  if (!apiKey) {
+    return { status: "error", message: "TAVILY_API_KEY não configurada." };
+  }
+  try {
+    console.log(`Tavily search: "${query}"`);
+    const res = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: apiKey,
+        query: query,
+        search_depth: searchDepth,
+        include_answer: true,
+        max_results: 5,
+      }),
+    });
+    if (!res.ok) {
+      console.error(`Tavily error [${res.status}]`);
+      return { status: "error", message: `Tavily API error: HTTP ${res.status}` };
+    }
+    const data = await res.json();
+    return {
+      status: "success",
+      answer: data.answer || "Sem resumo disponível",
+      results: data.results.map((r: any) => ({ title: r.title, url: r.url, snippet: r.content })),
+    };
+  } catch (err) {
+    console.error("Tavily fetch error:", err);
+    return { status: "fetch_error", message: "Falha na conexão com Tavily API." };
+  }
+}
+
+// --- Finnhub Ticker News ---
+async function finnhubTickerNews(symbol: string, fromDate: string, toDate: string): Promise<any> {
+  const apiKey = Deno.env.get("FINNHUB_API_KEY");
+  if (!apiKey) {
+    return { status: "error", message: "FINNHUB_API_KEY não configurada." };
+  }
+  try {
+    console.log(`Finnhub news for: ${symbol} from ${fromDate} to ${toDate}`);
+    const url = `https://finnhub.io/api/v1/company-news?symbol=${symbol}&from=${fromDate}&to=${toDate}&token=${apiKey}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.error(`Finnhub error [${res.status}]`);
+      return { status: "error", message: `Finnhub API error: HTTP ${res.status}` };
+    }
+    const data = await res.json();
+    const topNews = (Array.isArray(data) ? data : []).slice(0, 5).map((n: any) => ({
+      headline: n.headline,
+      summary: n.summary,
+      source: n.source,
+      date: new Date(n.datetime * 1000).toISOString().split("T")[0],
+    }));
+    return { status: "success", symbol, news: topNews };
+  } catch (err) {
+    console.error("Finnhub fetch error:", err);
+    return { status: "fetch_error", message: "Falha na conexão com Finnhub API." };
+  }
+}
+
 const TOOLS = [
   {
     name: "renderizar_grafico_barras",
