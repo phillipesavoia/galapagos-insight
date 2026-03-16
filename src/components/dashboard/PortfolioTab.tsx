@@ -10,6 +10,8 @@ interface PortfolioTabProps {
   portfolio: PortfolioName;
   navData: NavDataPoint[];
   loading: boolean;
+  period: Period;
+  onPeriodChange: (p: Period) => void;
 }
 
 function filterByPeriod(data: NavDataPoint[], period: Period): NavDataPoint[] {
