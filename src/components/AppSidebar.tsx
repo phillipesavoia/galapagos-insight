@@ -1,4 +1,4 @@
-import { MessageSquare, FileText, FolderOpen, BarChart3, Upload, LogOut } from "lucide-react";
+import { MessageSquare, FileText, FolderOpen, BarChart3, Upload, LogOut, ClipboardList } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -7,6 +7,7 @@ const publicNavItems = [
   { title: "Advisor Chat", label: "Advisor Chat", url: "/chat", icon: MessageSquare },
   { title: "Performance Analítica", label: "Performance Analítica", url: "/dashboard", icon: BarChart3 },
   { title: "Gerar Documentos", label: "Gerar Documentos", url: "/generator", icon: FileText },
+  { title: "Gerador de Relatórios", label: "Gerador de Relatórios", url: "/reports", icon: ClipboardList },
 ];
 
 const adminNavItems = [

@@ -8,6 +8,7 @@ import { AdminRoute } from "@/components/AdminRoute";
 import Chat from "./pages/Chat";
 import Dashboard from "./pages/Dashboard";
 import Generator from "./pages/Generator";
+import Reports from "./pages/Reports";
 import Library from "./pages/Library";
 import NavUpload from "./pages/NavUpload";
 import NotFound from "./pages/NotFound";
@@ -26,6 +27,7 @@ const App = () => (
             <Route path="/chat" element={<Chat />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/generator" element={<Generator />} />
+            <Route path="/reports" element={<Reports />} />
             <Route path="/library" element={<AdminRoute><Library /></AdminRoute>} />
             <Route path="/admin/nav-upload" element={<AdminRoute><NavUpload /></AdminRoute>} />
             <Route path="*" element={<NotFound />} />
