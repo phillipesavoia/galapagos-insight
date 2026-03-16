@@ -26,8 +26,8 @@ const App = () => (
             <Route path="/chat" element={<Chat />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/generator" element={<Generator />} />
-            <Route path="/library" element={<Library />} />
-            <Route path="/admin/nav-upload" element={<NavUpload />} />
+            <Route path="/library" element={<AdminRoute><Library /></AdminRoute>} />
+            <Route path="/admin/nav-upload" element={<AdminRoute><NavUpload /></AdminRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthGuard>
