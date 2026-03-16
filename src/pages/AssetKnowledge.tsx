@@ -418,9 +418,9 @@ export default function AssetKnowledge() {
           </div>
         </div>
 
-        {/* Portfolio selector + Dropzone */}
+        {/* Portfolio selector + Reference Date + Dropzone */}
         <div className="space-y-3">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <label className="text-sm font-medium text-foreground whitespace-nowrap">Selecionar Portfólio *</label>
             <Select value={selectedPortfolio} onValueChange={setSelectedPortfolio}>
               <SelectTrigger className="w-[240px]">
@@ -432,6 +432,31 @@ export default function AssetKnowledge() {
                 ))}
               </SelectContent>
             </Select>
+
+            <label className="text-sm font-medium text-foreground whitespace-nowrap ml-4">Reference Date (Data Base) *</label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-[200px] justify-start text-left font-normal",
+                    !referenceDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {referenceDate ? format(referenceDate, "MM/yyyy") : <span>Selecionar mês...</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={referenceDate}
+                  onSelect={setReferenceDate}
+                  className={cn("p-3 pointer-events-auto")}
+                  disabled={(date) => date > new Date()}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div
