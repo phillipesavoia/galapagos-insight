@@ -225,7 +225,7 @@ export default function Chat() {
       }
 
       // Create initial assistant message
-      setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "", sources: [], toolCalls: [] }]);
+      setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "", sources: [], toolCalls: [], toolPending: null }]);
 
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
