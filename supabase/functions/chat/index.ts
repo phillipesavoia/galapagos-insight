@@ -934,6 +934,18 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
               } else {
                 toolResultData = await searchMacroMarketContext(toolResult.toolInput.query, googleKey);
               }
+            } else if (toolResult.toolName === "get_company_ticker_news") {
+              console.log(`Executing get_company_ticker_news for: ${toolResult.toolInput.symbol}`);
+              if (!googleKey) {
+                toolResultData = { status: "error", message: "GOOGLE_AI_API_KEY não configurada para busca de notícias." };
+              } else {
+                toolResultData = await getCompanyTickerNews(
+                  toolResult.toolInput.symbol,
+                  toolResult.toolInput.from_date,
+                  toolResult.toolInput.to_date,
+                  googleKey,
+                );
+              }
             }
 
             // Send tool result back to Claude for final response
