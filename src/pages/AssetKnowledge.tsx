@@ -16,8 +16,68 @@ import * as XLSX from "xlsx";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { format, setMonth, setYear } from "date-fns";
 import { pt } from "date-fns/locale";
+
+const MONTHS = [
+  "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
+  "Jul", "Ago", "Set", "Out", "Nov", "Dez",
+];
+
+function MonthYearPicker({ value, onChange }: { value: Date | undefined; onChange: (d: Date) => void }) {
+  const [open, setOpen] = useState(false);
+  const now = new Date();
+  const [viewYear, setViewYear] = useState(value ? value.getFullYear() : now.getFullYear());
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          className={cn(
+            "w-[200px] justify-start text-left font-normal",
+            !value && "text-muted-foreground"
+          )}
+        >
+          <CalendarIcon className="mr-2 h-4 w-4" />
+          {value ? format(value, "MM/yyyy") : <span>Selecionar mês...</span>}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-3 pointer-events-auto" align="start">
+        <div className="flex items-center justify-between mb-3">
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setViewYear(viewYear - 1)}>
+            ‹
+          </Button>
+          <span className="text-sm font-semibold">{viewYear}</span>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setViewYear(viewYear + 1)} disabled={viewYear >= now.getFullYear()}>
+            ›
+          </Button>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {MONTHS.map((m, i) => {
+            const isFuture = viewYear > now.getFullYear() || (viewYear === now.getFullYear() && i > now.getMonth());
+            const isSelected = value && value.getFullYear() === viewYear && value.getMonth() === i;
+            return (
+              <Button
+                key={m}
+                variant={isSelected ? "default" : "ghost"}
+                size="sm"
+                disabled={isFuture}
+                className="text-xs"
+                onClick={() => {
+                  onChange(new Date(viewYear, i, 1));
+                  setOpen(false);
+                }}
+              >
+                {m}
+              </Button>
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 interface Asset {
   id: string;
