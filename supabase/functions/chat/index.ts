@@ -219,6 +219,55 @@ Responda em português brasileiro. Seja factual. Máximo 500 palavras.`,
   }
 }
 
+// --- Perplexity Deep Research ---
+async function askPerplexityResearcher(researchPrompt: string): Promise<any> {
+  const apiKey = Deno.env.get("PERPLEXITY_API_KEY");
+  if (!apiKey) {
+    return { status: "error", message: "PERPLEXITY_API_KEY não configurada." };
+  }
+
+  try {
+    console.log(`Perplexity research: "${researchPrompt.slice(0, 80)}..."`);
+    const res = await fetch("https://api.perplexity.ai/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "sonar-pro",
+        messages: [
+          {
+            role: "system",
+            content: "Você é um analista financeiro sênior especializado em mercados globais. Responda em português brasileiro de forma técnica e factual. Cite fontes e datas quando possível. Estruture a resposta em seções claras: Drivers Macro, Fatores Geopolíticos, Dinâmica Setorial, e Conclusão. Máximo 600 palavras.",
+          },
+          { role: "user", content: researchPrompt },
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`Perplexity error [${res.status}]:`, errText);
+      return { status: "error", message: `Perplexity API error: HTTP ${res.status}` };
+    }
+
+    const data = await res.json();
+    const content = data.choices?.[0]?.message?.content || "";
+    const citations = data.citations || [];
+
+    return {
+      status: "success",
+      analysis: content,
+      citations,
+      model: "sonar-pro",
+    };
+  } catch (err) {
+    console.error("Perplexity fetch error:", err);
+    return { status: "fetch_error", message: "Falha na conexão com Perplexity API." };
+  }
+}
+
 const TOOLS = [
   {
     name: "renderizar_grafico_barras",
