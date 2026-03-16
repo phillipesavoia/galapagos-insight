@@ -401,14 +401,14 @@ export default function Chat() {
               </div>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto scrollbar-thin p-6 space-y-5 bg-gray-100" ref={messagesEndRef}>
+            <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-6 space-y-6 bg-white" ref={messagesEndRef}>
               {messages.map((msg) => (
                 <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div
-                    className={`max-w-4xl w-full px-5 py-4 rounded-2xl text-[13px] leading-[1.7] shadow-sm ${
+                    className={`max-w-4xl w-full text-[13px] leading-[1.7] ${
                       msg.role === "user"
-                        ? "bg-emerald-600 text-white border border-emerald-700"
-                        : "bg-white border border-gray-300 text-gray-900"
+                        ? "bg-gray-100 text-gray-900 rounded-2xl px-4 py-3"
+                        : "text-gray-900"
                     }`}
                   >
                     {msg.role === "assistant" ? (
