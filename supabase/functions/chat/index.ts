@@ -329,14 +329,22 @@ Deno.serve(async (req) => {
     // --- Stream Claude response with tool calling ---
     console.log(`Calling Claude with ${filteredChunks.length} chunks, tools enabled...`);
 
+    // Build user message with asset knowledge as priority context
+    let userMessageContent = "";
+    if (assetKnowledgeContext) {
+      userMessageContent += `## BASE DE CONHECIMENTO DE ATIVOS (PRIORIDADE MÁXIMA):\n\n${assetKnowledgeContext}\n\n---\n\n`;
+    }
+    if (context) {
+      userMessageContent += `## Documentos encontrados:\n\n${context}\n\n---\n`;
+    }
+    if (!context && !assetKnowledgeContext) {
+      userMessageContent += `Não encontrei documentos relevantes para: "${query}". Informe que não há documentos indexados sobre este tema.\n`;
+    }
+    userMessageContent += `\nPergunta: ${query}`;
+
     const claudeMessages = [
       ...historyMessages,
-      {
-        role: "user",
-        content: context
-          ? `Documentos encontrados:\n\n${context}\n\n---\nPergunta: ${query}`
-          : `Não encontrei documentos relevantes para: "${query}". Informe que não há documentos indexados sobre este tema.`,
-      },
+      { role: "user", content: userMessageContent },
     ];
 
     const systemPrompt = `## LEI MAIOR — GUARDRAILS INSTITUCIONAIS (INQUEBRÁVEL)
