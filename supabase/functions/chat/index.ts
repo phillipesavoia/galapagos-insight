@@ -359,7 +359,14 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
 📎 **Fontes:**
 - [Nome exato do documento] (Fundo: [fund_name], Período: [period])
 
-Liste apenas os documentos efetivamente citados/usados. Isso garante rastreabilidade total para o assessor.`;
+Liste apenas os documentos efetivamente citados/usados. Isso garante rastreabilidade total para o assessor.
+
+12. PERGUNTAS DE FOLLOW-UP: Ao final de TODA resposta (após as fontes), inclua uma seção '💡 **Explorar mais:**' com 2-3 perguntas curtas e relevantes que o assessor poderia fazer em seguida para aprofundar a análise. As perguntas devem ser específicas ao contexto da resposta atual e aos dados disponíveis nos documentos. Formato:
+
+💡 **Explorar mais:**
+1. [Pergunta específica relacionada ao tema]
+2. [Pergunta que aprofunda ou compara com outro portfólio/ativo]
+3. [Pergunta sobre risco, alocação ou performance complementar]`;
 
     const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
