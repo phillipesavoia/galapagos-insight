@@ -13,6 +13,7 @@ import { toast } from "sonner";
 interface Asset {
   id: string;
   ticker: string;
+  isin: string;
   name: string;
   asset_class: string;
   official_thesis: string;
@@ -21,6 +22,7 @@ interface Asset {
 
 interface CsvRow {
   ticker: string;
+  isin: string;
   name: string;
   asset_class: string;
   official_thesis: string;
@@ -42,7 +44,7 @@ const ASSET_CLASSES = [
 
 const RISK_PROFILES = ["Conservative", "Moderate", "Aggressive"];
 
-const emptyAsset = { ticker: "", name: "", asset_class: "Fixed Income", official_thesis: "", risk_profile: "Moderate" };
+const emptyAsset = { ticker: "", isin: "", name: "", asset_class: "Fixed Income", official_thesis: "", risk_profile: "Moderate" };
 
 function parseCsvLine(line: string): string[] {
   const result: string[] = [];
@@ -69,6 +71,7 @@ function validateRow(row: CsvRow, existingTickers: Set<string>, seenTickers: Set
   if (!row.name) return { ...row, valid: false, error: "Nome obrigatório" };
   if (row.ticker.length > 20) return { ...row, valid: false, error: "Ticker muito longo" };
   if (row.name.length > 200) return { ...row, valid: false, error: "Nome muito longo" };
+  if (row.isin && !/^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(row.isin)) return { ...row, valid: false, error: "ISIN inválido (formato: XX0000000000)" };
   if (row.official_thesis.length > 5000) return { ...row, valid: false, error: "Tese muito longa (max 5000)" };
   if (seenTickers.has(row.ticker)) return { ...row, valid: false, error: "Ticker duplicado no CSV" };
   const isDuplicate = existingTickers.has(row.ticker);
@@ -98,29 +101,36 @@ export default function AssetKnowledge() {
   useEffect(() => { fetchAssets(); }, []);
 
   const openNew = () => { setEditing(null); setForm(emptyAsset); setDialogOpen(true); };
-  const openEdit = (a: Asset) => { setEditing(a); setForm({ ticker: a.ticker, name: a.name, asset_class: a.asset_class, official_thesis: a.official_thesis, risk_profile: a.risk_profile }); setDialogOpen(true); };
+  const openEdit = (a: Asset) => {
+    setEditing(a);
+    setForm({ ticker: a.ticker, isin: a.isin || "", name: a.name, asset_class: a.asset_class, official_thesis: a.official_thesis, risk_profile: a.risk_profile });
+    setDialogOpen(true);
+  };
 
   const handleSave = async () => {
     if (!form.ticker || !form.name) { toast.error("Ticker e nome são obrigatórios"); return; }
+    if (form.isin && !/^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(form.isin.toUpperCase())) {
+      toast.error("ISIN inválido. Formato esperado: 12 caracteres (ex: US4642874659)");
+      return;
+    }
+    const payload = {
+      ticker: form.ticker.toUpperCase(),
+      isin: form.isin ? form.isin.toUpperCase() : null,
+      name: form.name,
+      asset_class: form.asset_class,
+      official_thesis: form.official_thesis,
+      risk_profile: form.risk_profile,
+    } as any;
+
     if (editing) {
       const { error } = await supabase.from("asset_knowledge").update({
-        ticker: form.ticker.toUpperCase(),
-        name: form.name,
-        asset_class: form.asset_class,
-        official_thesis: form.official_thesis,
-        risk_profile: form.risk_profile,
+        ...payload,
         updated_at: new Date().toISOString(),
-      } as any).eq("id", editing.id);
+      }).eq("id", editing.id);
       if (error) { toast.error("Erro ao atualizar: " + error.message); return; }
       toast.success("Ativo atualizado");
     } else {
-      const { error } = await supabase.from("asset_knowledge").insert({
-        ticker: form.ticker.toUpperCase(),
-        name: form.name,
-        asset_class: form.asset_class,
-        official_thesis: form.official_thesis,
-        risk_profile: form.risk_profile,
-      } as any);
+      const { error } = await supabase.from("asset_knowledge").insert(payload);
       if (error) { toast.error("Erro ao criar: " + error.message); return; }
       toast.success("Ativo cadastrado");
     }
@@ -137,8 +147,8 @@ export default function AssetKnowledge() {
   };
 
   const handleDownloadTemplate = () => {
-    const header = "ticker,name,asset_class,risk_profile,official_thesis";
-    const example = 'HYG,"iShares High Yield Corp Bond",Fixed Income,Moderate,"Exposição a crédito high yield americano para capturar spread em ambiente de soft landing."';
+    const header = "ticker,isin,name,asset_class,risk_profile,official_thesis";
+    const example = 'HYG,US4642885135,"iShares High Yield Corp Bond",Fixed Income,Moderate,"Exposição a crédito high yield americano para capturar spread em ambiente de soft landing."';
     const blob = new Blob([header + "\n" + example + "\n"], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -160,9 +170,9 @@ export default function AssetKnowledge() {
       const lines = text.split(/\r?\n/).filter((l) => l.trim());
       if (lines.length < 2) { toast.error("CSV vazio ou sem dados"); return; }
 
-      // Parse header
       const header = parseCsvLine(lines[0]).map((h) => h.toLowerCase().replace(/\s+/g, "_"));
       const tickerIdx = header.indexOf("ticker");
+      const isinIdx = header.indexOf("isin");
       const nameIdx = header.indexOf("name");
       const classIdx = header.indexOf("asset_class");
       const riskIdx = header.indexOf("risk_profile");
@@ -179,6 +189,7 @@ export default function AssetKnowledge() {
       const rows: CsvRow[] = lines.slice(1).map((line) => {
         const cols = parseCsvLine(line);
         const ticker = (cols[tickerIdx] || "").toUpperCase().slice(0, 20);
+        const isin = isinIdx >= 0 ? (cols[isinIdx] || "").toUpperCase().slice(0, 12) : "";
         const name = (cols[nameIdx] || "").slice(0, 200);
         const rawClass = classIdx >= 0 ? cols[classIdx] || "" : "";
         const asset_class = ASSET_CLASSES.find((c) => c.toLowerCase() === rawClass.toLowerCase()) || "Fixed Income";
@@ -186,7 +197,7 @@ export default function AssetKnowledge() {
         const risk_profile = RISK_PROFILES.find((r) => r.toLowerCase() === rawRisk.toLowerCase()) || "Moderate";
         const official_thesis = thesisIdx >= 0 ? (cols[thesisIdx] || "").slice(0, 5000) : "";
 
-        const row: CsvRow = { ticker, name, asset_class, official_thesis, risk_profile, valid: true };
+        const row: CsvRow = { ticker, isin, name, asset_class, official_thesis, risk_profile, valid: true };
         return validateRow(row, existingTickers, seenTickers);
       });
 
@@ -194,7 +205,6 @@ export default function AssetKnowledge() {
       setCsvDialogOpen(true);
     };
     reader.readAsText(file);
-    // Reset input so same file can be re-selected
     e.target.value = "";
   };
 
@@ -212,6 +222,7 @@ export default function AssetKnowledge() {
     for (const row of validRows) {
       const payload = {
         ticker: row.ticker,
+        isin: row.isin || null,
         name: row.name,
         asset_class: row.asset_class,
         official_thesis: row.official_thesis,
@@ -274,7 +285,7 @@ export default function AssetKnowledge() {
         </div>
 
         <p className="text-sm text-muted-foreground">
-          Cadastre a tese oficial da gestão para cada ativo. Essas informações são usadas pelo chat como base de conhecimento prioritária.
+          Cadastre a tese oficial da gestão para cada ativo com Ticker e ISIN. Esses identificadores são a chave primária para busca de dados de mercado em tempo real.
         </p>
 
         {loading ? (
@@ -295,17 +306,19 @@ export default function AssetKnowledge() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[100px]">Ticker</TableHead>
+                  <TableHead className="w-[90px]">Ticker</TableHead>
+                  <TableHead className="w-[140px]">ISIN</TableHead>
                   <TableHead>Nome</TableHead>
-                  <TableHead className="w-[140px]">Classe</TableHead>
-                  <TableHead className="w-[120px]">Perfil de Risco</TableHead>
+                  <TableHead className="w-[130px]">Classe</TableHead>
+                  <TableHead className="w-[110px]">Perfil de Risco</TableHead>
                   <TableHead className="w-[80px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {assets.map((a) => (
                   <TableRow key={a.id}>
-                    <TableCell className="font-mono font-semibold">{a.ticker}</TableCell>
+                    <TableCell className="font-mono font-semibold text-primary">{a.ticker}</TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">{a.isin || "—"}</TableCell>
                     <TableCell>{a.name}</TableCell>
                     <TableCell className="text-sm">{a.asset_class}</TableCell>
                     <TableCell className="text-sm">{a.risk_profile}</TableCell>
@@ -329,15 +342,24 @@ export default function AssetKnowledge() {
               <DialogTitle>{editing ? "Editar Ativo" : "Novo Ativo"}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Ticker *</label>
-                  <Input value={form.ticker} onChange={(e) => setForm({ ...form, ticker: e.target.value })} placeholder="Ex: HYG" />
+              {/* Identifiers section - prominent */}
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3">
+                <p className="text-xs font-semibold text-primary uppercase tracking-wider">Identificadores (Golden Source)</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Ticker *</label>
+                    <Input value={form.ticker} onChange={(e) => setForm({ ...form, ticker: e.target.value })} placeholder="Ex: HYG" className="font-mono" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">ISIN</label>
+                    <Input value={form.isin} onChange={(e) => setForm({ ...form, isin: e.target.value })} placeholder="Ex: US4642885135" className="font-mono" maxLength={12} />
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Nome *</label>
-                  <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ex: iShares High Yield Corp Bond" />
-                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Nome *</label>
+                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ex: iShares High Yield Corp Bond ETF" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
@@ -398,10 +420,10 @@ export default function AssetKnowledge() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[40px]">Status</TableHead>
-                    <TableHead className="w-[90px]">Ticker</TableHead>
+                    <TableHead className="w-[80px]">Ticker</TableHead>
+                    <TableHead className="w-[120px]">ISIN</TableHead>
                     <TableHead>Nome</TableHead>
-                    <TableHead className="w-[120px]">Classe</TableHead>
-                    <TableHead className="w-[100px]">Risco</TableHead>
+                    <TableHead className="w-[110px]">Classe</TableHead>
                     <TableHead>Observação</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -416,9 +438,9 @@ export default function AssetKnowledge() {
                         )}
                       </TableCell>
                       <TableCell className="font-mono text-xs font-semibold">{row.ticker}</TableCell>
+                      <TableCell className="font-mono text-xs">{row.isin || "—"}</TableCell>
                       <TableCell className="text-sm">{row.name}</TableCell>
                       <TableCell className="text-xs">{row.asset_class}</TableCell>
-                      <TableCell className="text-xs">{row.risk_profile}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{row.error || "—"}</TableCell>
                     </TableRow>
                   ))}

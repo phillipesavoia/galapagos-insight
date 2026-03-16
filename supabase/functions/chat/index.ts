@@ -30,6 +30,54 @@ async function generateEmbedding(text: string, googleKey: string): Promise<numbe
   }
 }
 
+// --- Live Market Data fetcher ---
+async function fetchLiveMarketData(ticker: string, isin: string | null): Promise<any> {
+  const apiKey = Deno.env.get("MARKET_DATA_API_KEY");
+  if (!apiKey) {
+    console.warn("MARKET_DATA_API_KEY not configured — returning placeholder response");
+    return {
+      status: "api_not_configured",
+      message: `A API de dados de mercado ainda não está configurada. Configure a variável MARKET_DATA_API_KEY para habilitar dados em tempo real.`,
+      ticker,
+      isin: isin || null,
+    };
+  }
+
+  // Placeholder implementation — replace with actual API call when ready
+  // Example APIs: Financial Modeling Prep, Alpha Vantage, Polygon.io, Bloomberg B-PIPE
+  const identifier = isin || ticker;
+  const apiUrl = `https://api.marketdata.example.com/v1/quote?symbol=${encodeURIComponent(identifier)}&apikey=${apiKey}`;
+  
+  try {
+    const res = await fetch(apiUrl);
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`Market data API error [${res.status}]:`, errText);
+      return {
+        status: "api_error",
+        message: `Erro ao buscar dados de mercado para ${ticker}: HTTP ${res.status}`,
+        ticker,
+        isin: isin || null,
+      };
+    }
+    const data = await res.json();
+    return {
+      status: "success",
+      ticker,
+      isin: isin || null,
+      ...data,
+    };
+  } catch (err) {
+    console.error("Market data fetch error:", err);
+    return {
+      status: "fetch_error",
+      message: `Falha na conexão com API de mercado para ${ticker}`,
+      ticker,
+      isin: isin || null,
+    };
+  }
+}
+
 const TOOLS = [
   {
     name: "renderizar_grafico_barras",
@@ -130,6 +178,42 @@ Exemplos de quando usar:
       required: ["assetName", "assetClass", "portfolios", "radarMetrics", "thesis"],
     },
   },
+  {
+    name: "fetch_live_asset_data",
+    description: `Use esta ferramenta SEMPRE que o usuário solicitar dados quantitativos ATUALIZADOS ou em tempo real de um ativo específico (preço atual, YTD atualizado, AUM, yield corrente, NAV intraday). 
+
+REGRAS OBRIGATÓRIAS:
+- Você DEVE passar ESTRITAMENTE o Ticker ou ISIN cadastrado na base oficial 'asset_knowledge'. 
+- É EXPRESSAMENTE PROIBIDO usar o nome do ativo para buscas genéricas.
+- Se o ativo não estiver cadastrado no Asset Dictionary, NÃO use esta ferramenta — informe que o ativo precisa ser cadastrado primeiro.
+
+Exemplos de quando usar:
+- "Qual o preço atual do HYG?"
+- "Me dê o YTD atualizado do SHY"
+- "Quanto está o NAV do fundo HELO hoje?"`,
+    input_schema: {
+      type: "object",
+      properties: {
+        ticker: {
+          type: "string",
+          description: "Ticker oficial do ativo conforme cadastrado no Asset Dictionary (ex: 'HYG', 'SHY', 'SPY')",
+        },
+        isin: {
+          type: "string",
+          description: "ISIN do ativo conforme cadastrado no Asset Dictionary (ex: 'US4642885135'). Usar preferencialmente se disponível.",
+        },
+        metrics: {
+          type: "array",
+          description: "Lista de métricas desejadas",
+          items: {
+            type: "string",
+            enum: ["price", "ytd", "aum", "yield", "nav", "volume", "52w_high", "52w_low"],
+          },
+        },
+      },
+      required: ["ticker"],
+    },
+  },
 ];
 
 Deno.serve(async (req) => {
@@ -172,23 +256,22 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const serviceClient = createClient(supabaseUrl, serviceRoleKey);
     
-    // Extract potential tickers/asset names from query
     const queryUpper = query.toUpperCase();
     const { data: allAssets } = await serviceClient.from("asset_knowledge").select("*");
     
     if (allAssets && allAssets.length > 0) {
       const matchedAssets = allAssets.filter((a: any) => {
         const tickerMatch = queryUpper.includes(a.ticker.toUpperCase());
+        const isinMatch = a.isin && queryUpper.includes(a.isin.toUpperCase());
         const nameMatch = query.toLowerCase().includes(a.name.toLowerCase());
-        // Also check partial name words (3+ chars)
         const nameWords = a.name.split(/\s+/).filter((w: string) => w.length >= 3);
         const partialMatch = nameWords.some((w: string) => query.toLowerCase().includes(w.toLowerCase()));
-        return tickerMatch || nameMatch || partialMatch;
+        return tickerMatch || isinMatch || nameMatch || partialMatch;
       });
       
       if (matchedAssets.length > 0) {
         assetKnowledgeContext = matchedAssets.map((a: any) =>
-          `[ASSET DICTIONARY — ${a.ticker}]\nNome: ${a.name}\nClasse: ${a.asset_class}\nPerfil de Risco: ${a.risk_profile}\nTese Oficial da Gestão: ${a.official_thesis}`
+          `[ASSET DICTIONARY — ${a.ticker}${a.isin ? ` | ISIN: ${a.isin}` : ""}]\nNome: ${a.name}\nClasse: ${a.asset_class}\nPerfil de Risco: ${a.risk_profile}\nTese Oficial da Gestão: ${a.official_thesis}`
         ).join("\n\n---\n\n");
         console.log(`Asset Knowledge: matched ${matchedAssets.length} assets from dictionary`);
       }
@@ -365,6 +448,13 @@ Você é o assistente oficial e ESPECIALISTA EM ATIVOS da equipe de gestão da G
 - Você é o ESPECIALISTA DOS ATIVOS DA CASA. Se questionado sobre um fundo/ativo, use PRIORITARIAMENTE as informações do Asset Dictionary fornecidas na seção "BASE DE CONHECIMENTO DE ATIVOS". Se o ativo não estiver no dicionário NEM nos documentos, afirme claramente: "Não possuo o descritivo oficial da gestão para este ativo."
 - É PROIBIDO inventar matemática de portfólio, calcular diferenças entre alocações históricas, ou narrar operações de compra/venda que não estejam explicitamente descritas nos documentos.
 
+### REGRA DE DADOS DE MERCADO EM TEMPO REAL (GOLDEN SOURCE):
+
+- Sempre que o usuário solicitar dados quantitativos ATUALIZADOS de um ativo (preço, YTD, AUM, yield, NAV intraday), você DEVE usar a ferramenta 'fetch_live_asset_data' passando ESTRITAMENTE o Ticker ou ISIN cadastrado na base oficial 'asset_knowledge'.
+- É EXPRESSAMENTE PROIBIDO usar o nome do ativo para buscas genéricas na web ou inventar dados de mercado.
+- Se o ativo NÃO estiver cadastrado no Asset Dictionary, NÃO use a ferramenta — informe que o ativo precisa ser cadastrado primeiro pela equipe de gestão.
+- Os dados retornados pela ferramenta são a GOLDEN SOURCE. Não os misture com dados de documentos antigos sem indicar claramente a data de referência de cada fonte.
+
 ---
 
 ## REGRAS OPERACIONAIS
@@ -419,7 +509,8 @@ Liste apenas os documentos efetivamente citados/usados. Isso garante rastreabili
 2. [Pergunta que aprofunda ou compara com outro portfólio/ativo]
 3. [Pergunta sobre risco, alocação ou performance complementar]`;
 
-    const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
+    // First Claude call — may produce tool_use blocks
+    const initialClaudeRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -437,26 +528,32 @@ Liste apenas os documentos efetivamente citados/usados. Isso garante rastreabili
       }),
     });
 
-    if (!claudeRes.ok) {
-      const errText = await claudeRes.text();
+    if (!initialClaudeRes.ok) {
+      const errText = await initialClaudeRes.text();
       throw new Error(`Claude error: ${errText}`);
     }
 
-    // Transform Claude's SSE stream into our custom SSE stream
-    // Handle both text deltas and tool_use blocks
+    // We need to handle the case where Claude calls fetch_live_asset_data
+    // For that tool, we execute server-side and feed the result back to Claude
+    // For UI tools (chart, factsheet), we stream to the client
+
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
-        const reader = claudeRes.body!.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-        
-        // Track tool use blocks being built
-        let currentToolId = "";
-        let currentToolName = "";
-        let toolInputJson = "";
+        // Helper to process a Claude SSE stream
+        async function processStream(
+          claudeRes: Response,
+          handleServerTool: boolean,
+        ): Promise<{ needsToolResult: boolean; toolId: string; toolName: string; toolInput: any; contentBlocks: any[] } | null> {
+          const reader = claudeRes.body!.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+          let currentToolId = "";
+          let currentToolName = "";
+          let toolInputJson = "";
+          let serverToolCall: { id: string; name: string; input: any } | null = null;
+          const contentBlocks: any[] = [];
 
-        try {
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
@@ -474,36 +571,39 @@ Liste apenas os documentos efetivamente citados/usados. Isso garante rastreabili
               try {
                 const event = JSON.parse(jsonStr);
 
-                // Text delta
                 if (event.type === "content_block_delta" && event.delta?.type === "text_delta" && event.delta?.text) {
                   controller.enqueue(
                     encoder.encode(`data: ${JSON.stringify({ type: "delta", text: event.delta.text })}\n\n`)
                   );
                 }
 
-                // Tool use block start
                 if (event.type === "content_block_start" && event.content_block?.type === "tool_use") {
                   currentToolId = event.content_block.id || "";
                   currentToolName = event.content_block.name || "";
                   toolInputJson = "";
                 }
 
-                // Tool input delta (JSON string chunks)
                 if (event.type === "content_block_delta" && event.delta?.type === "input_json_delta") {
                   toolInputJson += event.delta.partial_json || "";
                 }
 
-                // Content block stop — if we were building a tool call, emit it
                 if (event.type === "content_block_stop" && currentToolName) {
                   try {
                     const toolInput = JSON.parse(toolInputJson);
-                    controller.enqueue(
-                      encoder.encode(`data: ${JSON.stringify({
-                        type: "tool_call",
-                        tool: currentToolName,
-                        input: toolInput,
-                      })}\n\n`)
-                    );
+                    
+                    if (handleServerTool && currentToolName === "fetch_live_asset_data") {
+                      // Server-side tool — don't emit to client yet
+                      serverToolCall = { id: currentToolId, name: currentToolName, input: toolInput };
+                    } else {
+                      // Client-side tool — emit to frontend
+                      controller.enqueue(
+                        encoder.encode(`data: ${JSON.stringify({
+                          type: "tool_call",
+                          tool: currentToolName,
+                          input: toolInput,
+                        })}\n\n`)
+                      );
+                    }
                   } catch (e) {
                     console.error("Failed to parse tool input JSON:", e, toolInputJson);
                   }
@@ -514,6 +614,72 @@ Liste apenas os documentos efetivamente citados/usados. Isso garante rastreabili
               } catch {
                 // partial JSON, ignore
               }
+            }
+          }
+
+          if (serverToolCall) {
+            return {
+              needsToolResult: true,
+              toolId: serverToolCall.id,
+              toolName: serverToolCall.name,
+              toolInput: serverToolCall.input,
+              contentBlocks,
+            };
+          }
+          return null;
+        }
+
+        try {
+          const toolResult = await processStream(initialClaudeRes, true);
+
+          if (toolResult?.needsToolResult && toolResult.toolName === "fetch_live_asset_data") {
+            // Execute the market data fetch server-side
+            console.log(`Executing fetch_live_asset_data for ticker: ${toolResult.toolInput.ticker}`);
+            const marketData = await fetchLiveMarketData(
+              toolResult.toolInput.ticker,
+              toolResult.toolInput.isin || null,
+            );
+
+            // Send tool result back to Claude for final response
+            const continuationMessages = [
+              ...claudeMessages,
+              {
+                role: "assistant",
+                content: [
+                  { type: "tool_use", id: toolResult.toolId, name: "fetch_live_asset_data", input: toolResult.toolInput },
+                ],
+              },
+              {
+                role: "user",
+                content: [
+                  { type: "tool_result", tool_use_id: toolResult.toolId, content: JSON.stringify(marketData) },
+                ],
+              },
+            ];
+
+            const continuationRes = await fetch("https://api.anthropic.com/v1/messages", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-api-key": anthropicKey,
+                "anthropic-version": "2023-06-01",
+              },
+              body: JSON.stringify({
+                model: "claude-sonnet-4-20250514",
+                max_tokens: 4096,
+                temperature: 0,
+                stream: true,
+                system: systemPrompt,
+                tools: TOOLS,
+                messages: continuationMessages,
+              }),
+            });
+
+            if (!continuationRes.ok) {
+              const errText = await continuationRes.text();
+              console.error("Continuation error:", errText);
+            } else {
+              await processStream(continuationRes, false);
             }
           }
 
