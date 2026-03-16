@@ -347,22 +347,80 @@ export default function Chat() {
 
         {/* Main Chat Area */}
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Top bar */}
-          <div className="flex items-center gap-2 p-3 border-b border-gray-200 bg-white">
-            <button
-              onClick={() => setShowHistory(!showHistory)}
-              className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-              title="Histórico de conversas"
-            >
-              <History className="h-4 w-4" strokeWidth={1.5} />
-            </button>
-            <button
-              onClick={handleNewChat}
-              className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-              title="Nova conversa"
-            >
-              <Plus className="h-4 w-4" strokeWidth={1.5} />
-            </button>
+          {/* Top bar with filters, sources, and actions */}
+          <div className="border-b border-gray-200 bg-white">
+            <div className="flex items-center gap-2 px-4 py-2">
+              <button
+                onClick={() => setShowHistory(!showHistory)}
+                className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                title="Histórico de conversas"
+              >
+                <History className="h-4 w-4" strokeWidth={1.5} />
+              </button>
+              <button
+                onClick={handleNewChat}
+                className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                title="Nova conversa"
+              >
+                <Plus className="h-4 w-4" strokeWidth={1.5} />
+              </button>
+              <div className="h-5 w-px bg-gray-200 mx-1" />
+              <div className="flex gap-2 flex-1">
+                {filterChips.map((chip) => (
+                  <button
+                    key={chip}
+                    onClick={() => setActiveFilter(chip)}
+                    className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                      activeFilter === chip
+                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                        : "bg-gray-100 text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
+              <select
+                value={activeFund}
+                onChange={(e) => setActiveFund(e.target.value)}
+                className="px-3 py-1.5 rounded-lg text-xs bg-gray-100 text-gray-700 border border-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer"
+              >
+                {["Todos", "Conservative", "Income", "Balanced", "Growth"].map((fund) => (
+                  <option key={fund} value={fund}>{fund === "Todos" ? "Todos os Portfólios" : fund}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Sources panel - top */}
+            {showSourcesPanel && lastAssistantSources.length > 0 && !isEmpty && (
+              <div className="border-t border-gray-100 px-4 py-2.5 bg-gray-50/80">
+                <div className="flex items-center justify-between mb-1.5">
+                  <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Fontes utilizadas</h3>
+                  <button onClick={() => setShowSourcesPanel(false)} className="text-gray-400 hover:text-gray-600">
+                    <X className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {lastAssistantSources.map((src, i) => (
+                    src.file_url ? (
+                      <a
+                        key={i}
+                        href={src.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-emerald-700 hover:text-emerald-800 underline underline-offset-2 decoration-emerald-300 hover:decoration-emerald-500 transition-colors"
+                      >
+                        {src.name} <span className="text-gray-400 no-underline">({src.period})</span>
+                      </a>
+                    ) : (
+                      <span key={i} className="text-xs text-gray-600">
+                        {src.name} <span className="text-gray-400">({src.period})</span>
+                      </span>
+                    )
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {isEmpty ? (
@@ -392,7 +450,7 @@ export default function Chat() {
               {messages.map((msg) => (
                 <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div
-                    className={`max-w-3xl px-5 py-4 rounded-2xl text-[13px] leading-[1.7] shadow-sm ${
+                    className={`max-w-4xl w-full px-5 py-4 rounded-2xl text-[13px] leading-[1.7] shadow-sm ${
                       msg.role === "user"
                         ? "bg-emerald-600 text-white border border-emerald-700"
                         : "bg-white border border-gray-300 text-gray-900"
@@ -528,59 +586,8 @@ export default function Chat() {
             </div>
           )}
 
-          {/* Sources panel */}
-          {showSourcesPanel && lastAssistantSources.length > 0 && !isEmpty && (
-            <div className="border-t border-gray-200 bg-gray-50 px-4 py-3">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Fontes utilizadas</h3>
-                <button onClick={() => setShowSourcesPanel(false)} className="text-gray-400 hover:text-gray-600">
-                  <X className="h-3.5 w-3.5" strokeWidth={1.5} />
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {lastAssistantSources.map((src, i) => (
-                  <div key={i} className="px-3 py-1.5 rounded-lg bg-white border border-gray-200 shadow-sm">
-                    {src.file_url ? (
-                      <a href={src.file_url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-emerald-700 hover:underline">{src.name}</a>
-                    ) : (
-                      <p className="text-xs font-medium text-gray-800">{src.name}</p>
-                    )}
-                    <p className="text-[10px] text-gray-500">{src.period}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Input */}
           <div className="border-t border-gray-200 p-4 bg-white">
-            <div className="flex items-center gap-4 mb-3">
-              <div className="flex gap-2">
-                {filterChips.map((chip) => (
-                  <button
-                    key={chip}
-                    onClick={() => setActiveFilter(chip)}
-                    className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${
-                      activeFilter === chip
-                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                        : "bg-gray-100 text-gray-500 hover:text-gray-700"
-                    }`}
-                  >
-                    {chip}
-                  </button>
-                ))}
-              </div>
-              <div className="h-5 w-px bg-gray-200" />
-              <select
-                value={activeFund}
-                onChange={(e) => setActiveFund(e.target.value)}
-                className="px-3 py-1.5 rounded-lg text-xs bg-gray-100 text-gray-700 border border-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer"
-              >
-                {["Todos", "Conservative", "Income", "Balanced", "Growth"].map((fund) => (
-                  <option key={fund} value={fund}>{fund === "Todos" ? "Todos os Portfólios" : fund}</option>
-                ))}
-              </select>
-            </div>
             <div className="flex items-end gap-3">
               <textarea
                 value={input}
@@ -609,7 +616,7 @@ export default function Chat() {
         {!showSourcesPanel && !isEmpty && lastAssistantSources.length > 0 && (
           <button
             onClick={() => setShowSourcesPanel(true)}
-            className="fixed bottom-24 left-[280px] px-3 py-1.5 rounded-lg bg-white border border-gray-200 shadow-md text-xs text-gray-600 hover:text-gray-900 transition-colors z-10"
+            className="fixed top-16 right-6 px-3 py-1.5 rounded-lg bg-white border border-gray-200 shadow-md text-xs text-gray-600 hover:text-gray-900 transition-colors z-10"
           >
             <SlidersHorizontal className="h-3.5 w-3.5 inline mr-1.5" strokeWidth={1.5} />
             Fontes
