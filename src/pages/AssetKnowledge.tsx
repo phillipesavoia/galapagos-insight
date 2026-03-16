@@ -462,7 +462,7 @@ export default function AssetKnowledge() {
           <div
             {...getRootProps()}
             className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
-              !selectedPortfolio ? "opacity-50 pointer-events-none" : ""
+              !selectedPortfolio || !referenceDate ? "opacity-50 pointer-events-none" : ""
             } ${
               isDragActive
                 ? "border-primary bg-primary/5"
