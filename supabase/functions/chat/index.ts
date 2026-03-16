@@ -219,6 +219,55 @@ Responda em português brasileiro. Seja factual. Máximo 500 palavras.`,
   }
 }
 
+// --- Perplexity Deep Research ---
+async function askPerplexityResearcher(researchPrompt: string): Promise<any> {
+  const apiKey = Deno.env.get("PERPLEXITY_API_KEY");
+  if (!apiKey) {
+    return { status: "error", message: "PERPLEXITY_API_KEY não configurada." };
+  }
+
+  try {
+    console.log(`Perplexity research: "${researchPrompt.slice(0, 80)}..."`);
+    const res = await fetch("https://api.perplexity.ai/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "sonar-pro",
+        messages: [
+          {
+            role: "system",
+            content: "Você é um analista financeiro sênior especializado em mercados globais. Responda em português brasileiro de forma técnica e factual. Cite fontes e datas quando possível. Estruture a resposta em seções claras: Drivers Macro, Fatores Geopolíticos, Dinâmica Setorial, e Conclusão. Máximo 600 palavras.",
+          },
+          { role: "user", content: researchPrompt },
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`Perplexity error [${res.status}]:`, errText);
+      return { status: "error", message: `Perplexity API error: HTTP ${res.status}` };
+    }
+
+    const data = await res.json();
+    const content = data.choices?.[0]?.message?.content || "";
+    const citations = data.citations || [];
+
+    return {
+      status: "success",
+      analysis: content,
+      citations,
+      model: "sonar-pro",
+    };
+  } catch (err) {
+    console.error("Perplexity fetch error:", err);
+    return { status: "fetch_error", message: "Falha na conexão com Perplexity API." };
+  }
+}
+
 const TOOLS = [
   {
     name: "renderizar_grafico_barras",
@@ -403,6 +452,27 @@ Exemplos:
         },
       },
       required: ["symbol", "from_date", "to_date"],
+    },
+  },
+  {
+    name: "ask_perplexity_researcher",
+    description: `Aciona o modelo especializado da Perplexity (sonar-pro) para sintetizar motivos complexos de mercado, justificando quedas ou altas de setores inteiros. Este modelo faz buscas profundas na internet com múltiplas fontes e citações.
+
+Use esta ferramenta para análises PROFUNDAS e COMPLEXAS que exijam cruzamento de múltiplas fontes — superior às buscas simples do Google. Ideal para:
+- Explicar movimentos setoriais amplos (ex: "Por que tech na China caiu?")
+- Análises geopolíticas complexas com múltiplos drivers
+- Sínteses que exijam raciocínio multi-step com citações acadêmicas/financeiras
+
+NÃO use para buscas simples de notícias (use get_company_ticker_news) ou contexto macro rápido (use search_macro_market_context).`,
+    input_schema: {
+      type: "object",
+      properties: {
+        research_prompt: {
+          type: "string",
+          description: "A pergunta detalhada para o analista de IA. Ex: 'Quais os drivers e eventos geopolíticos que impactaram o KWEB em fevereiro de 2026?'",
+        },
+      },
+      required: ["research_prompt"],
     },
   },
 ];
@@ -725,6 +795,13 @@ REGRAS DE RECONHECIMENTO (OBRIGATÓRIAS):
 - Os resultados devem ser apresentados sob o header "📰 **Notícias Recentes ({TICKER}):**" para diferenciar de dados internos.
 - Combine as notícias com dados do Asset Dictionary quando disponível para dar contexto completo ao assessor.
 
+### REGRA DE PESQUISA PROFUNDA (PERPLEXITY):
+
+- Para análises COMPLEXAS que exijam cruzamento de múltiplas fontes, raciocínio multi-step e explicação de movimentos setoriais amplos, use a ferramenta 'ask_perplexity_researcher'.
+- Os resultados devem ser apresentados sob o header "🔬 **Análise Aprofundada (Perplexity Research):**".
+- Esta é a ferramenta mais poderosa de pesquisa. Use-a para questões que envolvam geopolítica complexa, múltiplos drivers de mercado interconectados, ou quando as outras ferramentas (search_macro, ticker_news) não fornecerem profundidade suficiente.
+- As citações retornadas pela Perplexity são fontes verificáveis — mencione-as quando relevante.
+
 ---
 
 ## REGRAS OPERACIONAIS
@@ -883,7 +960,7 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
                   try {
                     const toolInput = JSON.parse(toolInputJson);
                     
-                    if (handleServerTool && (currentToolName === "fetch_live_asset_data" || currentToolName === "search_macro_market_context" || currentToolName === "get_company_ticker_news")) {
+                    if (handleServerTool && (currentToolName === "fetch_live_asset_data" || currentToolName === "search_macro_market_context" || currentToolName === "get_company_ticker_news" || currentToolName === "ask_perplexity_researcher")) {
                       // Server-side tool — don't emit to client yet
                       serverToolCall = { id: currentToolId, name: currentToolName, input: toolInput };
                     } else {
@@ -952,6 +1029,9 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
                   googleKey,
                 );
               }
+            } else if (toolResult.toolName === "ask_perplexity_researcher") {
+              console.log(`Executing ask_perplexity_researcher`);
+              toolResultData = await askPerplexityResearcher(toolResult.toolInput.research_prompt);
             }
 
             // Send tool result back to Claude for final response
