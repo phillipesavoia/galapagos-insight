@@ -1,0 +1,91 @@
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+
+export interface PortfolioMarketData {
+  name: string;
+  ticker: string;
+  lastPrice: number;
+  lastDate: string;
+  change1D: number;
+  changeMTD: number;
+  changeYTD: number;
+  sparklineData: { value: number }[];
+}
+
+const PORTFOLIOS = ["Conservative", "Income", "Balanced", "Growth"];
+
+export function usePortfolioMarketData() {
+  const [data, setData] = useState<PortfolioMarketData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetch() {
+      setLoading(true);
+      try {
+        const results: PortfolioMarketData[] = [];
+
+        for (const name of PORTFOLIOS) {
+          // Fetch last 60 days for sparkline + MTD calc
+          const { data: rows, error } = await supabase
+            .from("daily_navs")
+            .select("date, nav, daily_return, ytd_return")
+            .eq("portfolio_name", name)
+            .order("date", { ascending: false })
+            .limit(60);
+
+          if (error || !rows || rows.length === 0) continue;
+
+          const sorted = [...rows].reverse(); // oldest first
+          const latest = rows[0];
+          const lastDate = latest.date;
+
+          // 1D = daily_return of last row
+          const change1D = latest.daily_return ?? 0;
+
+          // YTD = ytd_return of last row
+          const changeYTD = latest.ytd_return ?? 0;
+
+          // MTD: find last day of previous month, compute return since then
+          const currentMonth = lastDate.substring(0, 7); // "YYYY-MM"
+          const firstOfMonthRows = sorted.filter(
+            (r) => r.date.substring(0, 7) === currentMonth
+          );
+          let changeMTD = 0;
+          if (firstOfMonthRows.length > 1) {
+            const prevMonthRows = sorted.filter(
+              (r) => r.date.substring(0, 7) < currentMonth
+            );
+            const lastPrevMonth = prevMonthRows.length > 0
+              ? prevMonthRows[prevMonthRows.length - 1]
+              : firstOfMonthRows[0];
+            changeMTD = ((latest.nav - lastPrevMonth.nav) / lastPrevMonth.nav) * 100;
+          }
+
+          // Sparkline: last 30 data points
+          const sparklineData = sorted.slice(-30).map((r) => ({ value: r.nav }));
+
+          results.push({
+            name,
+            ticker: "Model Portfolio",
+            lastPrice: latest.nav,
+            lastDate,
+            change1D,
+            changeMTD: parseFloat(changeMTD.toFixed(4)),
+            changeYTD,
+            sparklineData,
+          });
+        }
+
+        setData(results);
+      } catch (err) {
+        console.error("Error fetching portfolio market data:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetch();
+  }, []);
+
+  return { data, loading };
+}
