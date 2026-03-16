@@ -541,7 +541,14 @@ export default function Chat() {
 
           {/* Input */}
           <div className="border-t border-gray-200 p-4 bg-white">
-            <div className="flex items-end gap-3">
+            <div className="flex items-end gap-2">
+              <button
+                onClick={() => setShowHistory(!showHistory)}
+                className={`h-11 w-11 rounded-xl flex items-center justify-center transition-colors shrink-0 ${showHistory ? 'text-emerald-600 bg-emerald-50 border border-emerald-200' : 'text-gray-400 bg-gray-50 border border-gray-200 hover:text-gray-700 hover:bg-gray-100'}`}
+                title="Histórico de conversas"
+              >
+                <History className="h-4 w-4" strokeWidth={1.5} />
+              </button>
               <textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
