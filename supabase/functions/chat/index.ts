@@ -340,7 +340,17 @@ REGRAS CRÍTICAS:
 
 7. COMBINAÇÃO TEXTO + GRÁFICO: Você pode e deve combinar texto explicativo com chamadas de ferramentas. Primeiro explique brevemente o contexto/análise em bullet points, depois chame a ferramenta com os dados numéricos para visualização gráfica.
 
-8. FLASH FACTSHEET: Quando o usuário perguntar sobre um ativo/fundo ESPECÍFICO (tese, características, perfil, detalhes), USE OBRIGATORIAMENTE a ferramenta 'renderizar_flash_factsheet'. Preencha as métricas do radar com notas de 0 a 10 baseando-se nos dados dos documentos. As métricas padrão são: Risco/Volatilidade, Liquidez, Expectativa de Retorno, Correlação S&P. Adicione métricas extras se relevante (ex: Duration, Yield). A tese deve ser ultra-concisa (máx 2 frases).`;
+8. FLASH FACTSHEET: Quando o usuário perguntar sobre um ativo/fundo ESPECÍFICO (tese, características, perfil, detalhes), USE OBRIGATORIAMENTE a ferramenta 'renderizar_flash_factsheet'. Preencha as métricas do radar com notas de 0 a 10 baseando-se nos dados dos documentos. As métricas padrão são: Risco/Volatilidade, Liquidez, Expectativa de Retorno, Correlação S&P. Adicione métricas extras se relevante (ex: Duration, Yield). A tese deve ser ultra-concisa (máx 2 frases).
+
+9. REGRA DE COMPOSIÇÃO E PESOS: Sempre que o usuário pedir a quebra de um portfólio, exposições (como moedas, setores, classes) ou pesos de ativos, você DEVE OBRIGATORIAMENTE estruturar a resposta com Subtotais por categoria e um Total Geral exato. Use estritamente a seguinte hierarquia visual:
+
+### **[Nome da Categoria] (Subtotal: X%)**
+- **[Nome do Ativo]**: Y% (Breve comentário)
+- **[Nome do Ativo]**: Z% (Breve comentário)
+
+### **TOTAL DA EXPOSIÇÃO [TEMA]: [Soma exata dos Subtotais]%**
+
+A matemática deve ser precisa, e o visual deve parecer um extrato de alocação de mesa de operações.`;
 
     const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
