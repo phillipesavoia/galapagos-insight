@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { InlineBarChart } from "@/components/chat/InlineBarChart";
+import { FlashFactsheet } from "@/components/chat/FlashFactsheet";
 
 interface ChatSource {
   name: string;
