@@ -69,7 +69,7 @@ function extractFollowUps(content: string): { cleanContent: string; followUps: s
   return { cleanContent, followUps };
 }
 
-const filterChips = ["Todos os documentos", "Factsheets", "Cartas Mensais", "Apresentações"];
+
 
 function generateSessionId() {
   return crypto.randomUUID();
