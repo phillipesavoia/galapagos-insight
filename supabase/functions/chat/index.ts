@@ -78,6 +78,78 @@ async function fetchLiveMarketData(ticker: string, isin: string | null): Promise
   }
 }
 
+// --- Macro Market Context Search via Gemini + Google Search Grounding ---
+async function searchMacroMarketContext(query: string, googleKey: string): Promise<any> {
+  try {
+    console.log(`Searching macro context: "${query}"`);
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${googleKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  text: `Você é um analista macroeconômico sênior. Responda em português brasileiro de forma técnica e concisa.\n\nPesquise e resuma os principais fatores macroeconômicos, geopolíticos e de mercado que explicam o seguinte:\n\n${query}\n\nEstruture sua resposta em:\n1. **Principais Drivers Macro** (políticas monetárias, dados econômicos, decisões de bancos centrais)\n2. **Fatores Geopolíticos** (tensões comerciais, regulação, eventos políticos)\n3. **Dinâmica de Mercado** (fluxos, sentimento, posicionamento técnico)\n4. **Resultados Corporativos / Setoriais** (se aplicável)\n\nSeja factual e cite fontes/datas quando possível. Máximo 400 palavras.`,
+                },
+              ],
+            },
+          ],
+          tools: [{ googleSearch: {} }],
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 1024,
+          },
+        }),
+      }
+    );
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`Gemini search error [${res.status}]:`, errText);
+      return {
+        status: "error",
+        message: `Erro na busca macro: HTTP ${res.status}`,
+        query,
+      };
+    }
+
+    const data = await res.json();
+    const textParts = data?.candidates?.[0]?.content?.parts || [];
+    const textContent = textParts
+      .filter((p: any) => p.text)
+      .map((p: any) => p.text)
+      .join("\n");
+
+    // Extract grounding metadata (sources)
+    const groundingMetadata = data?.candidates?.[0]?.groundingMetadata;
+    const searchSuggestions = groundingMetadata?.searchEntryPoint?.renderedContent || null;
+    const groundingSources = groundingMetadata?.groundingChunks?.map((c: any) => ({
+      title: c.web?.title || "",
+      url: c.web?.uri || "",
+    })) || [];
+
+    return {
+      status: "success",
+      query,
+      analysis: textContent,
+      sources: groundingSources,
+      searchSuggestions,
+    };
+  } catch (err) {
+    console.error("Macro search error:", err);
+    return {
+      status: "fetch_error",
+      message: `Falha na busca de contexto macro para: "${query}"`,
+      query,
+    };
+  }
+}
+
+
 const TOOLS = [
   {
     name: "renderizar_grafico_barras",
