@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, ChevronDown, ChevronRight, X, Plus, History, ThumbsUp, ThumbsDown, RefreshCw, Copy, PanelLeftClose, PanelLeft } from "lucide-react";
+import { Send, ChevronDown, ChevronRight, X, Plus, History, ThumbsUp, ThumbsDown, RefreshCw, Copy, PanelLeftClose, PanelLeft, SquarePen } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
@@ -332,28 +332,33 @@ export default function Chat() {
       <div className="flex h-screen bg-white">
         {/* History Sidebar */}
         {showHistory && (
-          <div className="w-72 border-r border-gray-200 bg-gray-50 flex flex-col shrink-0">
-            <div className="p-2 flex justify-end">
+          <div className="w-64 border-r border-gray-200 bg-white flex flex-col shrink-0">
+            {/* New Chat - Gemini style */}
+            <div className="px-4 pt-5 pb-2">
               <button
                 onClick={handleNewChat}
-                className="p-1.5 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-colors shadow-sm"
-                title="Nova conversa"
+                className="flex items-center gap-3 text-sm text-gray-700 hover:bg-gray-100 rounded-full px-4 py-2.5 transition-colors w-full"
               >
-                <Plus className="h-4 w-4" strokeWidth={2.5} />
+                <SquarePen className="h-4 w-4 text-gray-500" strokeWidth={1.5} />
+                <span>New chat</span>
               </button>
             </div>
-            <div className="px-3 pt-3 pb-1">
-              <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Conversas anteriores</h3>
+
+            {/* Section label */}
+            <div className="px-4 pt-4 pb-2">
+              <h3 className="text-xs font-medium text-gray-500">Chats</h3>
             </div>
+
+            {/* Session list */}
             <div className="flex-1 overflow-y-auto scrollbar-thin px-2 pb-2 space-y-0.5">
               {sessions.map((s) => (
                 <button
                   key={s.session_id}
                   onClick={() => handleSelectSession(s.session_id)}
-                  className={`w-full text-left px-3 py-2.5 rounded-lg text-xs transition-colors truncate ${
+                  className={`w-full text-left px-3 py-2 rounded-full text-[13px] transition-colors truncate ${
                     s.session_id === sessionId
-                      ? "bg-emerald-50 text-gray-900 font-medium border border-emerald-200"
-                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-800"
+                      ? "bg-blue-50 text-blue-700 font-medium"
+                      : "text-gray-700 hover:bg-gray-100"
                   }`}
                 >
                   {s.preview || "Conversa sem título"}
