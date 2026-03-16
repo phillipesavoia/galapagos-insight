@@ -407,26 +407,46 @@ export default function AssetKnowledge() {
           </div>
         </div>
 
-        {/* Dropzone */}
-        <div
-          {...getRootProps()}
-          className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
-            isDragActive
-              ? "border-primary bg-primary/5"
-              : "border-border hover:border-primary/50 hover:bg-muted/30"
-          }`}
-        >
-          <input {...getInputProps()} />
-          <UploadCloud className={`h-10 w-10 mx-auto mb-3 ${isDragActive ? "text-primary" : "text-muted-foreground/50"}`} />
-          <p className="text-sm font-medium text-foreground">
-            {isDragActive ? "Solte o arquivo aqui..." : "Arraste planilhas dos Modelos aqui ou clique para selecionar"}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            CSV, XLSX, XLS — Colunas esperadas: Portfolio, Nome, Ticker, ISIN, Asset Class, Peso (%), Tese
-          </p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Se a planilha não tiver coluna "Portfolio", o nome do modelo será extraído do nome do arquivo
-          </p>
+        {/* Portfolio selector + Dropzone */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <label className="text-sm font-medium text-foreground whitespace-nowrap">Selecionar Portfólio *</label>
+            <Select value={selectedPortfolio} onValueChange={setSelectedPortfolio}>
+              <SelectTrigger className="w-[240px]">
+                <SelectValue placeholder="Escolha o portfólio..." />
+              </SelectTrigger>
+              <SelectContent>
+                {PORTFOLIO_OPTIONS.map((p) => (
+                  <SelectItem key={p} value={p}>{p}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div
+            {...getRootProps()}
+            className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
+              !selectedPortfolio ? "opacity-50 pointer-events-none" : ""
+            } ${
+              isDragActive
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-primary/50 hover:bg-muted/30"
+            }`}
+          >
+            <input {...getInputProps()} />
+            <UploadCloud className={`h-10 w-10 mx-auto mb-3 ${isDragActive ? "text-primary" : "text-muted-foreground/50"}`} />
+            <p className="text-sm font-medium text-foreground">
+              {isDragActive ? "Solte o arquivo aqui..." : "Arraste o CSV do Bloomberg ou planilha aqui"}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              CSV, XLSX, XLS — Detecta automaticamente formato Bloomberg (PK, Descr, ISIN, Weight)
+            </p>
+            {!selectedPortfolio && (
+              <p className="text-xs text-destructive mt-1 font-medium">
+                ⚠ Selecione um portfólio acima antes de importar
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Assets table */}
