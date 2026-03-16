@@ -135,6 +135,7 @@ function getCellBg(value: number | null): string {
 
 export function MonthlyReturnsTable({ data, loading }: MonthlyReturnsTableProps) {
   const result = useMemo(() => computeMonthlyMatrix(data), [data]);
+  const [yearFilter, setYearFilter] = useState<string>("all");
 
   if (loading) {
     return (
@@ -160,6 +161,7 @@ export function MonthlyReturnsTable({ data, loading }: MonthlyReturnsTableProps)
 
   const { years, matrix, ytdReturns, sinceInception } = result;
   const siPositive = sinceInception >= 0;
+  const displayYears = yearFilter === "all" ? years : years.filter((y) => String(y) === yearFilter);
 
   return (
     <Card className="border-border bg-card">
