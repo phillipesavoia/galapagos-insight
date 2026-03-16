@@ -813,13 +813,23 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
         try {
           const toolResult = await processStream(initialClaudeRes, true);
 
-          if (toolResult?.needsToolResult && toolResult.toolName === "fetch_live_asset_data") {
-            // Execute the market data fetch server-side
-            console.log(`Executing fetch_live_asset_data for ticker: ${toolResult.toolInput.ticker}`);
-            const marketData = await fetchLiveMarketData(
-              toolResult.toolInput.ticker,
-              toolResult.toolInput.isin || null,
-            );
+          if (toolResult?.needsToolResult) {
+            let toolResultData: any;
+            
+            if (toolResult.toolName === "fetch_live_asset_data") {
+              console.log(`Executing fetch_live_asset_data for ticker: ${toolResult.toolInput.ticker}`);
+              toolResultData = await fetchLiveMarketData(
+                toolResult.toolInput.ticker,
+                toolResult.toolInput.isin || null,
+              );
+            } else if (toolResult.toolName === "search_macro_market_context") {
+              console.log(`Executing search_macro_market_context: "${toolResult.toolInput.query}"`);
+              if (!googleKey) {
+                toolResultData = { status: "error", message: "GOOGLE_AI_API_KEY não configurada para busca macro." };
+              } else {
+                toolResultData = await searchMacroMarketContext(toolResult.toolInput.query, googleKey);
+              }
+            }
 
             // Send tool result back to Claude for final response
             const continuationMessages = [
@@ -827,13 +837,13 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
               {
                 role: "assistant",
                 content: [
-                  { type: "tool_use", id: toolResult.toolId, name: "fetch_live_asset_data", input: toolResult.toolInput },
+                  { type: "tool_use", id: toolResult.toolId, name: toolResult.toolName, input: toolResult.toolInput },
                 ],
               },
               {
                 role: "user",
                 content: [
-                  { type: "tool_result", tool_use_id: toolResult.toolId, content: JSON.stringify(marketData) },
+                  { type: "tool_result", tool_use_id: toolResult.toolId, content: JSON.stringify(toolResultData) },
                 ],
               },
             ];
