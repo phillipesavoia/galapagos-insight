@@ -14,7 +14,6 @@ import { toast } from "sonner";
 import { useDropzone } from "react-dropzone";
 import * as XLSX from "xlsx";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { format, setMonth, setYear } from "date-fns";
 import { pt } from "date-fns/locale";
