@@ -519,14 +519,13 @@ Exemplos:
   },
   {
     name: "ask_perplexity_researcher",
-    description: `Aciona o modelo especializado da Perplexity (sonar-pro) para sintetizar motivos complexos de mercado, justificando quedas ou altas de setores inteiros. Este modelo faz buscas profundas na internet com múltiplas fontes e citações.
+    description: `ATENÇÃO: Esta ferramenta é PAGA e LENTA. Use-a APENAS como ÚLTIMO RECURSO (fallback) quando tavily_web_search e finnhub_ticker_news retornaram vazios, deram erro, ou não trouxeram informação suficiente.
 
-Use esta ferramenta para análises PROFUNDAS e COMPLEXAS que exijam cruzamento de múltiplas fontes — superior às buscas simples do Google. Ideal para:
-- Explicar movimentos setoriais amplos (ex: "Por que tech na China caiu?")
-- Análises geopolíticas complexas com múltiplos drivers
-- Sínteses que exijam raciocínio multi-step com citações acadêmicas/financeiras
+NUNCA use esta ferramenta como primeira opção. SEMPRE tente tavily_web_search e finnhub_ticker_news ANTES.
 
-NÃO use para buscas simples de notícias (use get_company_ticker_news) ou contexto macro rápido (use search_macro_market_context).`,
+Aciona o modelo Perplexity (sonar) para sintetizar motivos complexos de mercado com múltiplas fontes e citações. Ideal APENAS quando as ferramentas gratuitas falharam e você precisa de:
+- Análises geopolíticas complexas com múltiplos drivers interconectados
+- Sínteses profundas que as outras ferramentas não conseguiram fornecer`,
     input_schema: {
       type: "object",
       properties: {
