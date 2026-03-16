@@ -1078,7 +1078,7 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
                   try {
                     const toolInput = JSON.parse(toolInputJson);
                     
-                    if (handleServerTool && (currentToolName === "fetch_live_asset_data" || currentToolName === "search_macro_market_context" || currentToolName === "get_company_ticker_news" || currentToolName === "ask_perplexity_researcher")) {
+                    if (handleServerTool && (currentToolName === "fetch_live_asset_data" || currentToolName === "search_macro_market_context" || currentToolName === "get_company_ticker_news" || currentToolName === "ask_perplexity_researcher" || currentToolName === "tavily_web_search" || currentToolName === "finnhub_ticker_news")) {
                       // Server-side tool — don't emit to client yet
                       serverToolCall = { id: currentToolId, name: currentToolName, input: toolInput };
                     } else {
