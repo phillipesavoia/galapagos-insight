@@ -336,9 +336,9 @@ export default function Chat() {
             <div className="p-3 border-b border-gray-200">
               <button
                 onClick={handleNewChat}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition-colors shadow-sm"
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 text-white text-xs font-medium hover:bg-emerald-600 transition-colors shadow-sm"
               >
-                <Plus className="h-4 w-4" strokeWidth={2} />
+                <Plus className="h-3.5 w-3.5" strokeWidth={2} />
                 Nova conversa
               </button>
             </div>
