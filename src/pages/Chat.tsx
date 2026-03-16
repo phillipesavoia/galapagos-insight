@@ -84,7 +84,7 @@ export default function Chat() {
   const [expandedSources, setExpandedSources] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
+  const [showHistory, setShowHistory] = useState(true);
   const [randomSuggestions] = useState(() => getRandomSuggestions(4));
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
