@@ -9,10 +9,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, BookOpen, Download, FileSpreadsheet, X, CheckCircle2, AlertCircle, UploadCloud } from "lucide-react";
+import { Plus, Pencil, Trash2, BookOpen, Download, FileSpreadsheet, X, CheckCircle2, AlertCircle, UploadCloud, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useDropzone } from "react-dropzone";
 import * as XLSX from "xlsx";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { pt } from "date-fns/locale";
 
 interface Asset {
   id: string;
