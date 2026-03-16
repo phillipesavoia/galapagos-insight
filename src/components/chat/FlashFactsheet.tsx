@@ -1,11 +1,4 @@
-import {
-  RadarChart,
-  Radar,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  ResponsiveContainer,
-} from "recharts";
+import { Progress } from "@/components/ui/progress";
 
 interface RadarMetric {
   metric: string;
@@ -36,6 +29,12 @@ const CLASS_ICONS: Record<string, string> = {
   Commodities: "🪙",
 };
 
+function getIntensityLabel(score: number): { label: string; className: string } {
+  if (score <= 3) return { label: "Baixo", className: "text-emerald-600" };
+  if (score <= 6) return { label: "Moderado", className: "text-amber-600" };
+  return { label: "Alto", className: "text-red-500" };
+}
+
 export function FlashFactsheet({
   assetName,
   ticker,
@@ -44,12 +43,6 @@ export function FlashFactsheet({
   radarMetrics,
   thesis,
 }: FlashFactsheetProps) {
-  const radarData = radarMetrics.map((m) => ({
-    subject: m.metric,
-    value: m.score,
-    fullMark: 10,
-  }));
-
   const icon = CLASS_ICONS[assetClass] || "📊";
 
   return (
@@ -88,37 +81,31 @@ export function FlashFactsheet({
         ))}
       </div>
 
-      {/* Radar Chart */}
-      {radarData.length > 0 && (
-        <div className="px-4 py-3 flex justify-center">
-          <ResponsiveContainer width="100%" height={200}>
-            <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
-              <PolarGrid stroke="#e5e7eb" />
-              <PolarAngleAxis
-                dataKey="subject"
-                tick={{ fontSize: 10, fill: "#6b7280", fontWeight: 500 }}
-              />
-              <PolarRadiusAxis
-                angle={90}
-                domain={[0, 10]}
-                tick={{ fontSize: 9, fill: "#9ca3af" }}
-                tickCount={6}
-              />
-              <Radar
-                name="Score"
-                dataKey="value"
-                stroke="#10b981"
-                fill="#10b981"
-                fillOpacity={0.2}
-                strokeWidth={2}
-              />
-            </RadarChart>
-          </ResponsiveContainer>
+      {/* Metric Bars */}
+      {radarMetrics.length > 0 && (
+        <div className="px-5 py-3 space-y-2.5 border-b border-gray-100">
+          {radarMetrics.map((m) => {
+            const { label, className } = getIntensityLabel(m.score);
+            return (
+              <div key={m.metric} className="flex items-center gap-3">
+                <span className="text-[11px] font-medium text-gray-600 w-28 shrink-0 truncate">
+                  {m.metric}
+                </span>
+                <Progress
+                  value={m.score * 10}
+                  className="h-2 flex-1 bg-gray-100"
+                />
+                <span className={`text-[10px] font-semibold w-16 text-right shrink-0 ${className}`}>
+                  {m.score}/10 · {label}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
 
       {/* Thesis */}
-      <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50">
+      <div className="px-5 py-3 bg-gray-50/50">
         <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
           Tese na Carteira
         </p>
