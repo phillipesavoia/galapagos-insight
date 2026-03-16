@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import type { Period } from "@/components/dashboard/PeriodFilter";
 import { Layout } from "@/components/Layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PortfolioTab } from "@/components/dashboard/PortfolioTab";
@@ -16,6 +17,7 @@ export interface NavDataPoint {
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<string>("Conservative");
+  const [period, setPeriod] = useState<Period>("YTD");
   const [navData, setNavData] = useState<NavDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -75,7 +77,7 @@ export default function Dashboard() {
 
             {portfolios.map((p) => (
               <TabsContent key={p} value={p} className="mt-5">
-                <PortfolioTab portfolio={p} navData={navData} loading={loading} />
+                <PortfolioTab portfolio={p} navData={navData} loading={loading} period={period} onPeriodChange={setPeriod} />
               </TabsContent>
             ))}
           </Tabs>

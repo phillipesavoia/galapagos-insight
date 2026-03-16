@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import { NavChart } from "./NavChart";
 import { RiskMetrics } from "./RiskMetrics";
 import { HoldingsTable } from "./HoldingsTable";
@@ -10,6 +10,8 @@ interface PortfolioTabProps {
   portfolio: PortfolioName;
   navData: NavDataPoint[];
   loading: boolean;
+  period: Period;
+  onPeriodChange: (p: Period) => void;
 }
 
 function filterByPeriod(data: NavDataPoint[], period: Period): NavDataPoint[] {
@@ -30,8 +32,7 @@ function filterByPeriod(data: NavDataPoint[], period: Period): NavDataPoint[] {
   return data.filter((d) => d.date >= cutoffStr);
 }
 
-export function PortfolioTab({ portfolio, navData, loading }: PortfolioTabProps) {
-  const [period, setPeriod] = useState<Period>("YTD");
+export function PortfolioTab({ portfolio, navData, loading, period, onPeriodChange }: PortfolioTabProps) {
   const filtered = useMemo(() => filterByPeriod(navData, period), [navData, period]);
 
   return (
@@ -48,7 +49,7 @@ export function PortfolioTab({ portfolio, navData, loading }: PortfolioTabProps)
                 : "Evolução do período selecionado"}
             </p>
           </div>
-          <PeriodFilter value={period} onChange={setPeriod} />
+          <PeriodFilter value={period} onChange={onPeriodChange} />
         </div>
         <NavChart portfolio={portfolio} data={filtered} loading={loading} hideHeader />
       </div>
