@@ -31,12 +31,29 @@ interface ChatSession {
   created_at: string;
 }
 
-const suggestions = [
+const allSuggestions = [
   "Qual foi o drawdown máximo no último trimestre?",
   "Compare a performance YTD de todos os portfólios",
   "Como explicar nossa posição em crédito para um cliente conservador?",
   "Mostre os retornos mensais dos portfólios em gráfico",
+  "Qual a composição atual do portfólio Growth?",
+  "Quais ativos têm menor correlação com o S&P 500?",
+  "Qual o Sharpe ratio de cada portfólio no último ano?",
+  "Me fale sobre a tese do fundo Conservative",
+  "Quais foram as maiores contribuições positivas para o portfólio Balanced?",
+  "Compare o risco dos portfólios Income e Growth",
+  "Qual a exposição cambial atual dos portfólios?",
+  "Quais ativos foram adicionados ou removidos recentemente?",
+  "Qual o retorno acumulado do portfólio Income desde o início?",
+  "Explique a alocação em renda fixa dos portfólios",
+  "Quais são os ativos com maior peso no portfólio Balanced?",
+  "Qual a duration média da carteira de bonds?",
 ];
+
+function getRandomSuggestions(count: number) {
+  const shuffled = [...allSuggestions].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
 
 function extractFollowUps(content: string): { cleanContent: string; followUps: string[] } {
   const regex = /💡\s*\*{0,2}Explorar mais:?\*{0,2}\s*\n([\s\S]*?)$/;
@@ -69,6 +86,8 @@ export default function Chat() {
   const [isLoading, setIsLoading] = useState(false);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [randomSuggestions] = useState(() => getRandomSuggestions(4));
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const isEmpty = messages.length === 0;
@@ -80,6 +99,7 @@ export default function Chat() {
     }
   }, [messages, isLoading]);
 
+  // Load sessions and auto-restore last session on first mount
   useEffect(() => {
     const loadSessions = async () => {
       const { data } = await supabase
@@ -102,6 +122,18 @@ export default function Chat() {
           }
         }
         setSessions(unique.slice(0, 20));
+
+        // Auto-load the most recent session on first mount
+        if (!initialLoadDone && unique.length > 0) {
+          setInitialLoadDone(true);
+          const lastSid = unique[0].session_id;
+          setSessionId(lastSid as any);
+          loadSession(lastSid);
+        } else {
+          setInitialLoadDone(true);
+        }
+      } else {
+        setInitialLoadDone(true);
       }
     };
     loadSessions();
@@ -433,7 +465,7 @@ export default function Chat() {
                   Pesquiso na base de documentos indexados para responder.
                 </p>
                 <div className="grid grid-cols-2 gap-3">
-                  {suggestions.map((s) => (
+                  {randomSuggestions.map((s) => (
                     <button
                       key={s}
                       onClick={() => handleSend(s)}
