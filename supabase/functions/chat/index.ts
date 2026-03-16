@@ -167,6 +167,33 @@ Deno.serve(async (req) => {
     const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
     if (!anthropicKey) throw new Error("Missing ANTHROPIC_API_KEY");
 
+    // --- 0. Asset Knowledge lookup (priority context) ---
+    let assetKnowledgeContext = "";
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const serviceClient = createClient(supabaseUrl, serviceRoleKey);
+    
+    // Extract potential tickers/asset names from query
+    const queryUpper = query.toUpperCase();
+    const { data: allAssets } = await serviceClient.from("asset_knowledge").select("*");
+    
+    if (allAssets && allAssets.length > 0) {
+      const matchedAssets = allAssets.filter((a: any) => {
+        const tickerMatch = queryUpper.includes(a.ticker.toUpperCase());
+        const nameMatch = query.toLowerCase().includes(a.name.toLowerCase());
+        // Also check partial name words (3+ chars)
+        const nameWords = a.name.split(/\s+/).filter((w: string) => w.length >= 3);
+        const partialMatch = nameWords.some((w: string) => query.toLowerCase().includes(w.toLowerCase()));
+        return tickerMatch || nameMatch || partialMatch;
+      });
+      
+      if (matchedAssets.length > 0) {
+        assetKnowledgeContext = matchedAssets.map((a: any) =>
+          `[ASSET DICTIONARY — ${a.ticker}]\nNome: ${a.name}\nClasse: ${a.asset_class}\nPerfil de Risco: ${a.risk_profile}\nTese Oficial da Gestão: ${a.official_thesis}`
+        ).join("\n\n---\n\n");
+        console.log(`Asset Knowledge: matched ${matchedAssets.length} assets from dictionary`);
+      }
+    }
+
     // --- 1. Semantic vector search (primary) ---
     let allChunks: any[] = [];
     
