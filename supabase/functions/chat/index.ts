@@ -268,6 +268,69 @@ async function askPerplexityResearcher(researchPrompt: string): Promise<any> {
   }
 }
 
+// --- Tavily Web Search ---
+async function tavilyWebSearch(query: string, searchDepth: string = "basic"): Promise<any> {
+  const apiKey = Deno.env.get("TAVILY_API_KEY");
+  if (!apiKey) {
+    return { status: "error", message: "TAVILY_API_KEY não configurada." };
+  }
+  try {
+    console.log(`Tavily search: "${query}"`);
+    const res = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: apiKey,
+        query: query,
+        search_depth: searchDepth,
+        include_answer: true,
+        max_results: 5,
+      }),
+    });
+    if (!res.ok) {
+      console.error(`Tavily error [${res.status}]`);
+      return { status: "error", message: `Tavily API error: HTTP ${res.status}` };
+    }
+    const data = await res.json();
+    return {
+      status: "success",
+      answer: data.answer || "Sem resumo disponível",
+      results: data.results.map((r: any) => ({ title: r.title, url: r.url, snippet: r.content })),
+    };
+  } catch (err) {
+    console.error("Tavily fetch error:", err);
+    return { status: "fetch_error", message: "Falha na conexão com Tavily API." };
+  }
+}
+
+// --- Finnhub Ticker News ---
+async function finnhubTickerNews(symbol: string, fromDate: string, toDate: string): Promise<any> {
+  const apiKey = Deno.env.get("FINNHUB_API_KEY");
+  if (!apiKey) {
+    return { status: "error", message: "FINNHUB_API_KEY não configurada." };
+  }
+  try {
+    console.log(`Finnhub news for: ${symbol} from ${fromDate} to ${toDate}`);
+    const url = `https://finnhub.io/api/v1/company-news?symbol=${symbol}&from=${fromDate}&to=${toDate}&token=${apiKey}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.error(`Finnhub error [${res.status}]`);
+      return { status: "error", message: `Finnhub API error: HTTP ${res.status}` };
+    }
+    const data = await res.json();
+    const topNews = (Array.isArray(data) ? data : []).slice(0, 5).map((n: any) => ({
+      headline: n.headline,
+      summary: n.summary,
+      source: n.source,
+      date: new Date(n.datetime * 1000).toISOString().split("T")[0],
+    }));
+    return { status: "success", symbol, news: topNews };
+  } catch (err) {
+    console.error("Finnhub fetch error:", err);
+    return { status: "fetch_error", message: "Falha na conexão com Finnhub API." };
+  }
+}
+
 const TOOLS = [
   {
     name: "renderizar_grafico_barras",
@@ -473,6 +536,61 @@ NÃO use para buscas simples de notícias (use get_company_ticker_news) ou conte
         },
       },
       required: ["research_prompt"],
+    },
+  },
+  {
+    name: "tavily_web_search",
+    description: `Busca na web usando a API Tavily para obter informações factuais e atualizadas. Ideal para pesquisas gerais sobre mercado, economia, empresas ou eventos que não são cobertos pelas outras ferramentas especializadas.
+
+Use quando precisar de informações atualizadas da web que não são específicas de um ticker (use finnhub_ticker_news para isso) nem exigem análise profunda (use ask_perplexity_researcher para isso).
+
+Exemplos:
+- "Qual a taxa de juros atual do Fed?"
+- "Quais os últimos dados de inflação nos EUA?"
+- "O que aconteceu na reunião do FOMC de março?"`,
+    input_schema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "A consulta de busca. Ex: 'Federal Reserve interest rate decision March 2026'",
+        },
+        search_depth: {
+          type: "string",
+          description: "Profundidade da busca: 'basic' (rápido) ou 'advanced' (mais detalhado). Default: 'basic'.",
+          enum: ["basic", "advanced"],
+        },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "finnhub_ticker_news",
+    description: `Obtém notícias reais e estruturadas de um ticker específico via API Finnhub (dados de mercado americano). Retorna manchetes, resumos e fontes verificáveis.
+
+Use esta ferramenta como COMPLEMENTO ao get_company_ticker_news (Gemini) para obter notícias com dados estruturados e fontes verificáveis de APIs financeiras profissionais.
+
+Exemplos:
+- "Notícias recentes da Apple"
+- "O que aconteceu com TSLA esta semana?"
+- "Últimas manchetes do KWEB"`,
+    input_schema: {
+      type: "object",
+      properties: {
+        symbol: {
+          type: "string",
+          description: "O ticker do ativo financeiro. Exemplo: 'KWEB', 'AAPL', 'FXI'.",
+        },
+        from_date: {
+          type: "string",
+          description: "Data inicial no formato YYYY-MM-DD. Exemplo: '2026-02-01'.",
+        },
+        to_date: {
+          type: "string",
+          description: "Data final no formato YYYY-MM-DD. Exemplo: '2026-02-28'.",
+        },
+      },
+      required: ["symbol", "from_date", "to_date"],
     },
   },
 ];
@@ -802,6 +920,19 @@ REGRAS DE RECONHECIMENTO (OBRIGATÓRIAS):
 - Esta é a ferramenta mais poderosa de pesquisa. Use-a para questões que envolvam geopolítica complexa, múltiplos drivers de mercado interconectados, ou quando as outras ferramentas (search_macro, ticker_news) não fornecerem profundidade suficiente.
 - As citações retornadas pela Perplexity são fontes verificáveis — mencione-as quando relevante.
 
+### REGRA DE BUSCA WEB GERAL (TAVILY):
+
+- Para buscas gerais na web sobre dados econômicos, decisões de bancos centrais, dados de inflação ou eventos que não são específicos de um ticker, use a ferramenta 'tavily_web_search'.
+- Os resultados devem ser apresentados sob o header "🔍 **Pesquisa Web (Tavily):**".
+- Use 'search_depth: advanced' apenas para questões que exijam maior profundidade. Para a maioria das consultas, 'basic' é suficiente.
+- Inclua os links das fontes retornadas quando relevante.
+
+### REGRA DE NOTÍCIAS FINNHUB (DADOS ESTRUTURADOS):
+
+- Para obter notícias estruturadas de um ticker específico com fontes verificáveis de APIs financeiras profissionais, use a ferramenta 'finnhub_ticker_news'.
+- Os resultados devem ser apresentados sob o header "📡 **Notícias Finnhub ({TICKER}):**".
+- Use como COMPLEMENTO ao 'get_company_ticker_news' (Gemini) para cross-validar informações ou quando precisar de dados mais estruturados com fontes específicas.
+
 ---
 
 ## REGRAS OPERACIONAIS
@@ -960,7 +1091,7 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
                   try {
                     const toolInput = JSON.parse(toolInputJson);
                     
-                    if (handleServerTool && (currentToolName === "fetch_live_asset_data" || currentToolName === "search_macro_market_context" || currentToolName === "get_company_ticker_news" || currentToolName === "ask_perplexity_researcher")) {
+                    if (handleServerTool && (currentToolName === "fetch_live_asset_data" || currentToolName === "search_macro_market_context" || currentToolName === "get_company_ticker_news" || currentToolName === "ask_perplexity_researcher" || currentToolName === "tavily_web_search" || currentToolName === "finnhub_ticker_news")) {
                       // Server-side tool — don't emit to client yet
                       serverToolCall = { id: currentToolId, name: currentToolName, input: toolInput };
                     } else {
@@ -1032,6 +1163,16 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
             } else if (toolResult.toolName === "ask_perplexity_researcher") {
               console.log(`Executing ask_perplexity_researcher`);
               toolResultData = await askPerplexityResearcher(toolResult.toolInput.research_prompt);
+            } else if (toolResult.toolName === "tavily_web_search") {
+              console.log(`Executing tavily_web_search: "${toolResult.toolInput.query}"`);
+              toolResultData = await tavilyWebSearch(toolResult.toolInput.query, toolResult.toolInput.search_depth || "basic");
+            } else if (toolResult.toolName === "finnhub_ticker_news") {
+              console.log(`Executing finnhub_ticker_news for: ${toolResult.toolInput.symbol}`);
+              toolResultData = await finnhubTickerNews(
+                toolResult.toolInput.symbol,
+                toolResult.toolInput.from_date,
+                toolResult.toolInput.to_date,
+              );
             }
 
             // Send tool result back to Claude for final response
