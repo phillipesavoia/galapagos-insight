@@ -1189,6 +1189,20 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
               break;
             }
 
+            // Emit tool_pending event so frontend shows a spinner
+            const toolLabels: Record<string, string> = {
+              "fetch_live_asset_data": "Buscando dados de mercado...",
+              "search_macro_market_context": "Pesquisando contexto macroeconômico...",
+              "get_company_ticker_news": "Buscando notícias do ativo...",
+              "ask_perplexity_researcher": "Analisando cenário de mercado na web...",
+              "tavily_web_search": "Pesquisando na web...",
+              "finnhub_ticker_news": "Buscando notícias financeiras...",
+            };
+            const pendingLabel = toolLabels[toolResult.toolName] || "Processando ferramenta...";
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ type: "tool_pending", tool: toolResult.toolName, label: pendingLabel })}\n\n`)
+            );
+
             const toolResultData = await executeServerTool(toolResult.toolName, toolResult.toolInput);
 
             currentMessages = [

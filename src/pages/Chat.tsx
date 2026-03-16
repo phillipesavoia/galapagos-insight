@@ -253,7 +253,13 @@ export default function Chat() {
               const tcSnap = [...toolCalls];
               setMessages((prev) =>
                 prev.map((m) =>
-                  m.id === assistantId ? { ...m, content: snap, toolCalls: tcSnap } : m
+                  m.id === assistantId ? { ...m, content: snap, toolCalls: tcSnap, toolPending: null } : m
+                )
+              );
+            } else if (event.type === "tool_pending") {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId ? { ...m, toolPending: event.label || "Processando..." } : m
                 )
               );
             } else if (event.type === "tool_call") {
@@ -262,14 +268,14 @@ export default function Chat() {
               const tcSnap = [...toolCalls];
               setMessages((prev) =>
                 prev.map((m) =>
-                  m.id === assistantId ? { ...m, content: snap, toolCalls: tcSnap } : m
+                  m.id === assistantId ? { ...m, content: snap, toolCalls: tcSnap, toolPending: null } : m
                 )
               );
             } else if (event.type === "sources") {
               sources = event.sources || [];
               setMessages((prev) =>
                 prev.map((m) =>
-                  m.id === assistantId ? { ...m, sources } : m
+                  m.id === assistantId ? { ...m, sources, toolPending: null } : m
                 )
               );
             }
