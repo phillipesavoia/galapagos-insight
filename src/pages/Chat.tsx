@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { InlineBarChart } from "@/components/chat/InlineBarChart";
+import { FlashFactsheet } from "@/components/chat/FlashFactsheet";
 
 interface ChatSource {
   name: string;
@@ -269,6 +270,19 @@ export default function Chat() {
           data={tc.input.data || []}
           bars={tc.input.bars || []}
           yAxisLabel={tc.input.yAxisLabel}
+        />
+      );
+    }
+    if (tc.tool === "renderizar_flash_factsheet" && tc.input) {
+      return (
+        <FlashFactsheet
+          key={idx}
+          assetName={tc.input.assetName || ""}
+          ticker={tc.input.ticker}
+          assetClass={tc.input.assetClass || ""}
+          portfolios={tc.input.portfolios || []}
+          radarMetrics={tc.input.radarMetrics || []}
+          thesis={tc.input.thesis || ""}
         />
       );
     }
