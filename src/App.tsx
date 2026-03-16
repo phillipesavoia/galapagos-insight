@@ -11,6 +11,7 @@ import Generator from "./pages/Generator";
 import Reports from "./pages/Reports";
 import Library from "./pages/Library";
 import NavUpload from "./pages/NavUpload";
+import AssetKnowledge from "./pages/AssetKnowledge";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/reports" element={<Reports />} />
             <Route path="/library" element={<AdminRoute><Library /></AdminRoute>} />
             <Route path="/admin/nav-upload" element={<AdminRoute><NavUpload /></AdminRoute>} />
+            <Route path="/admin/assets" element={<AdminRoute><AssetKnowledge /></AdminRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthGuard>

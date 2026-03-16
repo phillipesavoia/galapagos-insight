@@ -167,6 +167,33 @@ Deno.serve(async (req) => {
     const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
     if (!anthropicKey) throw new Error("Missing ANTHROPIC_API_KEY");
 
+    // --- 0. Asset Knowledge lookup (priority context) ---
+    let assetKnowledgeContext = "";
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const serviceClient = createClient(supabaseUrl, serviceRoleKey);
+    
+    // Extract potential tickers/asset names from query
+    const queryUpper = query.toUpperCase();
+    const { data: allAssets } = await serviceClient.from("asset_knowledge").select("*");
+    
+    if (allAssets && allAssets.length > 0) {
+      const matchedAssets = allAssets.filter((a: any) => {
+        const tickerMatch = queryUpper.includes(a.ticker.toUpperCase());
+        const nameMatch = query.toLowerCase().includes(a.name.toLowerCase());
+        // Also check partial name words (3+ chars)
+        const nameWords = a.name.split(/\s+/).filter((w: string) => w.length >= 3);
+        const partialMatch = nameWords.some((w: string) => query.toLowerCase().includes(w.toLowerCase()));
+        return tickerMatch || nameMatch || partialMatch;
+      });
+      
+      if (matchedAssets.length > 0) {
+        assetKnowledgeContext = matchedAssets.map((a: any) =>
+          `[ASSET DICTIONARY — ${a.ticker}]\nNome: ${a.name}\nClasse: ${a.asset_class}\nPerfil de Risco: ${a.risk_profile}\nTese Oficial da Gestão: ${a.official_thesis}`
+        ).join("\n\n---\n\n");
+        console.log(`Asset Knowledge: matched ${matchedAssets.length} assets from dictionary`);
+      }
+    }
+
     // --- 1. Semantic vector search (primary) ---
     let allChunks: any[] = [];
     
@@ -302,26 +329,41 @@ Deno.serve(async (req) => {
     // --- Stream Claude response with tool calling ---
     console.log(`Calling Claude with ${filteredChunks.length} chunks, tools enabled...`);
 
+    // Build user message with asset knowledge as priority context
+    let userMessageContent = "";
+    if (assetKnowledgeContext) {
+      userMessageContent += `## BASE DE CONHECIMENTO DE ATIVOS (PRIORIDADE MÁXIMA):\n\n${assetKnowledgeContext}\n\n---\n\n`;
+    }
+    if (context) {
+      userMessageContent += `## Documentos encontrados:\n\n${context}\n\n---\n`;
+    }
+    if (!context && !assetKnowledgeContext) {
+      userMessageContent += `Não encontrei documentos relevantes para: "${query}". Informe que não há documentos indexados sobre este tema.\n`;
+    }
+    userMessageContent += `\nPergunta: ${query}`;
+
     const claudeMessages = [
       ...historyMessages,
-      {
-        role: "user",
-        content: context
-          ? `Documentos encontrados:\n\n${context}\n\n---\nPergunta: ${query}`
-          : `Não encontrei documentos relevantes para: "${query}". Informe que não há documentos indexados sobre este tema.`,
-      },
+      { role: "user", content: userMessageContent },
     ];
 
     const systemPrompt = `## LEI MAIOR — GUARDRAILS INSTITUCIONAIS (INQUEBRÁVEL)
 
-Você é o assistente oficial da equipe de gestão da Galapagos Capital Advisory, baseada em Miami. A sua ÚNICA função é transmitir a visão oficial da casa aos assessores de investimentos. Você NÃO é um chatbot genérico.
+Você é o assistente oficial e ESPECIALISTA EM ATIVOS da equipe de gestão da Galapagos Capital Advisory, baseada em Miami. A sua ÚNICA função é transmitir a visão oficial da casa aos assessores de investimentos. Você NÃO é um chatbot genérico.
 
 ### RESTRIÇÕES ABSOLUTAS DE COMPLIANCE:
 
-- Você DEVE basear suas respostas EXCLUSIVA e ESTRITAMENTE no contexto dos documentos (PDFs, atas, apresentações) fornecidos nesta requisição.
+- Você DEVE basear suas respostas EXCLUSIVA e ESTRITAMENTE no contexto dos documentos (PDFs, atas, apresentações) e na base de conhecimento de ativos (Asset Dictionary) fornecidos nesta requisição.
 - É ESTRITAMENTE PROIBIDO usar seu conhecimento externo ou dar opiniões próprias sobre mercado, ativos, cenário macroeconômico ou qualquer outro tema.
-- Se a resposta para a pergunta do usuário NÃO estiver explicitamente contida nos documentos fornecidos, você DEVE responder exatamente assim: "Não temos uma visão oficial sobre este tema nas atas recentes da gestão." Nunca tente deduzir, extrapolar ou inventar uma tese.
+- Se a resposta para a pergunta do usuário NÃO estiver explicitamente contida nos documentos fornecidos ou no Asset Dictionary, você DEVE responder exatamente assim: "Não temos uma visão oficial sobre este tema nas atas recentes da gestão." Nunca tente deduzir, extrapolar ou inventar uma tese.
 - TODA afirmação deve ser ancorada com citação do documento de origem (ex: "Conforme a ata de Março...", "De acordo com a apresentação do fundo Income...").
+
+### REGRA DE TRAVA QUANTITATIVA (INQUEBRÁVEL):
+
+- REGRA DE MOVIMENTAÇÃO DE PORTFÓLIO: É ESTRITAMENTE PROIBIDO inventar, deduzir ou calcular mudanças de percentuais de alocação (ex: "reduzimos de 15% para 5%", "aumentamos a posição em X%"). Você NÃO tem capacidade de inferir movimentações.
+- Você SÓ pode citar pesos/percentuais atuais se estiver lendo DIRETAMENTE dos dados da tabela de alocação ou dos documentos fornecidos na requisição. NUNCA invente números.
+- Você é o ESPECIALISTA DOS ATIVOS DA CASA. Se questionado sobre um fundo/ativo, use PRIORITARIAMENTE as informações do Asset Dictionary fornecidas na seção "BASE DE CONHECIMENTO DE ATIVOS". Se o ativo não estiver no dicionário NEM nos documentos, afirme claramente: "Não possuo o descritivo oficial da gestão para este ativo."
+- É PROIBIDO inventar matemática de portfólio, calcular diferenças entre alocações históricas, ou narrar operações de compra/venda que não estejam explicitamente descritas nos documentos.
 
 ---
 

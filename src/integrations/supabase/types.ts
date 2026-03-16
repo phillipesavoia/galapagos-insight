@@ -47,6 +47,39 @@ export type Database = {
         }
         Relationships: []
       }
+      asset_knowledge: {
+        Row: {
+          asset_class: string
+          created_at: string
+          id: string
+          name: string
+          official_thesis: string
+          risk_profile: string
+          ticker: string
+          updated_at: string
+        }
+        Insert: {
+          asset_class: string
+          created_at?: string
+          id?: string
+          name: string
+          official_thesis?: string
+          risk_profile?: string
+          ticker: string
+          updated_at?: string
+        }
+        Update: {
+          asset_class?: string
+          created_at?: string
+          id?: string
+          name?: string
+          official_thesis?: string
+          risk_profile?: string
+          ticker?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       asset_prices: {
         Row: {
           created_at: string | null
