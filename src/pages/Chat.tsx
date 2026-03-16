@@ -82,7 +82,6 @@ export default function Chat() {
   const [activeFilter, setActiveFilter] = useState("Todos os documentos");
   const [activeFund, setActiveFund] = useState("Todos");
   const [expandedSources, setExpandedSources] = useState<Record<string, boolean>>({});
-  const [showSourcesPanel, setShowSourcesPanel] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [showHistory, setShowHistory] = useState(false);
