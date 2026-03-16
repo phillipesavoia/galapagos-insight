@@ -83,7 +83,7 @@ async function searchMacroMarketContext(query: string, googleKey: string): Promi
   try {
     console.log(`Searching macro context: "${query}"`);
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${googleKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${googleKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -154,7 +154,7 @@ async function getCompanyTickerNews(symbol: string, fromDate: string, toDate: st
   try {
     console.log(`Fetching news for ${symbol} from ${fromDate} to ${toDate}`);
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${googleKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${googleKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
