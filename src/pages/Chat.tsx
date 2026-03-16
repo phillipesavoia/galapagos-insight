@@ -38,6 +38,20 @@ const suggestions = [
   "Mostre os retornos mensais dos portfólios em gráfico",
 ];
 
+function extractFollowUps(content: string): { cleanContent: string; followUps: string[] } {
+  const regex = /💡\s*\*{0,2}Explorar mais:?\*{0,2}\s*\n([\s\S]*?)$/;
+  const match = content.match(regex);
+  if (!match) return { cleanContent: content, followUps: [] };
+
+  const cleanContent = content.slice(0, match.index).trimEnd();
+  const lines = match[1].trim().split("\n").map(l => l.trim()).filter(Boolean);
+  const followUps = lines
+    .map(l => l.replace(/^\d+\.\s*/, "").trim())
+    .filter(q => q.length > 5);
+
+  return { cleanContent, followUps };
+}
+
 const filterChips = ["Todos os documentos", "Factsheets", "Cartas Mensais", "Apresentações"];
 
 function generateSessionId() {
@@ -386,11 +400,33 @@ export default function Chat() {
                   >
                     {msg.role === "assistant" ? (
                       <>
-                        {msg.content && (
-                          <div className="prose prose-sm max-w-none text-gray-800 [&_p]:my-2 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-1 [&_strong]:text-gray-900 [&_strong]:font-semibold [&_h1]:text-[15px] [&_h2]:text-[14px] [&_h3]:text-[13px] [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-semibold [&_h1]:mt-4 [&_h2]:mt-4 [&_h3]:mt-3 [&_h1]:mb-2 [&_h2]:mb-2 [&_h3]:mb-1 [&_ul]:pl-5 [&_ol]:pl-5 [&_li]:text-gray-700 [&_hr]:my-3 [&_hr]:border-gray-200">
-                            <ReactMarkdown>{msg.content}</ReactMarkdown>
-                          </div>
-                        )}
+                        {msg.content && (() => {
+                          const { cleanContent, followUps } = extractFollowUps(msg.content);
+                          return (
+                            <>
+                              <div className="prose prose-sm max-w-none text-gray-800 [&_p]:my-2 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-1 [&_strong]:text-gray-900 [&_strong]:font-semibold [&_h1]:text-[15px] [&_h2]:text-[14px] [&_h3]:text-[13px] [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-semibold [&_h1]:mt-4 [&_h2]:mt-4 [&_h3]:mt-3 [&_h1]:mb-2 [&_h2]:mb-2 [&_h3]:mb-1 [&_ul]:pl-5 [&_ol]:pl-5 [&_li]:text-gray-700 [&_hr]:my-3 [&_hr]:border-gray-200">
+                                <ReactMarkdown>{cleanContent}</ReactMarkdown>
+                              </div>
+                              {followUps.length > 0 && (
+                                <div className="mt-3 pt-3 border-t border-gray-200 space-y-1.5">
+                                  <span className="text-[11px] font-medium text-gray-400">💡 Explorar mais</span>
+                                  <div className="flex flex-col gap-1.5">
+                                    {followUps.map((q, i) => (
+                                      <button
+                                        key={i}
+                                        onClick={() => handleSend(q)}
+                                        disabled={isLoading}
+                                        className="text-left px-3 py-2 rounded-lg text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 transition-colors disabled:opacity-50"
+                                      >
+                                        {q}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
                         {/* Render tool call components (Generative UI) */}
                         {msg.toolCalls && msg.toolCalls.length > 0 && (
                           <div className="mt-2">
