@@ -1,4 +1,4 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, LabelList } from "recharts";
 
 interface BarDef {
   dataKey: string;
@@ -18,10 +18,16 @@ const DEFAULT_COLORS = [
   "#ec4899", "#14b8a6", "#f97316",
 ];
 
+function formatLabel(value: number, suffix: string) {
+  if (value == null) return "";
+  return `${value >= 0 ? "+" : ""}${Number(value).toFixed(2)}${suffix}`;
+}
+
 export function InlineBarChart({ title, data, bars, yAxisLabel }: InlineBarChartProps) {
   if (!data || data.length === 0) return null;
 
   const isSingleBar = bars.length === 1;
+  const suffix = yAxisLabel || "";
 
   return (
     <div className="my-3 p-4 rounded-xl bg-gray-50 border border-gray-200">
@@ -30,13 +36,13 @@ export function InlineBarChart({ title, data, bars, yAxisLabel }: InlineBarChart
         <BarChart
           data={data}
           layout="vertical"
-          margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
+          margin={{ top: 5, right: 60, left: 10, bottom: 5 }}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
           <XAxis
             type="number"
             tick={{ fontSize: 11, fill: "#6b7280" }}
-            tickFormatter={(v) => `${v}${yAxisLabel || ""}`}
+            tickFormatter={(v) => `${v}${suffix}`}
           />
           <YAxis
             type="category"
@@ -51,7 +57,7 @@ export function InlineBarChart({ title, data, bars, yAxisLabel }: InlineBarChart
               border: "1px solid #e5e7eb",
               boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
             }}
-            formatter={(value: number, name: string) => [`${value}${yAxisLabel || ""}`, name]}
+            formatter={(value: number, name: string) => [`${value}${suffix}`, name]}
           />
           {bars.length > 1 && (
             <Legend
@@ -68,6 +74,12 @@ export function InlineBarChart({ title, data, bars, yAxisLabel }: InlineBarChart
               radius={[0, 4, 4, 0]}
               barSize={isSingleBar ? 20 : undefined}
             >
+              <LabelList
+                dataKey={bar.dataKey}
+                position="right"
+                style={{ fontSize: 11, fontWeight: 600, fill: "#374151" }}
+                formatter={(v: number) => formatLabel(v, suffix)}
+              />
               {isSingleBar && data.map((_, i) => (
                 <Cell
                   key={i}
