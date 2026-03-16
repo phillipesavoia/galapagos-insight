@@ -32,8 +32,7 @@ function filterByPeriod(data: NavDataPoint[], period: Period): NavDataPoint[] {
   return data.filter((d) => d.date >= cutoffStr);
 }
 
-export function PortfolioTab({ portfolio, navData, loading }: PortfolioTabProps) {
-  const [period, setPeriod] = useState<Period>("YTD");
+export function PortfolioTab({ portfolio, navData, loading, period, onPeriodChange }: PortfolioTabProps) {
   const filtered = useMemo(() => filterByPeriod(navData, period), [navData, period]);
 
   return (
