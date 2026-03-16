@@ -67,11 +67,11 @@ export function usePortfolioMarketData() {
           results.push({
             name,
             ticker: "Model Portfolio",
-            lastPrice: latest.nav,
+            lastPrice: parseFloat(latest.nav.toFixed(2)),
             lastDate,
-            change1D,
-            changeMTD: parseFloat(changeMTD.toFixed(4)),
-            changeYTD,
+            change1D: parseFloat(change1D.toFixed(2)),
+            changeMTD: parseFloat(changeMTD.toFixed(2)),
+            changeYTD: parseFloat(changeYTD.toFixed(2)),
             sparklineData,
           });
         }
