@@ -166,7 +166,7 @@ export function MonthlyReturnsTable({ data, loading }: MonthlyReturnsTableProps)
   return (
     <Card className="border-border bg-card">
       <CardContent className="p-5">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
           <div>
             <h3 className="text-sm font-semibold text-foreground">
               Retornos Mensais
@@ -175,18 +175,31 @@ export function MonthlyReturnsTable({ data, loading }: MonthlyReturnsTableProps)
               Retorno mês a mês baseado no último NAV de cada período
             </p>
           </div>
-          <Badge
-            variant="outline"
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold tabular-nums border ${
-              siPositive
-                ? "border-green-500/30 text-green-500 bg-green-500/10"
-                : "border-destructive/30 text-destructive bg-destructive/10"
-            }`}
-          >
-            <TrendingUp className="h-3.5 w-3.5" />
-            Since Inception: {siPositive ? "+" : ""}
-            {(sinceInception * 100).toFixed(2)}%
-          </Badge>
+          <div className="flex items-center gap-3">
+            <Select value={yearFilter} onValueChange={setYearFilter}>
+              <SelectTrigger className="w-[130px] h-8 text-xs bg-secondary border-border">
+                <SelectValue placeholder="Ano" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os anos</SelectItem>
+                {years.map((y) => (
+                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Badge
+              variant="outline"
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold tabular-nums border ${
+                siPositive
+                  ? "border-green-500/30 text-green-500 bg-green-500/10"
+                  : "border-destructive/30 text-destructive bg-destructive/10"
+              }`}
+            >
+              <TrendingUp className="h-3.5 w-3.5" />
+              Since Inception: {siPositive ? "+" : ""}
+              {(sinceInception * 100).toFixed(2)}%
+            </Badge>
+          </div>
         </div>
 
         <div className="overflow-x-auto -mx-1">
