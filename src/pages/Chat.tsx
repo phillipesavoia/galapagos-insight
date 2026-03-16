@@ -586,59 +586,8 @@ export default function Chat() {
             </div>
           )}
 
-          {/* Sources panel */}
-          {showSourcesPanel && lastAssistantSources.length > 0 && !isEmpty && (
-            <div className="border-t border-gray-200 bg-gray-50 px-4 py-3">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Fontes utilizadas</h3>
-                <button onClick={() => setShowSourcesPanel(false)} className="text-gray-400 hover:text-gray-600">
-                  <X className="h-3.5 w-3.5" strokeWidth={1.5} />
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {lastAssistantSources.map((src, i) => (
-                  <div key={i} className="px-3 py-1.5 rounded-lg bg-white border border-gray-200 shadow-sm">
-                    {src.file_url ? (
-                      <a href={src.file_url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-emerald-700 hover:underline">{src.name}</a>
-                    ) : (
-                      <p className="text-xs font-medium text-gray-800">{src.name}</p>
-                    )}
-                    <p className="text-[10px] text-gray-500">{src.period}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Input */}
           <div className="border-t border-gray-200 p-4 bg-white">
-            <div className="flex items-center gap-4 mb-3">
-              <div className="flex gap-2">
-                {filterChips.map((chip) => (
-                  <button
-                    key={chip}
-                    onClick={() => setActiveFilter(chip)}
-                    className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${
-                      activeFilter === chip
-                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                        : "bg-gray-100 text-gray-500 hover:text-gray-700"
-                    }`}
-                  >
-                    {chip}
-                  </button>
-                ))}
-              </div>
-              <div className="h-5 w-px bg-gray-200" />
-              <select
-                value={activeFund}
-                onChange={(e) => setActiveFund(e.target.value)}
-                className="px-3 py-1.5 rounded-lg text-xs bg-gray-100 text-gray-700 border border-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer"
-              >
-                {["Todos", "Conservative", "Income", "Balanced", "Growth"].map((fund) => (
-                  <option key={fund} value={fund}>{fund === "Todos" ? "Todos os Portfólios" : fund}</option>
-                ))}
-              </select>
-            </div>
             <div className="flex items-end gap-3">
               <textarea
                 value={input}
