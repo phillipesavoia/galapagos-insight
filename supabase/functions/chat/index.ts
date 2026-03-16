@@ -286,6 +286,27 @@ Exemplos de quando usar:
       required: ["ticker"],
     },
   },
+  {
+    name: "search_macro_market_context",
+    description: `Busca na internet por eventos macroeconômicos, notícias financeiras e drivers de mercado recentes para explicar a performance de um ativo financeiro em um período específico. Ideal para entender o 'porquê' de um movimento de mercado.
+
+Use esta ferramenta SEMPRE que o assessor perguntar 'por que o ativo X caiu/subiu?', 'o que aconteceu com o mercado de Y?', ou qualquer questão que exija contexto macroeconômico externo que NÃO está nas atas de gestão.
+
+Exemplos:
+- "Por que o KWEB caiu tanto em fevereiro?"
+- "O que explica a alta dos treasuries este mês?"
+- "Quais fatores macro impactaram ações de tecnologia na China?"`,
+    input_schema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "A pergunta exata a ser pesquisada. Exemplo: 'Principais motivos macroeconômicos para a queda do ETF KWEB em fevereiro de 2026'",
+        },
+      },
+      required: ["query"],
+    },
+  },
 ];
 
 Deno.serve(async (req) => {
