@@ -1018,31 +1018,34 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
 3. [Pergunta sobre risco, alocação ou performance complementar]`;
 
     // First Claude call — may produce tool_use blocks
-    const initialClaudeRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": anthropicKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4096,
-        temperature: 0,
-        stream: true,
-        system: systemPrompt,
-        tools: TOOLS,
-        messages: claudeMessages,
-      }),
-    });
+    const createClaudeResponse = async (messages: any[]) => {
+      return await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": anthropicKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 4096,
+          temperature: 0,
+          stream: true,
+          system: systemPrompt,
+          tools: TOOLS,
+          messages,
+        }),
+      });
+    };
+
+    const initialClaudeRes = await createClaudeResponse(claudeMessages);
 
     if (!initialClaudeRes.ok) {
       const errText = await initialClaudeRes.text();
       throw new Error(`Claude error: ${errText}`);
     }
 
-    // We need to handle the case where Claude calls fetch_live_asset_data
-    // For that tool, we execute server-side and feed the result back to Claude
+    // We need to handle server-side tools in a multi-step loop
     // For UI tools (chart, factsheet), we stream to the client
 
     const encoder = new TextEncoder();
@@ -1052,7 +1055,7 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
         async function processStream(
           claudeRes: Response,
           handleServerTool: boolean,
-        ): Promise<{ needsToolResult: boolean; toolId: string; toolName: string; toolInput: any; contentBlocks: any[] } | null> {
+        ): Promise<{ needsToolResult: boolean; toolId: string; toolName: string; toolInput: any } | null> {
           const reader = claudeRes.body!.getReader();
           const decoder = new TextDecoder();
           let buffer = "";
@@ -1060,7 +1063,6 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
           let currentToolName = "";
           let toolInputJson = "";
           let serverToolCall: { id: string; name: string; input: any } | null = null;
-          const contentBlocks: any[] = [];
 
           while (true) {
             const { done, value } = await reader.read();
@@ -1098,12 +1100,17 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
                 if (event.type === "content_block_stop" && currentToolName) {
                   try {
                     const toolInput = JSON.parse(toolInputJson);
-                    
-                    if (handleServerTool && (currentToolName === "fetch_live_asset_data" || currentToolName === "search_macro_market_context" || currentToolName === "get_company_ticker_news" || currentToolName === "ask_perplexity_researcher" || currentToolName === "tavily_web_search" || currentToolName === "finnhub_ticker_news")) {
-                      // Server-side tool — don't emit to client yet
+
+                    if (handleServerTool && (
+                      currentToolName === "fetch_live_asset_data" ||
+                      currentToolName === "search_macro_market_context" ||
+                      currentToolName === "get_company_ticker_news" ||
+                      currentToolName === "ask_perplexity_researcher" ||
+                      currentToolName === "tavily_web_search" ||
+                      currentToolName === "finnhub_ticker_news"
+                    )) {
                       serverToolCall = { id: currentToolId, name: currentToolName, input: toolInput };
                     } else {
-                      // Client-side tool — emit to frontend
                       controller.enqueue(
                         encoder.encode(`data: ${JSON.stringify({
                           type: "tool_call",
@@ -1131,61 +1138,61 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
               toolId: serverToolCall.id,
               toolName: serverToolCall.name,
               toolInput: serverToolCall.input,
-              contentBlocks,
             };
           }
           return null;
         }
 
-        try {
-          const toolResult = await processStream(initialClaudeRes, true);
+        async function executeServerTool(toolName: string, toolInput: any) {
+          if (toolName === "fetch_live_asset_data") {
+            console.log(`Executing fetch_live_asset_data for ticker: ${toolInput.ticker}`);
+            return await fetchLiveMarketData(toolInput.ticker, toolInput.isin || null);
+          }
+          if (toolName === "search_macro_market_context") {
+            console.log(`Executing search_macro_market_context: "${toolInput.query}"`);
+            if (!googleKey) {
+              return { status: "error", message: "GOOGLE_AI_API_KEY não configurada para busca macro." };
+            }
+            return await searchMacroMarketContext(toolInput.query, googleKey);
+          }
+          if (toolName === "get_company_ticker_news") {
+            console.log(`Executing get_company_ticker_news for: ${toolInput.symbol}`);
+            if (!googleKey) {
+              return { status: "error", message: "GOOGLE_AI_API_KEY não configurada para busca de notícias." };
+            }
+            return await getCompanyTickerNews(toolInput.symbol, toolInput.from_date, toolInput.to_date, googleKey);
+          }
+          if (toolName === "ask_perplexity_researcher") {
+            console.log(`Executing ask_perplexity_researcher`);
+            return await askPerplexityResearcher(toolInput.research_prompt);
+          }
+          if (toolName === "tavily_web_search") {
+            console.log(`Executing tavily_web_search: "${toolInput.query}"`);
+            return await tavilyWebSearch(toolInput.query, toolInput.search_depth || "basic");
+          }
+          if (toolName === "finnhub_ticker_news") {
+            console.log(`Executing finnhub_ticker_news for: ${toolInput.symbol}`);
+            return await finnhubTickerNews(toolInput.symbol, toolInput.from_date, toolInput.to_date);
+          }
+          return { status: "error", message: `Ferramenta de servidor não suportada: ${toolName}` };
+        }
 
-          if (toolResult?.needsToolResult) {
-            let toolResultData: any;
-            
-            if (toolResult.toolName === "fetch_live_asset_data") {
-              console.log(`Executing fetch_live_asset_data for ticker: ${toolResult.toolInput.ticker}`);
-              toolResultData = await fetchLiveMarketData(
-                toolResult.toolInput.ticker,
-                toolResult.toolInput.isin || null,
-              );
-            } else if (toolResult.toolName === "search_macro_market_context") {
-              console.log(`Executing search_macro_market_context: "${toolResult.toolInput.query}"`);
-              if (!googleKey) {
-                toolResultData = { status: "error", message: "GOOGLE_AI_API_KEY não configurada para busca macro." };
-              } else {
-                toolResultData = await searchMacroMarketContext(toolResult.toolInput.query, googleKey);
-              }
-            } else if (toolResult.toolName === "get_company_ticker_news") {
-              console.log(`Executing get_company_ticker_news for: ${toolResult.toolInput.symbol}`);
-              if (!googleKey) {
-                toolResultData = { status: "error", message: "GOOGLE_AI_API_KEY não configurada para busca de notícias." };
-              } else {
-                toolResultData = await getCompanyTickerNews(
-                  toolResult.toolInput.symbol,
-                  toolResult.toolInput.from_date,
-                  toolResult.toolInput.to_date,
-                  googleKey,
-                );
-              }
-            } else if (toolResult.toolName === "ask_perplexity_researcher") {
-              console.log(`Executing ask_perplexity_researcher`);
-              toolResultData = await askPerplexityResearcher(toolResult.toolInput.research_prompt);
-            } else if (toolResult.toolName === "tavily_web_search") {
-              console.log(`Executing tavily_web_search: "${toolResult.toolInput.query}"`);
-              toolResultData = await tavilyWebSearch(toolResult.toolInput.query, toolResult.toolInput.search_depth || "basic");
-            } else if (toolResult.toolName === "finnhub_ticker_news") {
-              console.log(`Executing finnhub_ticker_news for: ${toolResult.toolInput.symbol}`);
-              toolResultData = await finnhubTickerNews(
-                toolResult.toolInput.symbol,
-                toolResult.toolInput.from_date,
-                toolResult.toolInput.to_date,
-              );
+        try {
+          let currentMessages = [...claudeMessages];
+          let currentResponse: Response = initialClaudeRes;
+          const maxSteps = 5;
+
+          for (let step = 0; step < maxSteps; step++) {
+            const toolResult = await processStream(currentResponse, true);
+
+            if (!toolResult?.needsToolResult) {
+              break;
             }
 
-            // Send tool result back to Claude for final response
-            const continuationMessages = [
-              ...claudeMessages,
+            const toolResultData = await executeServerTool(toolResult.toolName, toolResult.toolInput);
+
+            currentMessages = [
+              ...currentMessages,
               {
                 role: "assistant",
                 content: [
@@ -1200,29 +1207,12 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
               },
             ];
 
-            const continuationRes = await fetch("https://api.anthropic.com/v1/messages", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "x-api-key": anthropicKey,
-                "anthropic-version": "2023-06-01",
-              },
-              body: JSON.stringify({
-                model: "claude-sonnet-4-20250514",
-                max_tokens: 4096,
-                temperature: 0,
-                stream: true,
-                system: systemPrompt,
-                tools: TOOLS,
-                messages: continuationMessages,
-              }),
-            });
+            currentResponse = await createClaudeResponse(currentMessages);
 
-            if (!continuationRes.ok) {
-              const errText = await continuationRes.text();
+            if (!currentResponse.ok) {
+              const errText = await currentResponse.text();
               console.error("Continuation error:", errText);
-            } else {
-              await processStream(continuationRes, false);
+              break;
             }
           }
 
