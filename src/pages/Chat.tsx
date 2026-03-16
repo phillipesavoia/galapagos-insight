@@ -375,43 +375,6 @@ export default function Chat() {
 
         {/* Main Chat Area */}
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Top bar with filters and actions */}
-          <div className="border-b border-gray-200 bg-white">
-            <div className="flex items-center gap-2 px-4 py-2">
-              <button
-                onClick={() => setShowHistory(!showHistory)}
-                className={`p-2 rounded-lg transition-colors ${showHistory ? 'text-emerald-600 bg-emerald-50' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'}`}
-                title="Histórico de conversas"
-              >
-                <History className="h-4 w-4" strokeWidth={1.5} />
-              </button>
-              <div className="h-5 w-px bg-gray-200 mx-1" />
-              <div className="flex gap-2 flex-1">
-                {filterChips.map((chip) => (
-                  <button
-                    key={chip}
-                    onClick={() => setActiveFilter(chip)}
-                    className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${
-                      activeFilter === chip
-                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                        : "bg-gray-100 text-gray-500 hover:text-gray-700"
-                    }`}
-                  >
-                    {chip}
-                  </button>
-                ))}
-              </div>
-              <select
-                value={activeFund}
-                onChange={(e) => setActiveFund(e.target.value)}
-                className="px-3 py-1.5 rounded-lg text-xs bg-gray-100 text-gray-700 border border-gray-200 focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer"
-              >
-                {["Todos", "Conservative", "Income", "Balanced", "Growth"].map((fund) => (
-                  <option key={fund} value={fund}>{fund === "Todos" ? "Todos os Portfólios" : fund}</option>
-                ))}
-              </select>
-            </div>
-          </div>
 
           {isEmpty ? (
             <div className="flex-1 flex items-center justify-center p-8 bg-white">
