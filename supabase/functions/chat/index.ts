@@ -419,6 +419,13 @@ Deno.serve(async (req) => {
 
     // Build user message with asset knowledge as priority context
     let userMessageContent = "";
+    
+    // Inject FULL asset inventory for strict match protocol
+    if (allAssets && allAssets.length > 0) {
+      const inventoryList = allAssets.map((a: any) => `- ${a.ticker}${a.isin ? ` (ISIN: ${a.isin})` : ""} — ${a.name}`).join("\n");
+      userMessageContent += `## INVENTÁRIO COMPLETO DE ATIVOS (LISTA OFICIAL — USE PARA VERIFICAÇÃO DE EXISTÊNCIA):\n\nOs ÚNICOS ativos que existem nos portfólios da Galapagos são os listados abaixo. Qualquer ativo NÃO presente nesta lista NÃO FAZ PARTE dos portfólios.\n\n${inventoryList}\n\n---\n\n`;
+    }
+    
     if (assetKnowledgeContext) {
       userMessageContent += `## BASE DE CONHECIMENTO DE ATIVOS (PRIORIDADE MÁXIMA):\n\n${assetKnowledgeContext}\n\n---\n\n`;
     }
