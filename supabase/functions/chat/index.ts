@@ -454,6 +454,27 @@ Exemplos:
       required: ["symbol", "from_date", "to_date"],
     },
   },
+  {
+    name: "ask_perplexity_researcher",
+    description: `Aciona o modelo especializado da Perplexity (sonar-pro) para sintetizar motivos complexos de mercado, justificando quedas ou altas de setores inteiros. Este modelo faz buscas profundas na internet com múltiplas fontes e citações.
+
+Use esta ferramenta para análises PROFUNDAS e COMPLEXAS que exijam cruzamento de múltiplas fontes — superior às buscas simples do Google. Ideal para:
+- Explicar movimentos setoriais amplos (ex: "Por que tech na China caiu?")
+- Análises geopolíticas complexas com múltiplos drivers
+- Sínteses que exijam raciocínio multi-step com citações acadêmicas/financeiras
+
+NÃO use para buscas simples de notícias (use get_company_ticker_news) ou contexto macro rápido (use search_macro_market_context).`,
+    input_schema: {
+      type: "object",
+      properties: {
+        research_prompt: {
+          type: "string",
+          description: "A pergunta detalhada para o analista de IA. Ex: 'Quais os drivers e eventos geopolíticos que impactaram o KWEB em fevereiro de 2026?'",
+        },
+      },
+      required: ["research_prompt"],
+    },
+  },
 ];
 
 Deno.serve(async (req) => {
