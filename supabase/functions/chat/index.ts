@@ -1150,6 +1150,16 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
             } else if (toolResult.toolName === "ask_perplexity_researcher") {
               console.log(`Executing ask_perplexity_researcher`);
               toolResultData = await askPerplexityResearcher(toolResult.toolInput.research_prompt);
+            } else if (toolResult.toolName === "tavily_web_search") {
+              console.log(`Executing tavily_web_search: "${toolResult.toolInput.query}"`);
+              toolResultData = await tavilyWebSearch(toolResult.toolInput.query, toolResult.toolInput.search_depth || "basic");
+            } else if (toolResult.toolName === "finnhub_ticker_news") {
+              console.log(`Executing finnhub_ticker_news for: ${toolResult.toolInput.symbol}`);
+              toolResultData = await finnhubTickerNews(
+                toolResult.toolInput.symbol,
+                toolResult.toolInput.from_date,
+                toolResult.toolInput.to_date,
+              );
             }
 
             // Send tool result back to Claude for final response
