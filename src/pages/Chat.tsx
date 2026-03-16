@@ -336,10 +336,10 @@ export default function Chat() {
             <div className="p-2 flex justify-end">
               <button
                 onClick={handleNewChat}
-                className="p-1.5 rounded-md text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                className="p-1.5 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-colors shadow-sm"
                 title="Nova conversa"
               >
-                <Plus className="h-4 w-4" strokeWidth={2} />
+                <Plus className="h-4 w-4" strokeWidth={2.5} />
               </button>
             </div>
             <div className="px-3 pt-3 pb-1">
