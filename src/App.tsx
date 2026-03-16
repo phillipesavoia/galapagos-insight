@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthGuard } from "@/components/AuthGuard";
+import { AdminRoute } from "@/components/AdminRoute";
 import Chat from "./pages/Chat";
 import Dashboard from "./pages/Dashboard";
 import Generator from "./pages/Generator";

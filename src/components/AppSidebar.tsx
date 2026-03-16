@@ -1,19 +1,27 @@
 import { MessageSquare, FileText, FolderOpen, BarChart3, Upload, LogOut } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { supabase } from "@/integrations/supabase/client";
+import { useUserRole } from "@/hooks/useUserRole";
 
-const navItems = [
+const publicNavItems = [
   { title: "Advisor Chat", label: "Advisor Chat", url: "/chat", icon: MessageSquare },
   { title: "Performance Analítica", label: "Performance Analítica", url: "/dashboard", icon: BarChart3 },
   { title: "Gerar Documentos", label: "Gerar Documentos", url: "/generator", icon: FileText },
+];
+
+const adminNavItems = [
   { title: "Base de Documentos", label: "Base de Documentos", url: "/library", icon: FolderOpen },
   { title: "Upload NAV", label: "Upload NAV", url: "/admin/nav-upload", icon: Upload },
 ];
 
 export function AppSidebar() {
+  const { isAdmin } = useUserRole();
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
   };
+
+  const navItems = isAdmin ? [...publicNavItems, ...adminNavItems] : publicNavItems;
 
   return (
     <aside className="fixed left-0 top-0 bottom-0 w-60 bg-sidebar border-r border-border flex flex-col z-50">
