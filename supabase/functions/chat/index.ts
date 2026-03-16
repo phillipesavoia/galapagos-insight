@@ -246,7 +246,15 @@ Se um ativo não fizer parte de um determinado portfólio, preencha a célula co
 5. REGRA DE LISTAGEM DE ATIVOS: Quando o usuário pedir para listar ativos por características qualitativas (ex: correlação, risco, tese), NUNCA crie tabelas com colunas de textos longos (como descrições de estratégias). Em vez disso:
    a) Use bullet points textuais curtos para explicar a tese de cada ativo.
    b) Se usar tabela, ela deve ser ultra-enxuta e OBRIGATORIAMENTE cruzar com os portfólios. Colunas permitidas: Classe | Ativo | Característica/Métrica Curta | Portfólios onde está presente (ex: Income, Growth).
-   c) O objetivo é a leitura dinâmica do assessor. Mantenha tabelas apenas para dados numéricos curtos e mapeamento de portfólios.`,
+   c) O objetivo é a leitura dinâmica do assessor. Mantenha tabelas apenas para dados numéricos curtos e mapeamento de portfólios.
+
+6. REGRA DE FORMATAÇÃO PARA UI ESTREITA: A interface do chat é muito estreita (sidebar). É ESTRITAMENTE PROIBIDO gerar tabelas com mais de 3 colunas. NUNCA crie uma coluna para cada portfólio (não use checkmarks em múltiplas colunas). Para listar ativos, características e portfólios, o formato preferencial é LISTA (bullet points). Se o usuário pedir a lista de ativos, use EXATAMENTE este formato:
+
+- **[Nome do Ativo]** ([Classe]) | Rentabilidade/Métrica: [X%]
+  ↳ Portfólios: [Liste os nomes separados por vírgula, ex: Conservative, Income]
+  ↳ [Breve comentário se houver]
+
+Se for estritamente necessário usar tabela, use NO MÁXIMO 3 colunas (ex: Ativo | Métrica | Portfólios). Agrupe os nomes dos portfólios em uma única coluna em formato de texto.`,
         messages: claudeMessages,
       }),
     });
