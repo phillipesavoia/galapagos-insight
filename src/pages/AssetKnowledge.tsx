@@ -290,7 +290,7 @@ export default function AssetKnowledge() {
 
     if (isExcel) reader.readAsArrayBuffer(file);
     else reader.readAsText(file);
-  }, [selectedPortfolio]);
+  }, [selectedPortfolio, referenceDate]);
 
   // Dropzone
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
