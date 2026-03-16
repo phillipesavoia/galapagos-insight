@@ -88,6 +88,7 @@ export default function AssetKnowledge() {
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
   const [droppedFileName, setDroppedFileName] = useState("");
+  const [selectedPortfolio, setSelectedPortfolio] = useState("");
 
   const fetchAssets = async () => {
     const { data } = await supabase.from("asset_knowledge").select("*").order("ticker");
