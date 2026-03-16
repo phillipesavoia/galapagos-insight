@@ -11,6 +11,7 @@ import Generator from "./pages/Generator";
 import Reports from "./pages/Reports";
 import Library from "./pages/Library";
 import NavUpload from "./pages/NavUpload";
+import AssetKnowledge from "./pages/AssetKnowledge";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
