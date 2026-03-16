@@ -149,6 +149,75 @@ async function searchMacroMarketContext(query: string, googleKey: string): Promi
   }
 }
 
+// --- Company/Ticker News Search via Gemini + Google Search Grounding ---
+async function getCompanyTickerNews(symbol: string, fromDate: string, toDate: string, googleKey: string): Promise<any> {
+  try {
+    console.log(`Fetching news for ${symbol} from ${fromDate} to ${toDate}`);
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${googleKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  text: `Você é um analista financeiro sênior. Pesquise e liste as principais notícias, manchetes e eventos corporativos relacionados ao ticker "${symbol}" no período de ${fromDate} a ${toDate}.
+
+Estruture sua resposta em ordem cronológica com:
+- **Data** — Manchete/Evento
+- Breve contexto (1-2 frases) sobre o impacto no preço/mercado
+
+Foque em:
+1. Resultados trimestrais / balanços
+2. Mudanças regulatórias que afetem o ativo
+3. Notícias corporativas relevantes (M&A, guidance, downgrades/upgrades)
+4. Eventos de mercado que moveram o preço significativamente
+
+Responda em português brasileiro. Seja factual. Máximo 500 palavras.`,
+                },
+              ],
+            },
+          ],
+          tools: [{ googleSearch: {} }],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 1200,
+          },
+        }),
+      }
+    );
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`Gemini news error [${res.status}]:`, errText);
+      return { status: "error", message: `Erro ao buscar notícias para ${symbol}: HTTP ${res.status}`, symbol };
+    }
+
+    const data = await res.json();
+    const textParts = data?.candidates?.[0]?.content?.parts || [];
+    const textContent = textParts.filter((p: any) => p.text).map((p: any) => p.text).join("\n");
+
+    const groundingMetadata = data?.candidates?.[0]?.groundingMetadata;
+    const groundingSources = groundingMetadata?.groundingChunks?.map((c: any) => ({
+      title: c.web?.title || "",
+      url: c.web?.uri || "",
+    })) || [];
+
+    return {
+      status: "success",
+      symbol,
+      period: `${fromDate} a ${toDate}`,
+      news: textContent,
+      sources: groundingSources,
+    };
+  } catch (err) {
+    console.error("Ticker news error:", err);
+    return { status: "fetch_error", message: `Falha ao buscar notícias para ${symbol}`, symbol };
+  }
+}
 
 const TOOLS = [
   {
