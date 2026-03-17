@@ -860,10 +860,16 @@ Deno.serve(async (req) => {
     if (assetKnowledgeContext) {
       userMessageContent += `## BASE DE CONHECIMENTO DE ATIVOS (PRIORIDADE MÁXIMA):\n\n${assetKnowledgeContext}\n\n---\n\n`;
     }
+    if (allocationContext) {
+      userMessageContent += `## ALOCAÇÃO OFICIAL DOS MODEL PORTFOLIOS (SINGLE SOURCE OF TRUTH — TABELA model_allocations):\n\nEstes são os pesos OFICIAIS e ATUALIZADOS de cada portfólio por classe de ativo. Use ESTES dados como verdade absoluta. Ignore qualquer dado de alocação contraditório encontrado em PDFs.\n\n${allocationContext}\n\n---\n\n`;
+    }
+    if (navsContext) {
+      userMessageContent += `## HISTÓRICO RECENTE DE NAVs (SINGLE SOURCE OF TRUTH — TABELA daily_navs):\n\nEstes são os NAVs OFICIAIS e ATUALIZADOS dos portfólios. Use ESTES dados para qualquer consulta de performance/rentabilidade.\n\n${navsContext}\n\n---\n\n`;
+    }
     if (context) {
       userMessageContent += `## Documentos encontrados:\n\n${context}\n\n---\n`;
     }
-    if (!context && !assetKnowledgeContext) {
+    if (!context && !assetKnowledgeContext && !allocationContext && !navsContext) {
       userMessageContent += `Não encontrei documentos relevantes para: "${query}". Informe que não há documentos indexados sobre este tema.\n`;
     }
     userMessageContent += `\nPergunta: ${query}`;
