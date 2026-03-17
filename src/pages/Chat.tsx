@@ -37,10 +37,27 @@ interface ChatSession {
 const PORTFOLIO_NAMES = ["Liquidity", "Bonds", "Conservative", "Income", "Balanced", "Growth"];
 const PORTFOLIO_REGEX = new RegExp(`\\b(${PORTFOLIO_NAMES.join("|")})\\b`, "i");
 
+// Detect ticker mentions like "BAI US", "KWEB", "SPY", "ACWI US", etc.
+const TICKER_REGEX = /\b([A-Z]{2,5}(?:\s+(?:US|LN|GR|FP|JP|HK|AU|CN|IM|NA|SS|SZ|SE|GY|AV|SM|PL|ID|BB|FH|DC|NO|IT|MC|SW|CT))?)\b/;
+
 function detectPortfolio(text: string): string | null {
   const match = text.match(PORTFOLIO_REGEX);
   if (!match) return null;
   return PORTFOLIO_NAMES.find((p) => p.toLowerCase() === match[1].toLowerCase()) || null;
+}
+
+function detectTicker(text: string): string | null {
+  // Skip very short or generic words
+  const SKIP_WORDS = new Set(["ME", "UM", "OS", "NO", "DO", "SE", "OU", "DE", "DA", "NA", "EU", "AS", "AO", "EL", "LA", "EN", "ES", "IT", "AT", "TO", "IN", "ON", "OR", "AN", "IS", "IF", "OF", "BY", "UP", "SO"]);
+  const match = text.match(TICKER_REGEX);
+  if (!match) return null;
+  const ticker = match[1].trim();
+  if (SKIP_WORDS.has(ticker)) return null;
+  // Must be at least 2 chars and look like a ticker (all caps)
+  if (ticker.length < 2 || ticker !== ticker.toUpperCase()) return null;
+  // Avoid matching portfolio names as tickers
+  if (PORTFOLIO_NAMES.some(p => p.toUpperCase() === ticker)) return null;
+  return ticker;
 }
 
 const allSuggestions = [
