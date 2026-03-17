@@ -222,7 +222,7 @@ export const ReportPreview = forwardRef<HTMLDivElement, ReportPreviewProps>(
           <div style={{ marginBottom: "24px" }}>
             <h3 style={s.sectionTitle}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                ✨ IA Investment Commentary
+                ✨ Análise do Comitê de Investimentos
               </span>
             </h3>
             <div style={{ fontSize: "12px", lineHeight: "1.8", color: "#374151", whiteSpace: "pre-wrap", borderLeft: "3px solid #8b5cf6", paddingLeft: "14px", backgroundColor: "#faf5ff", padding: "12px 14px", borderRadius: "0 6px 6px 0" }}>
