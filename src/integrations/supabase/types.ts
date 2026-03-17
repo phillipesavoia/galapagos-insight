@@ -122,6 +122,33 @@ export type Database = {
         }
         Relationships: []
       }
+      benchmark_prices: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          name: string
+          price: number
+          ticker: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: string
+          name: string
+          price: number
+          ticker: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          name?: string
+          price?: number
+          ticker?: string
+        }
+        Relationships: []
+      }
       daily_holdings: {
         Row: {
           created_at: string | null
