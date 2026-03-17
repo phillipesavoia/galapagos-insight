@@ -592,6 +592,44 @@ Exemplos:
       required: ["symbol", "from_date", "to_date"],
     },
   },
+  {
+    name: "renderizar_grafico_alocacao",
+    description: `Use esta ferramenta SEMPRE que o usuário perguntar sobre a COMPOSIÇÃO, ALOCAÇÃO ou DISTRIBUIÇÃO de classes de ativos de um portfólio específico. Renderiza um gráfico de rosca (donut chart) interativo no frontend mostrando os pesos por classe de ativo.
+
+Exemplos de quando usar:
+- "Como é a alocação do modelo Balanced?"
+- "Qual a composição do portfólio Growth?"
+- "Me mostre a distribuição de classes do Income"
+- "Quais as classes de ativos do Conservative?"
+
+REGRA: Use EXCLUSIVAMENTE os dados da seção "ALOCAÇÃO OFICIAL DOS MODEL PORTFOLIOS" para preencher os campos.`,
+    input_schema: {
+      type: "object",
+      properties: {
+        title: {
+          type: "string",
+          description: "Título do gráfico (ex: 'Alocação por Classe de Ativo')",
+        },
+        portfolio: {
+          type: "string",
+          description: "Nome do portfólio (ex: 'Balanced', 'Growth')",
+        },
+        data: {
+          type: "array",
+          description: "Array com as fatias do donut. Cada item tem 'asset_class' e 'weight_pct'.",
+          items: {
+            type: "object",
+            properties: {
+              asset_class: { type: "string", description: "Nome da classe de ativo (ex: 'Equities', 'Fixed Income')" },
+              weight_pct: { type: "number", description: "Peso percentual (ex: 50)" },
+            },
+            required: ["asset_class", "weight_pct"],
+          },
+        },
+      },
+      required: ["title", "portfolio", "data"],
+    },
+  },
 ];
 
 Deno.serve(async (req) => {
