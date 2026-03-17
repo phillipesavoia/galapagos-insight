@@ -265,6 +265,36 @@ export type Database = {
         }
         Relationships: []
       }
+      model_allocations: {
+        Row: {
+          asset_class: string
+          color: string | null
+          created_at: string
+          id: string
+          portfolio_name: string
+          updated_at: string
+          weight_pct: number
+        }
+        Insert: {
+          asset_class: string
+          color?: string | null
+          created_at?: string
+          id?: string
+          portfolio_name: string
+          updated_at?: string
+          weight_pct?: number
+        }
+        Update: {
+          asset_class?: string
+          color?: string | null
+          created_at?: string
+          id?: string
+          portfolio_name?: string
+          updated_at?: string
+          weight_pct?: number
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string

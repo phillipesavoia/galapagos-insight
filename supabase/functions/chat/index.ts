@@ -629,13 +629,66 @@ Deno.serve(async (req) => {
     const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
     if (!anthropicKey) throw new Error("Missing ANTHROPIC_API_KEY");
 
-    // --- 0. Asset Knowledge lookup (priority context) ---
+    // --- 0. Asset Knowledge + Structured Data lookup (priority context) ---
     let assetKnowledgeContext = "";
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const serviceClient = createClient(supabaseUrl, serviceRoleKey);
     
     const queryUpper = query.toUpperCase();
     const { data: allAssets } = await serviceClient.from("asset_knowledge").select("*");
+
+    // --- 0b. Model Allocations (Single Source of Truth) ---
+    let allocationContext = "";
+    const { data: allocData } = await serviceClient
+      .from("model_allocations")
+      .select("portfolio_name, asset_class, weight_pct")
+      .order("portfolio_name")
+      .order("weight_pct", { ascending: false });
+
+    if (allocData && allocData.length > 0) {
+      const grouped: Record<string, { asset_class: string; weight_pct: number }[]> = {};
+      allocData.forEach((r: any) => {
+        if (!grouped[r.portfolio_name]) grouped[r.portfolio_name] = [];
+        grouped[r.portfolio_name].push({ asset_class: r.asset_class, weight_pct: Number(r.weight_pct) });
+      });
+      allocationContext = Object.entries(grouped)
+        .map(([name, slices]) => {
+          const lines = slices.map((s) => `  - ${s.asset_class}: ${s.weight_pct}%`).join("\n");
+          return `**${name}:**\n${lines}`;
+        })
+        .join("\n\n");
+      console.log(`Model Allocations: loaded ${allocData.length} rows for ${Object.keys(grouped).length} portfolios`);
+    }
+
+    // --- 0c. Recent NAVs (Single Source of Truth) ---
+    let navsContext = "";
+    const { data: recentNavs } = await serviceClient
+      .from("daily_navs")
+      .select("date, portfolio_name, nav, daily_return, ytd_return")
+      .order("date", { ascending: false })
+      .limit(60);
+
+    if (recentNavs && recentNavs.length > 0) {
+      // Group by date, show last 5 dates
+      const dateMap: Record<string, Record<string, { nav: number; daily_return: number | null; ytd_return: number | null }>> = {};
+      recentNavs.forEach((r: any) => {
+        if (!dateMap[r.date]) dateMap[r.date] = {};
+        dateMap[r.date][r.portfolio_name] = { nav: Number(r.nav), daily_return: r.daily_return ? Number(r.daily_return) : null, ytd_return: r.ytd_return ? Number(r.ytd_return) : null };
+      });
+      const dates = Object.keys(dateMap).sort().reverse().slice(0, 5);
+      navsContext = dates.map((d) => {
+        const portfolios = Object.entries(dateMap[d])
+          .map(([name, data]) => {
+            let line = `  - ${name}: NAV ${data.nav.toFixed(2)}`;
+            if (data.daily_return != null) line += ` | Daily: ${data.daily_return.toFixed(2)}%`;
+            if (data.ytd_return != null) line += ` | YTD: ${data.ytd_return.toFixed(2)}%`;
+            return line;
+          })
+          .join("\n");
+        return `**${d}:**\n${portfolios}`;
+      }).join("\n\n");
+      console.log(`Daily NAVs: loaded ${recentNavs.length} rows, showing last ${dates.length} dates`);
+    }
     
     if (allAssets && allAssets.length > 0) {
       const matchedAssets = allAssets.filter((a: any) => {
@@ -807,10 +860,16 @@ Deno.serve(async (req) => {
     if (assetKnowledgeContext) {
       userMessageContent += `## BASE DE CONHECIMENTO DE ATIVOS (PRIORIDADE MÁXIMA):\n\n${assetKnowledgeContext}\n\n---\n\n`;
     }
+    if (allocationContext) {
+      userMessageContent += `## ALOCAÇÃO OFICIAL DOS MODEL PORTFOLIOS (SINGLE SOURCE OF TRUTH — TABELA model_allocations):\n\nEstes são os pesos OFICIAIS e ATUALIZADOS de cada portfólio por classe de ativo. Use ESTES dados como verdade absoluta. Ignore qualquer dado de alocação contraditório encontrado em PDFs.\n\n${allocationContext}\n\n---\n\n`;
+    }
+    if (navsContext) {
+      userMessageContent += `## HISTÓRICO RECENTE DE NAVs (SINGLE SOURCE OF TRUTH — TABELA daily_navs):\n\nEstes são os NAVs OFICIAIS e ATUALIZADOS dos portfólios. Use ESTES dados para qualquer consulta de performance/rentabilidade.\n\n${navsContext}\n\n---\n\n`;
+    }
     if (context) {
       userMessageContent += `## Documentos encontrados:\n\n${context}\n\n---\n`;
     }
-    if (!context && !assetKnowledgeContext) {
+    if (!context && !assetKnowledgeContext && !allocationContext && !navsContext) {
       userMessageContent += `Não encontrei documentos relevantes para: "${query}". Informe que não há documentos indexados sobre este tema.\n`;
     }
     userMessageContent += `\nPergunta: ${query}`;
@@ -844,6 +903,16 @@ Você é o assistente oficial e ESPECIALISTA EM ATIVOS da equipe de gestão da G
 - Você SÓ pode citar pesos/percentuais atuais se estiver lendo DIRETAMENTE dos dados da tabela de alocação ou dos documentos fornecidos na requisição. NUNCA invente números.
 - Você é o ESPECIALISTA DOS ATIVOS DA CASA. Se questionado sobre um fundo/ativo, use PRIORITARIAMENTE as informações do Asset Dictionary fornecidas na seção "BASE DE CONHECIMENTO DE ATIVOS". Se o ativo não estiver no dicionário NEM nos documentos, afirme claramente: "Não possuo o descritivo oficial da gestão para este ativo."
 - É PROIBIDO inventar matemática de portfólio, calcular diferenças entre alocações históricas, ou narrar operações de compra/venda que não estejam explicitamente descritas nos documentos.
+
+### SINGLE SOURCE OF TRUTH — DADOS ESTRUTURADOS (HIERARQUIA DE PRIORIDADE):
+
+**REGRA ABSOLUTA:** Os dados das tabelas estruturadas (model_allocations e daily_navs) são a VERDADE OFICIAL e ATUALIZADA. Quando houver CONFLITO entre os dados destas tabelas e textos de PDFs/atas, os dados das tabelas SEMPRE PREVALECEM.
+
+1. **Alocações (model_allocations):** Para qualquer pergunta sobre composição, pesos ou distribuição de classes de ativos nos portfólios, use EXCLUSIVAMENTE os dados da seção "ALOCAÇÃO OFICIAL DOS MODEL PORTFOLIOS". Estes dados são atualizados em tempo real pela equipe de gestão.
+
+2. **NAVs (daily_navs):** Para qualquer pergunta sobre performance, rentabilidade, retorno ou valor das cotas, use EXCLUSIVAMENTE os dados da seção "HISTÓRICO RECENTE DE NAVs". Estes dados são a fonte oficial de cotas diárias.
+
+3. **PDFs/Atas:** Use documentos apenas para contexto qualitativo (teses, narrativas, decisões de comitê). NUNCA use dados numéricos de PDFs que contradigam as tabelas oficiais.
 
 ### STRICT MATCH PROTOCOL — PROTOCOLO DE CORRESPONDÊNCIA EXATA (ANTI-ALUCINAÇÃO):
 
