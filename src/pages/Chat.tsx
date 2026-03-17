@@ -115,6 +115,7 @@ export default function Chat() {
   const [randomSuggestions] = useState(() => getRandomSuggestions(4));
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [activePortfolio, setActivePortfolio] = useState<string | null>(null);
+  const [activeTicker, setActiveTicker] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const isEmpty = messages.length === 0;
