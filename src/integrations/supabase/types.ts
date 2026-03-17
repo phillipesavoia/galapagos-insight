@@ -295,6 +295,42 @@ export type Database = {
         }
         Relationships: []
       }
+      portfolio_holdings: {
+        Row: {
+          asset_class: string
+          asset_name: string
+          created_at: string
+          id: string
+          is_active: boolean
+          portfolio_name: string
+          ticker: string | null
+          updated_at: string
+          weight_percentage: number
+        }
+        Insert: {
+          asset_class: string
+          asset_name: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          portfolio_name: string
+          ticker?: string | null
+          updated_at?: string
+          weight_percentage?: number
+        }
+        Update: {
+          asset_class?: string
+          asset_name?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          portfolio_name?: string
+          ticker?: string | null
+          updated_at?: string
+          weight_percentage?: number
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string

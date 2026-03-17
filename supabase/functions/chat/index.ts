@@ -727,6 +727,33 @@ Deno.serve(async (req) => {
       }).join("\n\n");
       console.log(`Daily NAVs: loaded ${recentNavs.length} rows, showing last ${dates.length} dates`);
     }
+
+    // --- 0d. Portfolio Holdings (Golden Rule for Drill-Down) ---
+    let holdingsContext = "";
+    const { data: holdingsData } = await serviceClient
+      .from("portfolio_holdings")
+      .select("portfolio_name, asset_name, ticker, asset_class, weight_percentage")
+      .eq("is_active", true)
+      .order("portfolio_name")
+      .order("asset_class")
+      .order("weight_percentage", { ascending: false });
+
+    if (holdingsData && holdingsData.length > 0) {
+      const hGrouped: Record<string, any[]> = {};
+      holdingsData.forEach((r: any) => {
+        if (!hGrouped[r.portfolio_name]) hGrouped[r.portfolio_name] = [];
+        hGrouped[r.portfolio_name].push(r);
+      });
+      holdingsContext = Object.entries(hGrouped)
+        .map(([name, assets]) => {
+          const lines = assets.map((a: any) =>
+            `  - ${a.asset_name} (${a.ticker || "N/A"}) | Classe: ${a.asset_class} | Peso: ${Number(a.weight_percentage).toFixed(2)}%`
+          ).join("\n");
+          return `**${name}:**\n${lines}`;
+        })
+        .join("\n\n");
+      console.log(`Portfolio Holdings: loaded ${holdingsData.length} holdings for ${Object.keys(hGrouped).length} portfolios`);
+    }
     
     if (allAssets && allAssets.length > 0) {
       const matchedAssets = allAssets.filter((a: any) => {
@@ -904,6 +931,9 @@ Deno.serve(async (req) => {
     if (navsContext) {
       userMessageContent += `## HISTÓRICO RECENTE DE NAVs (SINGLE SOURCE OF TRUTH — TABELA daily_navs):\n\nEstes são os NAVs OFICIAIS e ATUALIZADOS dos portfólios. Use ESTES dados para qualquer consulta de performance/rentabilidade.\n\n${navsContext}\n\n---\n\n`;
     }
+    if (holdingsContext) {
+      userMessageContent += `## HOLDINGS OFICIAIS DOS PORTFÓLIOS (GOLDEN RULE — TABELA portfolio_holdings):\n\nEsta é a lista OFICIAL e COMPLETA de ativos individuais por portfólio. Para perguntas de detalhamento/drill-down, use EXCLUSIVAMENTE estes dados. É PROIBIDO usar PDFs para responder sobre holdings.\n\n${holdingsContext}\n\n---\n\n`;
+    }
     if (context) {
       userMessageContent += `## Documentos encontrados:\n\n${context}\n\n---\n`;
     }
@@ -1061,27 +1091,29 @@ REGRAS DE RECONHECIMENTO (OBRIGATÓRIAS):
 
 ---
 
-### 🔍 REGRA DE DRILL-DOWN (DETALHAMENTO OBRIGATÓRIO — HIERARQUIA DE PROFUNDIDADE):
+### 🔍 REGRA DE DRILL-DOWN — THE GOLDEN RULE (DETALHAMENTO OBRIGATÓRIO — PRIORIDADE MÁXIMA NOS DADOS ESTRUTURADOS):
 
 **DOIS NÍVEIS DE DADOS (MACRO vs. MICRO):**
 
 - **Nível 1 — MACRO (Classes de Ativo):** Pesos por classe (Equities, Fixed Income, Alternatives, Cash). Use a ferramenta 'renderizar_grafico_alocacao' (donut chart). Fonte: tabela 'model_allocations'.
 
-- **Nível 2 — MICRO (Holdings / Ativos Individuais):** Lista nominal de fundos, ETFs e títulos específicos com seus pesos individuais. Use tabela markdown. Fonte: 'asset_knowledge' (campo 'portfolios' e 'weight_pct').
+- **Nível 2 — MICRO (Holdings / Ativos Individuais):** Lista nominal de fundos, ETFs e títulos específicos com seus pesos individuais. Use tabela markdown. Fonte **EXCLUSIVA**: seção "HOLDINGS OFICIAIS DOS PORTFÓLIOS" (tabela 'portfolio_holdings').
 
 **GATILHO DE DETALHAMENTO (DRILL-DOWN TRIGGER):**
 
 Quando o usuário usar QUALQUER um destes termos: 'abrir', 'detalhar', 'quais ativos', 'quais fundos', 'quais ETFs', 'ver por dentro', 'composição detalhada', 'holdings', 'lista de ativos', 'o que tem dentro', 'breakdown', 'detalhe':
 
-1. Você é **PROIBIDO** de repetir o gráfico macro (donut chart de classes). O usuário JÁ VIU isso.
-2. Você **DEVE OBRIGATORIAMENTE** buscar os ativos individuais do Asset Dictionary cujo campo 'portfolios' contenha o portfólio em contexto.
-3. Apresente os resultados em tabela markdown com as colunas: **Ativo (Ticker)** | **Classe** | **Peso (%)** | **Tese Resumida**
-4. Agrupe os ativos por classe de ativo (ex: todos os de Equities juntos, depois Fixed Income, etc.)
-5. Inclua subtotais por classe e um total geral no final.
+1. Você é **TERMINANTEMENTE PROIBIDO** de ler, citar ou usar informações de PDFs (RAG/documentos vetorizados) para responder sobre holdings. Ignore completamente a seção "Documentos encontrados".
+2. Você **DEVE** usar **EXCLUSIVAMENTE** os dados da seção "HOLDINGS OFICIAIS DOS PORTFÓLIOS" (tabela portfolio_holdings).
+3. Se a seção "HOLDINGS OFICIAIS DOS PORTFÓLIOS" estiver VAZIA ou não contiver dados para o portfólio solicitado, responda EXATAMENTE: "📋 Ainda não tenho a lista de ativos detalhada no meu banco de dados oficial para o portfólio **[nome]**. Por favor, cadastre os ativos no **Data Hub → Matriz de Alocação → Detalhamento de Ativos**."
+4. **NUNCA** tente preencher a tabela de holdings com dados de PDFs. Se os dados estruturados não existirem, NÃO INVENTE.
+5. Apresente os resultados em tabela markdown com as colunas: **Ativo (Ticker)** | **Classe** | **Peso (%)**
+6. Agrupe os ativos por classe de ativo (ex: todos os de Equities juntos, depois Fixed Income, etc.)
+7. Inclua subtotais por classe e um **TOTAL GERAL** no final.
 
 **PROVA REAL DE CONSISTÊNCIA:**
 - A soma dos pesos individuais por classe DEVE ser coerente com o peso macro daquela classe (da tabela model_allocations).
-- Se houver divergência (soma dos ativos < peso macro da classe), inclua a nota: "⚠️ Algumas posições menores podem não estar listadas nos documentos recentes. O peso macro oficial da classe [X] é [Y]%."
+- Se houver divergência (soma dos ativos < peso macro da classe), inclua a nota: "⚠️ Algumas posições menores podem não estar listadas. O peso macro oficial da classe [X] é [Y]%."
 
 **DETECÇÃO AUTOMÁTICA DE NÍVEL:**
 - Se o usuário perguntar "Qual a alocação do Balanced?" → Nível 1 (Macro) → Donut chart
