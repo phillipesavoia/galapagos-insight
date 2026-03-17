@@ -155,7 +155,7 @@ export function DocumentsTab() {
                         )}
                       </div>
                       <div className="min-w-0">
-                        <span className="text-sm font-medium text-foreground block truncate">{doc.name}</span>
+                        <span className="text-sm font-medium text-foreground block break-words">{doc.name}</span>
                         {doc.status === "processing" && (
                           <span className="text-xs text-primary">Processando Inteligência...</span>
                         )}

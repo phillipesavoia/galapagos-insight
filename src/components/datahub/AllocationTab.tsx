@@ -201,7 +201,7 @@ function HoldingsSection({ portfolioName }: { portfolioName: string }) {
                       {items.map((h) => (
                         <div key={h.id} className="flex items-center justify-between px-1 py-0.5 text-xs">
                           <div className="flex items-center gap-1.5 min-w-0">
-                            <span className="text-foreground font-medium truncate">{h.asset_name}</span>
+                            <span className="text-foreground font-medium break-words">{h.asset_name}</span>
                             {h.ticker && <span className="text-muted-foreground text-[10px]">({h.ticker})</span>}
                           </div>
                           <span className="text-foreground font-semibold tabular-nums shrink-0">{Number(h.weight_percentage).toFixed(2)}%</span>
@@ -377,7 +377,7 @@ function PortfolioCard({
               <div key={i} className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <div className="h-2 w-2 rounded-full shrink-0" style={{ background: a.color }} />
-                  <span className="text-xs text-muted-foreground truncate">{a.asset_class}</span>
+                  <span className="text-xs text-muted-foreground break-words">{a.asset_class}</span>
                 </div>
                 <span className="text-xs font-semibold text-foreground tabular-nums">{a.weight_pct}%</span>
               </div>
