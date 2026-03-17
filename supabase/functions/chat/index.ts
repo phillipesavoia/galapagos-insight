@@ -630,6 +630,56 @@ REGRA: Use EXCLUSIVAMENTE os dados da seção "ALOCAÇÃO OFICIAL DOS MODEL PORT
       required: ["title", "portfolio", "data"],
     },
   },
+  {
+    name: "renderizar_tabela_comparativa",
+    description: `Use esta ferramenta OBRIGATORIAMENTE quando precisar comparar dados numéricos entre múltiplos ativos ou portfólios (contribuição mensal, retorno, peso, performance). Esta é a ferramenta PADRÃO para análises comparativas — produz uma tabela zebra profissional com alinhamento tabular, estilo institucional.
+
+REGRA: Para análises de múltiplos portfólios ou ativos lado a lado, PREFIRA SEMPRE esta tabela ao invés do gráfico de barras. O gráfico de barras é permitido apenas para visualizações simples de 1 métrica.
+
+Exemplos de quando usar:
+- "Compare a performance dos portfólios"
+- "Qual a contribuição de cada ativo no Growth?"
+- "Mostre os retornos mensais de todos os portfólios"
+- "Detalhar os ativos do Growth com contribuição"
+- Qualquer comparação numérica entre 3+ itens`,
+    input_schema: {
+      type: "object",
+      properties: {
+        title: {
+          type: "string",
+          description: "Título da tabela (ex: 'Contribuição por Ativo — Growth (Fev/26)')",
+        },
+        columns: {
+          type: "array",
+          description: "Definição das colunas. Cada item tem 'key' (campo no dado), 'label' (header), 'align' (left/right/center) e 'format' (percent/number/text).",
+          items: {
+            type: "object",
+            properties: {
+              key: { type: "string", description: "Campo no objeto de dados (ex: 'ticker', 'contribution')" },
+              label: { type: "string", description: "Label do header (ex: 'Ticker', 'Contribuição')" },
+              align: { type: "string", description: "'left', 'right' ou 'center'", enum: ["left", "right", "center"] },
+              format: { type: "string", description: "'percent', 'number' ou 'text'", enum: ["percent", "number", "text"] },
+            },
+            required: ["key", "label"],
+          },
+        },
+        rows: {
+          type: "array",
+          description: "Array de objetos com os dados de cada linha.",
+          items: {
+            type: "object",
+            additionalProperties: true,
+          },
+        },
+        footerRow: {
+          type: "object",
+          description: "Linha de rodapé opcional (ex: totais). Mesmo formato das rows.",
+          additionalProperties: true,
+        },
+      },
+      required: ["title", "columns", "rows"],
+    },
+  },
 ];
 
 Deno.serve(async (req) => {
