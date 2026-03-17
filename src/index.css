@@ -6,55 +6,46 @@
 
 @layer base {
   :root {
-    /* Ares Aesthetic — Midnight Neon */
-    --background: 222 47% 3%;
-    --foreground: 210 20% 95%;
+    --background: 240 20% 4%;
+    --foreground: 240 5% 96%;
 
-    --card: 222 40% 5%;
-    --card-foreground: 210 20% 95%;
+    --card: 240 15% 7%;
+    --card-foreground: 240 5% 96%;
 
-    --popover: 222 40% 5%;
-    --popover-foreground: 210 20% 95%;
+    --popover: 240 15% 7%;
+    --popover-foreground: 240 5% 96%;
 
-    --primary: 142 69% 58%;
-    --primary-foreground: 222 47% 3%;
+    --primary: 160 84% 39%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 222 30% 10%;
-    --secondary-foreground: 210 20% 95%;
+    --secondary: 240 10% 12%;
+    --secondary-foreground: 240 5% 96%;
 
-    --muted: 222 30% 10%;
-    --muted-foreground: 215 15% 55%;
+    --muted: 240 10% 12%;
+    --muted-foreground: 240 5% 65%;
 
-    --accent: 24 94% 53%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 240 10% 15%;
+    --accent-foreground: 240 5% 96%;
 
-    --destructive: 351 83% 73%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 222 20% 14%;
-    --input: 222 20% 14%;
-    --ring: 142 69% 58%;
+    --border: 240 10% 16%;
+    --input: 240 10% 16%;
+    --ring: 160 84% 39%;
 
     --radius: 0.75rem;
 
-    /* Ares specific tokens */
-    --ares-green: 142 69% 58%;
-    --ares-pink: 351 83% 73%;
-    --ares-orange: 24 94% 53%;
-    --ares-bg-deep: 222 47% 3%;
-    --ares-bg-surface: 222 50% 5%;
-    --ares-card-alpha: 0 0% 100% / 0.03;
-
-    --sidebar-background: 222 50% 5%;
-    --sidebar-foreground: 215 15% 55%;
-    --sidebar-primary: 142 69% 58%;
-    --sidebar-primary-foreground: 222 47% 3%;
-    --sidebar-accent: 24 94% 53%;
+    --sidebar-background: 240 18% 5%;
+    --sidebar-foreground: 240 5% 65%;
+    --sidebar-primary: 160 84% 39%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 160 84% 39%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 222 20% 14%;
-    --sidebar-ring: 142 69% 58%;
+    --sidebar-border: 240 10% 16%;
+    --sidebar-ring: 160 84% 39%;
 
-    --warning: 24 94% 53%;
+    --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
   }
 }
@@ -132,6 +123,7 @@
     border: none !important;
   }
 
+  /* Hide Layout sidebar and header for clean A4 */
   nav, header, aside,
   [data-sidebar],
   [class*="sidebar"],

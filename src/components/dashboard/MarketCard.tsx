@@ -22,7 +22,7 @@ function Badge({ label, value }: { label: string; value: number }) {
       <span
         className={cn(
           "text-xs font-semibold tabular-nums",
-          isPositive ? "text-ares-green" : "text-ares-pink"
+          isPositive ? "text-emerald-400" : "text-red-400"
         )}
       >
         {isPositive ? "+" : ""}
@@ -46,7 +46,7 @@ export function MarketCard({
   const gradientId = `spark-${ticker.replace(/\s/g, "")}`;
 
   return (
-    <div className="group relative rounded-xl border border-border bg-card p-5 hover:border-ares-green/30 transition-all duration-300 overflow-hidden">
+    <div className="group relative rounded-xl border border-border bg-card p-5 hover:border-primary/30 transition-all duration-300 overflow-hidden">
       {/* Sparkline background */}
       <div className="absolute inset-0 opacity-20 pointer-events-none">
         <ResponsiveContainer width="100%" height="100%">
@@ -55,12 +55,12 @@ export function MarketCard({
               <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
                 <stop
                   offset="0%"
-                  stopColor={trend ? "hsl(142, 69%, 58%)" : "hsl(351, 83%, 73%)"}
+                  stopColor={trend ? "hsl(160, 84%, 39%)" : "hsl(0, 84%, 60%)"}
                   stopOpacity={0.4}
                 />
                 <stop
                   offset="100%"
-                  stopColor={trend ? "hsl(142, 69%, 58%)" : "hsl(351, 83%, 73%)"}
+                  stopColor={trend ? "hsl(160, 84%, 39%)" : "hsl(0, 84%, 60%)"}
                   stopOpacity={0}
                 />
               </linearGradient>
@@ -68,7 +68,7 @@ export function MarketCard({
             <Area
               type="monotone"
               dataKey="value"
-              stroke={trend ? "hsl(142, 69%, 58%)" : "hsl(351, 83%, 73%)"}
+              stroke={trend ? "hsl(160, 84%, 39%)" : "hsl(0, 84%, 60%)"}
               strokeWidth={1.5}
               fill={`url(#${gradientId})`}
               dot={false}
@@ -89,8 +89,8 @@ export function MarketCard({
             className={cn(
               "text-[10px] font-semibold px-1.5 py-0.5 rounded",
               trend
-                ? "bg-ares-green/10 text-ares-green"
-                : "bg-ares-pink/10 text-ares-pink"
+                ? "bg-emerald-500/10 text-emerald-400"
+                : "bg-red-500/10 text-red-400"
             )}
           >
             {trend ? "▲" : "▼"}
