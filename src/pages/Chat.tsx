@@ -223,7 +223,16 @@ export default function Chat() {
 
     // Detect portfolio context from user message
     const detected = detectPortfolio(msg);
-    if (detected) setActivePortfolio(detected);
+    if (detected) {
+      setActivePortfolio(detected);
+      setActiveTicker(null); // portfolio takes priority, clear ticker
+    }
+
+    // Detect ticker context
+    const detectedTicker = detectTicker(msg);
+    if (detectedTicker && !detected) {
+      setActiveTicker(detectedTicker);
+    }
 
     const newMsg: ChatMessage = {
       id: Date.now().toString(),
@@ -236,6 +245,7 @@ export default function Chat() {
 
       const filter_type = "all";
       const currentPortfolio = detected || activePortfolio;
+      const currentTicker = detectedTicker || activeTicker;
 
       await persistMessage(newMsg, sessionId, { filter_type });
 
