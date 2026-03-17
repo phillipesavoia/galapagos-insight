@@ -79,7 +79,6 @@
     background: hsl(var(--border));
     border-radius: 3px;
   }
-  }
 }
 
 /* Global zebra-striped tables with tabular numbers */
