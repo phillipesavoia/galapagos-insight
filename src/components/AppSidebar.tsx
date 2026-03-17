@@ -6,23 +6,23 @@ import { useClientMode } from "@/contexts/ClientModeContext";
 
 const publicNavItems = [
   { title: "Dashboard", label: "Dashboard", url: "/dashboard", icon: TrendingUp },
-  { title: "Advisor Chat", label: "Advisor Chat", url: "/chat", icon: MessageSquare },
-  { title: "Performance Analítica", label: "Performance Analítica", url: "/analytics", icon: BarChart3 },
-  { title: "Gerar Documentos", label: "Gerar Documentos", url: "/generator", icon: FileText },
-  { title: "Gerador de Relatórios", label: "Gerador de Relatórios", url: "/reports", icon: ClipboardList },
+  { title: "Advisor Chat", label: "Chat", url: "/chat", icon: MessageSquare },
+  { title: "Analytics", label: "Analytics", url: "/analytics", icon: BarChart3 },
+  { title: "Gerar Documentos", label: "Docs", url: "/generator", icon: FileText },
+  { title: "Relatórios", label: "Reports", url: "/reports", icon: ClipboardList },
 ];
 
 const clientModeItems = [
   { title: "Dashboard", label: "Dashboard", url: "/dashboard", icon: TrendingUp },
-  { title: "Advisor Chat", label: "Advisor Chat", url: "/chat", icon: MessageSquare },
-  { title: "Gerador de Relatórios", label: "Relatórios", url: "/reports", icon: ClipboardList },
+  { title: "Advisor Chat", label: "Chat", url: "/chat", icon: MessageSquare },
+  { title: "Relatórios", label: "Reports", url: "/reports", icon: ClipboardList },
 ];
 
 const adminNavItems = [
   { title: "Data Hub", label: "Data Hub", url: "/data-hub", icon: Database },
-  { title: "Base de Documentos", label: "Base de Documentos", url: "/library", icon: FolderOpen },
-  { title: "Asset Dictionary", label: "Asset Dictionary", url: "/admin/assets", icon: BookOpen },
-  { title: "Upload NAV", label: "Upload NAV", url: "/admin/nav-upload", icon: Upload },
+  { title: "Library", label: "Library", url: "/library", icon: FolderOpen },
+  { title: "Assets", label: "Assets", url: "/admin/assets", icon: BookOpen },
+  { title: "NAV Upload", label: "NAV", url: "/admin/nav-upload", icon: Upload },
 ];
 
 export function AppSidebar() {
@@ -40,52 +40,50 @@ export function AppSidebar() {
       : publicNavItems;
 
   return (
-    <aside className="fixed left-0 top-0 bottom-0 w-60 bg-sidebar border-r border-border flex flex-col z-50">
+    <aside className="fixed left-0 top-0 bottom-0 w-[52px] hover:w-48 bg-sidebar border-r border-white/5 flex flex-col z-50 transition-all duration-300 group/sidebar overflow-hidden">
       {/* Logo */}
-      <div className="p-6 pb-4">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl font-bold text-neon-orange tracking-tight">GC</span>
-        </div>
-        <p className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-widest">Galapagos Connect</p>
+      <div className="p-3 pb-6 pt-5 flex items-center gap-2.5 min-w-0">
+        <span className="text-lg font-bold text-neon-orange tracking-tight shrink-0">G</span>
+        <span className="text-[10px] text-muted-foreground uppercase tracking-widest opacity-0 group-hover/sidebar:opacity-100 transition-opacity duration-200 whitespace-nowrap">Galapagos</span>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 space-y-0.5">
+      <nav className="flex-1 px-1.5 space-y-0.5">
         {navItems.map((item) => (
           <NavLink
             key={item.url}
             to={item.url}
             end
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors border-r-2 border-transparent"
+            className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs text-muted-foreground hover:text-foreground hover:bg-white/[0.03] transition-all duration-200 border-r-2 border-transparent min-w-0"
             activeClassName="border-r-2 !border-neon-green text-neon-green bg-neon-green/5 font-medium"
           >
             <item.icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-            <span>{item.label}</span>
+            <span className="opacity-0 group-hover/sidebar:opacity-100 transition-opacity duration-200 whitespace-nowrap truncate">{item.label}</span>
           </NavLink>
         ))}
       </nav>
 
-      {/* Client Mode Toggle + Logout */}
-      <div className="p-4 border-t border-border space-y-1">
+      {/* Bottom */}
+      <div className="p-2 border-t border-white/5 space-y-0.5">
         {isAdmin && (
           <button
             onClick={() => setClientMode(!clientMode)}
-            className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm transition-colors ${
+            className={`flex items-center gap-2.5 w-full px-2.5 py-2 rounded-xl text-xs transition-all duration-200 ${
               clientMode
                 ? "bg-neon-green/10 text-neon-green font-medium"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                : "text-muted-foreground hover:text-foreground hover:bg-white/[0.03]"
             }`}
           >
             {clientMode ? <EyeOff className="h-4 w-4 shrink-0" strokeWidth={1.5} /> : <Eye className="h-4 w-4 shrink-0" strokeWidth={1.5} />}
-            <span>{clientMode ? "Modo Cliente" : "Modo Cliente"}</span>
+            <span className="opacity-0 group-hover/sidebar:opacity-100 transition-opacity duration-200 whitespace-nowrap">{clientMode ? "Client" : "Client"}</span>
           </button>
         )}
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
+          className="flex items-center gap-2.5 w-full px-2.5 py-2 rounded-xl text-xs text-muted-foreground hover:text-foreground hover:bg-white/[0.03] transition-all duration-200"
         >
           <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-          <span>Sair</span>
+          <span className="opacity-0 group-hover/sidebar:opacity-100 transition-opacity duration-200 whitespace-nowrap">Sair</span>
         </button>
       </div>
     </aside>

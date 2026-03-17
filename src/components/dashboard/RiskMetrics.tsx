@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { TrendingDown, TrendingUp, Activity, BarChart3 } from "lucide-react";
 import type { NavDataPoint } from "@/pages/Dashboard";
 
@@ -59,13 +58,11 @@ export function RiskMetrics({ data, loading }: RiskMetricsProps) {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 stagger-children">
         {[1, 2, 3, 4].map((i) => (
-          <Card key={i} className="border-border bg-card">
-            <CardContent className="p-5">
-              <div className="h-16 animate-pulse rounded bg-muted" />
-            </CardContent>
-          </Card>
+          <div key={i} className="glass-card rounded-2xl p-6">
+            <div className="h-16 animate-pulse rounded-lg bg-white/[0.03]" />
+          </div>
         ))}
       </div>
     );
@@ -81,46 +78,53 @@ export function RiskMetrics({ data, loading }: RiskMetricsProps) {
       label: "Retorno Acumulado",
       value: `${returnPrefix}${(metrics.accumulatedReturn * 100).toFixed(2)}%`,
       icon: isPositive ? TrendingUp : TrendingDown,
-      color: isPositive ? "text-green-500" : "text-destructive",
+      neon: isPositive ? "neon-green" : "neon-rose",
+      glow: isPositive ? "glow-green" : "glow-rose",
     },
     {
       label: "Volatilidade Anualizada",
       value: `${(metrics.volatility * 100).toFixed(2)}%`,
       icon: Activity,
-      color: "text-amber-400",
+      neon: "neon-orange",
+      glow: "glow-orange",
     },
     {
       label: "Índice Sharpe",
       value: metrics.sharpe.toFixed(2),
       icon: BarChart3,
-      color: "text-primary",
+      neon: "neon-green",
+      glow: "glow-green",
     },
     {
       label: "Max Drawdown",
       value: `${(metrics.maxDrawdown * 100).toFixed(2)}%`,
       icon: TrendingDown,
-      color: "text-destructive",
+      neon: "neon-rose",
+      glow: "glow-rose",
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 stagger-children">
       {cards.map((c) => (
-        <Card key={c.label} className="border-border bg-card">
-          <CardContent className="p-5 flex items-start gap-4">
-            <div className={`mt-0.5 ${c.color}`}>
-              <c.icon className="h-5 w-5" />
+        <div
+          key={c.label}
+          className={`glass-card glass-card-hover rounded-2xl p-6 transition-all duration-300 ${c.glow}`}
+        >
+          <div className="flex items-start gap-3">
+            <div className={`text-${c.neon} mt-0.5`}>
+              <c.icon className="h-4 w-4" />
             </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase">
+            <div className="min-w-0">
+              <p className="text-[10px] font-medium text-muted-foreground tracking-widest uppercase font-mono">
                 {c.label}
               </p>
-              <p className={`text-2xl font-semibold mt-1 tabular-nums ${c.label === "Retorno Acumulado" ? c.color : "text-foreground"}`}>
+              <p className={`text-2xl font-semibold mt-1.5 tabular-nums font-mono text-${c.neon}`}>
                 {c.value}
               </p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       ))}
     </div>
   );
