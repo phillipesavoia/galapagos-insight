@@ -54,6 +54,13 @@ export default {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
         },
+        ares: {
+          green: "hsl(var(--ares-green))",
+          pink: "hsl(var(--ares-pink))",
+          orange: "hsl(var(--ares-orange))",
+          "bg-deep": "hsl(var(--ares-bg-deep))",
+          "bg-surface": "hsl(var(--ares-bg-surface))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",

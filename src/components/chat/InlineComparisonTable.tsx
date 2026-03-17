@@ -27,8 +27,12 @@ function formatCell(value: any, format?: string): string {
   return String(value);
 }
 
-function cellColor(_value: any, _format?: string): string {
-  // Institutional B&W — no color coding
+function cellColor(value: any, format?: string): string {
+  if (format !== "percent" && format !== "number") return "";
+  const num = Number(value);
+  if (isNaN(num)) return "";
+  if (num > 0) return "text-ares-green";
+  if (num < 0) return "text-ares-pink";
   return "";
 }
 
@@ -36,18 +40,18 @@ export function InlineComparisonTable({ title, columns, rows, footerRow }: Inlin
   if (!rows || rows.length === 0) return null;
 
   return (
-    <div className="my-3 rounded-lg border border-foreground/20 bg-background overflow-hidden">
-      <div className="px-4 py-3 border-b border-foreground/20 bg-foreground/5">
-        <h4 className="text-xs font-semibold text-foreground uppercase tracking-wide">{title}</h4>
+    <div className="my-3 rounded-lg border border-border bg-card overflow-hidden">
+      <div className="px-4 py-3 border-b border-border bg-secondary/30">
+        <h4 className="text-xs font-semibold text-ares-orange uppercase tracking-widest">{title}</h4>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-[12px]">
           <thead>
-            <tr className="border-b border-foreground/20 bg-foreground/5">
+            <tr className="border-b border-border bg-secondary/30">
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className={`px-4 py-2.5 font-semibold text-foreground uppercase tracking-wider ${
+                  className={`px-4 py-2.5 font-semibold text-ares-orange uppercase tracking-widest ${
                     col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left"
                   }`}
                 >
@@ -60,19 +64,21 @@ export function InlineComparisonTable({ title, columns, rows, footerRow }: Inlin
             {rows.map((row, i) => (
               <tr
                 key={i}
-                className={`border-b border-foreground/10 ${i % 2 === 0 ? "" : "bg-foreground/[0.03]"}`}
+                className={`border-b border-border/50 ${i % 2 === 0 ? "" : "bg-secondary/20"}`}
               >
                 {columns.map((col) => (
                   <td
                     key={col.key}
-                    className={`px-4 py-2 ${
-                      col.align === "right" ? "text-right font-mono" : col.align === "center" ? "text-center" : "text-left"
+                    className={`px-4 py-2 font-mono ${
+                      col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left"
                     } ${
                       col.key === columns[0]?.key ? "font-semibold text-foreground" : "text-foreground/90"
                     } ${
+                      cellColor(row[col.key], col.format)
+                    } ${
                       (col.format === "percent" || col.format === "number") ? "font-semibold" : ""
                     }`}
-                    style={{ fontVariantNumeric: col.align === "right" ? "tabular-nums" : undefined }}
+                    style={{ fontVariantNumeric: "tabular-nums" }}
                   >
                     {formatCell(row[col.key], col.format)}
                   </td>
@@ -82,14 +88,14 @@ export function InlineComparisonTable({ title, columns, rows, footerRow }: Inlin
           </tbody>
           {footerRow && (
             <tfoot>
-              <tr className="bg-foreground/[0.07] font-bold border-t-2 border-foreground/20">
+              <tr className="bg-secondary/40 font-bold border-t-2 border-border">
                 {columns.map((col) => (
                   <td
                     key={col.key}
-                    className={`px-4 py-2.5 text-foreground ${
-                      col.align === "right" ? "text-right font-mono" : "text-left"
-                    }`}
-                    style={{ fontVariantNumeric: col.align === "right" ? "tabular-nums" : undefined }}
+                    className={`px-4 py-2.5 text-foreground font-mono ${
+                      col.align === "right" ? "text-right" : "text-left"
+                    } ${cellColor(footerRow[col.key], col.format)}`}
+                    style={{ fontVariantNumeric: "tabular-nums" }}
                   >
                     {formatCell(footerRow[col.key], col.format)}
                   </td>
