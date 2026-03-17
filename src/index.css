@@ -79,4 +79,27 @@
     background: hsl(var(--border));
     border-radius: 3px;
   }
+  }
+}
+
+/* Global zebra-striped tables with tabular numbers */
+@layer components {
+  table tbody tr:nth-child(even) {
+    background-color: hsl(var(--secondary) / 0.3);
+  }
+
+  table td,
+  table th {
+    font-variant-numeric: tabular-nums;
+  }
+
+  table td.text-right,
+  table th.text-right {
+    text-align: right;
+  }
+
+  table {
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
 }
