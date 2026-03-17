@@ -132,9 +132,9 @@ export default function Reports() {
   // Fetch benchmark data from DB
   useEffect(() => {
     const fetchBench = async () => {
-      if (selectedBenchmarks.length === 0) { setBenchmarkData([]); return; }
+      if (effectiveBenchmarks.length === 0) { setBenchmarkData([]); return; }
       const results: BenchmarkData[] = [];
-      for (const ticker of selectedBenchmarks) {
+      for (const ticker of effectiveBenchmarks) {
         const { data } = await supabase
           .from("benchmark_prices")
           .select("date, price, name")
