@@ -16,13 +16,13 @@ export function PeriodFilter({ value, onChange }: PeriodFilterProps) {
       onValueChange={(v) => {
         if (v) onChange(v as Period);
       }}
-      className="bg-secondary/50 border border-border rounded-lg p-0.5"
+      className="glass-card rounded-xl p-0.5"
     >
       {periods.map((p) => (
         <ToggleGroupItem
           key={p}
           value={p}
-          className="px-3 py-1 text-xs font-medium rounded-md data-[state=on]:bg-primary data-[state=on]:text-primary-foreground text-muted-foreground"
+          className="px-3 py-1 text-[10px] font-mono font-medium rounded-lg data-[state=on]:bg-primary data-[state=on]:text-primary-foreground text-muted-foreground uppercase tracking-wider"
         >
           {p}
         </ToggleGroupItem>
