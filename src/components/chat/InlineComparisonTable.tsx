@@ -27,13 +27,9 @@ function formatCell(value: any, format?: string): string {
   return String(value);
 }
 
-function cellColor(value: any, format?: string): string {
-  if (format !== "percent" && format !== "number") return "";
-  const num = Number(value);
-  if (isNaN(num)) return "";
-  if (num > 0) return "text-emerald-600";
-  if (num < 0) return "text-red-500";
-  return "text-muted-foreground";
+function cellColor(_value: any, _format?: string): string {
+  // Institutional B&W — no color coding
+  return "";
 }
 
 export function InlineComparisonTable({ title, columns, rows, footerRow }: InlineComparisonTableProps) {
