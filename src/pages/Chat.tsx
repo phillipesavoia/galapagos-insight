@@ -421,7 +421,20 @@ export default function Chat() {
               <span className="text-xs font-semibold text-gray-700 tracking-wide">Galapagos RIA</span>
               <span className="text-[10px] text-gray-400 font-medium tracking-widest uppercase">Offshore</span>
             </div>
-            <span className="text-[10px] text-gray-400">Advisor Chat</span>
+            <div className="flex items-center gap-2">
+              {activePortfolio && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 animate-fade-in">
+                  📍 Foco: {activePortfolio}
+                  <button
+                    onClick={() => setActivePortfolio(null)}
+                    className="ml-0.5 text-emerald-400 hover:text-emerald-600"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              )}
+              <span className="text-[10px] text-gray-400">Advisor Chat</span>
+            </div>
           </div>
 
           {isEmpty ? (
