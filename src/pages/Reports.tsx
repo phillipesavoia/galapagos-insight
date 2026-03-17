@@ -184,6 +184,33 @@ export default function Reports() {
     setAiLoading(true);
     setAiCommentary("");
     try {
+      // Build enriched prompt with holdings context
+      const topDetractors = holdings
+        .filter(h => h.monthly_contribution != null && h.monthly_contribution < 0)
+        .sort((a, b) => (a.monthly_contribution ?? 0) - (b.monthly_contribution ?? 0))
+        .slice(0, 3);
+      const topContributors = holdings
+        .filter(h => h.monthly_contribution != null && h.monthly_contribution > 0)
+        .sort((a, b) => (b.monthly_contribution ?? 0) - (a.monthly_contribution ?? 0))
+        .slice(0, 3);
+
+      const holdingsContext = [
+        topContributors.length > 0 ? `Maiores contribuidores: ${topContributors.map(h => `${h.ticker || h.asset_name} (+${h.monthly_contribution?.toFixed(2)}%)`).join(", ")}` : "",
+        topDetractors.length > 0 ? `Maiores detratores: ${topDetractors.map(h => `${h.ticker || h.asset_name} (${h.monthly_contribution?.toFixed(2)}%)`).join(", ")}` : "",
+      ].filter(Boolean).join(". ");
+
+      const enrichedQuery = `Gere uma "Análise do Comitê de Investimentos" com EXATAMENTE 3 pontos-chave sobre a performance do portfólio ${portfolio} no período recente (${period}).
+
+DADOS QUANTITATIVOS DO PORTFÓLIO:
+${holdingsContext}
+
+INSTRUÇÕES:
+- Use os dados acima como base factual obrigatória.
+- Busque nas Atas de Gestão e Asset Dictionary as justificativas qualitativas para esses movimentos.
+- Formato: 3 bullets curtos e técnicos, sem introdução. Cada ponto em uma linha começando com "•".
+- Exemplo de tom: "• A queda de -0.44% no KWEB foi mitigada pela exposição ao ACWI (+0.14%), refletindo a rotação setorial descrita na Ata de Gestão."
+- Máximo 60 palavras por ponto.`;
+
       const { data: { session } } = await supabase.auth.getSession();
       const chatUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
       const resp = await fetch(chatUrl, {
@@ -194,7 +221,7 @@ export default function Reports() {
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
         body: JSON.stringify({
-          query: `Gere um resumo executivo de EXATAMENTE 3 pontos-chave sobre a performance do portfólio ${portfolio} no período recente (${period}). Use dados das atas de gestão e do Asset Dictionary. Formato: 3 bullets curtos e técnicos, sem introdução. Cada ponto em uma linha começando com "•". Máximo 50 palavras por ponto.`,
+          query: enrichedQuery,
           filter_type: "all",
           session_id: crypto.randomUUID(),
           active_portfolio: portfolio,
