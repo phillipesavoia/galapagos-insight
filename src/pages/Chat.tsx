@@ -359,6 +359,17 @@ export default function Chat() {
         />
       );
     }
+    if (tc.tool === "renderizar_tabela_comparativa" && tc.input) {
+      return (
+        <InlineComparisonTable
+          key={idx}
+          title={tc.input.title || ""}
+          columns={tc.input.columns || []}
+          rows={tc.input.rows || []}
+          footerRow={tc.input.footerRow}
+        />
+      );
+    }
     return null;
   };
 
