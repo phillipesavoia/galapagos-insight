@@ -1,11 +1,10 @@
 import * as React from "react";
-
 import { cn } from "@/lib/utils";
 
 const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(
   ({ className, ...props }, ref) => (
     <div className="relative w-full overflow-auto">
-      <table ref={ref} className={cn("w-full caption-bottom text-sm", className)} {...props} />
+      <table ref={ref} className={cn("w-full caption-bottom text-sm", className)} style={{ tableLayout: "auto" }} {...props} />
     </div>
   ),
 );
@@ -41,17 +40,74 @@ const TableRow = React.forwardRef<HTMLTableRowElement, React.HTMLAttributes<HTML
 );
 TableRow.displayName = "TableRow";
 
-const TableHead = React.forwardRef<HTMLTableCellElement, React.ThHTMLAttributes<HTMLTableCellElement>>(
-  ({ className, ...props }, ref) => (
-    <th
-      ref={ref}
-      className={cn(
-        "h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0",
-        className,
-      )}
-      {...props}
-    />
-  ),
+interface TableHeadProps extends React.ThHTMLAttributes<HTMLTableCellElement> {
+  resizable?: boolean;
+}
+
+const TableHead = React.forwardRef<HTMLTableCellElement, TableHeadProps>(
+  ({ className, resizable = true, children, style, ...props }, ref) => {
+    const thRef = React.useRef<HTMLTableCellElement | null>(null);
+    const [width, setWidth] = React.useState<number | undefined>(undefined);
+
+    const handleMouseDown = React.useCallback(
+      (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const th = thRef.current;
+        if (!th) return;
+
+        const startX = e.clientX;
+        const startWidth = th.offsetWidth;
+
+        const onMouseMove = (moveEvent: MouseEvent) => {
+          const newWidth = Math.max(40, startWidth + (moveEvent.clientX - startX));
+          setWidth(newWidth);
+        };
+
+        const onMouseUp = () => {
+          document.removeEventListener("mousemove", onMouseMove);
+          document.removeEventListener("mouseup", onMouseUp);
+          document.body.style.cursor = "";
+          document.body.style.userSelect = "";
+        };
+
+        document.body.style.cursor = "col-resize";
+        document.body.style.userSelect = "none";
+        document.addEventListener("mousemove", onMouseMove);
+        document.addEventListener("mouseup", onMouseUp);
+      },
+      [],
+    );
+
+    const setRefs = React.useCallback(
+      (node: HTMLTableCellElement | null) => {
+        thRef.current = node;
+        if (typeof ref === "function") ref(node);
+        else if (ref) (ref as React.MutableRefObject<HTMLTableCellElement | null>).current = node;
+      },
+      [ref],
+    );
+
+    return (
+      <th
+        ref={setRefs}
+        className={cn(
+          "h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 relative group/th",
+          className,
+        )}
+        style={{ ...style, width: width ? `${width}px` : style?.width }}
+        {...props}
+      >
+        {children}
+        {resizable && (
+          <div
+            onMouseDown={handleMouseDown}
+            className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/40 group-hover/th:bg-border transition-colors"
+          />
+        )}
+      </th>
+    );
+  },
 );
 TableHead.displayName = "TableHead";
 
