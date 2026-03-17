@@ -207,6 +207,7 @@ export default function Chat() {
     setExpandedSources({});
     setShowHistory(false);
     setActivePortfolio(null);
+    setActiveTicker(null);
   };
 
   const handleSelectSession = (sid: string) => {
