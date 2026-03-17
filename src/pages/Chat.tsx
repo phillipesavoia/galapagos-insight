@@ -492,13 +492,13 @@ export default function Chat() {
                                 <ReactMarkdown>{cleanContent}</ReactMarkdown>
                               </div>
                               {followUps.length > 0 && (
-                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                <div className="mt-3 flex flex-col gap-1.5">
                                   {followUps.map((q, i) => (
                                     <button
                                       key={i}
                                       onClick={() => handleSend(q)}
                                       disabled={isLoading}
-                                      className="px-2.5 py-1 rounded-full text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 transition-colors disabled:opacity-50 truncate max-w-xs"
+                                      className="text-left px-3 py-1.5 rounded-lg text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 transition-colors disabled:opacity-50 leading-snug"
                                     >
                                       {q}
                                     </button>
