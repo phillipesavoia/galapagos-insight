@@ -567,37 +567,37 @@ export default function Chat() {
                       </div>
                     )}
                     {msg.role === "assistant" && (msg.content || (msg.toolCalls && msg.toolCalls.length > 0)) && (
-                      <div className="flex items-center gap-1 mt-3 pt-2">
+                      <div className="flex items-center gap-0.5 mt-2 pt-1.5">
                         <button
                           onClick={() => {/* TODO: feedback */}}
-                          className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                          className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                           title="Útil"
                         >
-                          <ThumbsUp className="h-3.5 w-3.5" strokeWidth={1.5} />
+                          <ThumbsUp className="h-3 w-3" strokeWidth={1.5} />
                         </button>
                         <button
                           onClick={() => {/* TODO: feedback */}}
-                          className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                          className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                           title="Não útil"
                         >
-                          <ThumbsDown className="h-3.5 w-3.5" strokeWidth={1.5} />
+                          <ThumbsDown className="h-3 w-3" strokeWidth={1.5} />
                         </button>
                         <button
                           onClick={() => {
                             const lastUserMsg = messages.slice(0, messages.indexOf(msg)).reverse().find(m => m.role === "user");
                             if (lastUserMsg) handleSend(lastUserMsg.content);
                           }}
-                          className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                          className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                           title="Regenerar"
                         >
-                          <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.5} />
+                          <RefreshCw className="h-3 w-3" strokeWidth={1.5} />
                         </button>
                         <button
                           onClick={() => navigator.clipboard.writeText(msg.content)}
-                          className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                          className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                           title="Copiar"
                         >
-                          <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
+                          <Copy className="h-3 w-3" strokeWidth={1.5} />
                         </button>
                       </div>
                     )}
