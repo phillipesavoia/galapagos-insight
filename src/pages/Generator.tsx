@@ -28,24 +28,20 @@ function ToggleGroup({ options, value, onChange }: { options: string[]; value: s
   );
 }
 
+const MODEL_PORTFOLIOS = [
+  "Conservative",
+  "Income", 
+  "Balanced",
+  "Growth",
+  "Aggressive",
+  "Tactical",
+];
+
 export default function Generator() {
   const previewRef = useRef<HTMLDivElement>(null);
-  const [fundNames, setFundNames] = useState<string[]>([]);
+  const [fundNames] = useState<string[]>(MODEL_PORTFOLIOS);
   const [activeTab, setActiveTab] = useState<Tab>("Carta Mensal");
   const [clientName, setClientName] = useState("Ricardo Almeida");
-
-  useEffect(() => {
-    const fetchFunds = async () => {
-      const { data } = await supabase
-        .from("documents")
-        .select("fund_name")
-        .eq("status", "indexed")
-        .not("fund_name", "is", null);
-      const names = [...new Set(data?.map((d) => d.fund_name).filter(Boolean))] as string[];
-      setFundNames(names);
-    };
-    fetchFunds();
-  }, []);
   const [period, setPeriod] = useState("2025-02");
   const [selectedFunds, setSelectedFunds] = useState<string[]>([]);
   const [tone, setTone] = useState("Neutro");
