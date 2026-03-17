@@ -74,6 +74,8 @@ export default function Reports() {
   const [period, setPeriod] = useState<Period>("YTD");
   const [comment, setComment] = useState("");
   const [selectedBenchmarks, setSelectedBenchmarks] = useState<string[]>(["SPY"]);
+  // Ensure SPY is always included as default benchmark
+  const effectiveBenchmarks = selectedBenchmarks.length === 0 ? ["SPY"] : selectedBenchmarks;
   const [navData, setNavData] = useState<NavDataPoint[]>([]);
   const [benchmarkData, setBenchmarkData] = useState<BenchmarkData[]>([]);
   const [holdings, setHoldings] = useState<Holding[]>([]);
