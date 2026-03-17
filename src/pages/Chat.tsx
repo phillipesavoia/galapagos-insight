@@ -579,7 +579,8 @@ export default function Chat() {
                           )
                         ))}
                       </div>
-                    )}
+                  </div>
+                </div>
               ))}
               {isLoading && (
                 <div className="flex justify-start animate-fade-in">
