@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { Button } from "@/components/ui/button";
-import { Pencil, Save, X, Loader2, Plus, Trash2 } from "lucide-react";
+import { Pencil, Save, X, Loader2, Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -18,6 +18,16 @@ interface PortfolioModel {
   allocations: AllocationSlice[];
 }
 
+interface Holding {
+  id?: string;
+  portfolio_name: string;
+  asset_name: string;
+  ticker: string;
+  asset_class: string;
+  weight_percentage: number;
+  is_active: boolean;
+}
+
 const palette = [
   "hsl(var(--primary))",
   "hsl(200, 80%, 55%)",
@@ -31,6 +41,194 @@ const palette = [
 
 const portfolioNames = ["Liquidity", "Bonds", "Conservative", "Income", "Balanced", "Growth"];
 
+// ── Holdings Sub-section ──
+function HoldingsSection({ portfolioName }: { portfolioName: string }) {
+  const [holdings, setHoldings] = useState<Holding[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<Holding[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  const fetchHoldings = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("portfolio_holdings")
+      .select("*")
+      .eq("portfolio_name", portfolioName)
+      .eq("is_active", true)
+      .order("asset_class")
+      .order("weight_percentage", { ascending: false });
+
+    if (error) console.error("Error fetching holdings:", error);
+    setHoldings((data as Holding[]) || []);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    if (expanded) fetchHoldings();
+  }, [expanded, portfolioName]);
+
+  const startEdit = () => {
+    setDraft(holdings.map((h) => ({ ...h })));
+    setEditing(true);
+  };
+
+  const addRow = () => {
+    setDraft([
+      ...draft,
+      { portfolio_name: portfolioName, asset_name: "", ticker: "", asset_class: "", weight_percentage: 0, is_active: true },
+    ]);
+  };
+
+  const removeRow = (idx: number) => setDraft(draft.filter((_, i) => i !== idx));
+
+  const updateRow = (idx: number, field: keyof Holding, value: string | number) => {
+    const next = [...draft];
+    (next[idx] as any)[field] = value;
+    setDraft(next);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      // Delete old rows
+      await supabase.from("portfolio_holdings").delete().eq("portfolio_name", portfolioName);
+      // Insert new
+      if (draft.length > 0) {
+        const rows = draft.map((h) => ({
+          portfolio_name: portfolioName,
+          asset_name: h.asset_name,
+          ticker: h.ticker || null,
+          asset_class: h.asset_class,
+          weight_percentage: h.weight_percentage,
+          is_active: true,
+          updated_at: new Date().toISOString(),
+        }));
+        const { error } = await supabase.from("portfolio_holdings").insert(rows);
+        if (error) throw error;
+      }
+      toast.success(`Holdings de ${portfolioName} atualizadas`);
+      setEditing(false);
+      await fetchHoldings();
+    } catch (e: any) {
+      toast.error("Erro ao salvar holdings: " + (e.message || ""));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const total = holdings.reduce((s, h) => s + Number(h.weight_percentage), 0);
+
+  // Group by asset_class
+  const grouped: Record<string, Holding[]> = {};
+  holdings.forEach((h) => {
+    if (!grouped[h.asset_class]) grouped[h.asset_class] = [];
+    grouped[h.asset_class].push(h);
+  });
+
+  return (
+    <div className="mt-3 border-t border-border pt-3">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors w-full"
+      >
+        {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        <span className="font-medium">Detalhamento de Ativos</span>
+        {holdings.length > 0 && !expanded && (
+          <span className="text-[10px] text-muted-foreground ml-auto">{holdings.length} ativos</span>
+        )}
+      </button>
+
+      {expanded && (
+        <div className="mt-2">
+          {loading ? (
+            <div className="flex justify-center py-4">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            </div>
+          ) : editing ? (
+            <div className="space-y-2">
+              <div className="grid grid-cols-[1fr_0.6fr_0.8fr_0.5fr_auto] gap-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1">
+                <span>Ativo</span>
+                <span>Ticker</span>
+                <span>Classe</span>
+                <span className="text-right">Peso%</span>
+                <span></span>
+              </div>
+              {draft.map((h, i) => (
+                <div key={i} className="grid grid-cols-[1fr_0.6fr_0.8fr_0.5fr_auto] gap-1">
+                  <Input value={h.asset_name} onChange={(e) => updateRow(i, "asset_name", e.target.value)} className="h-6 text-xs px-1" placeholder="Nome" />
+                  <Input value={h.ticker} onChange={(e) => updateRow(i, "ticker", e.target.value)} className="h-6 text-xs px-1" placeholder="Ticker" />
+                  <Input value={h.asset_class} onChange={(e) => updateRow(i, "asset_class", e.target.value)} className="h-6 text-xs px-1" placeholder="Classe" />
+                  <Input type="number" value={h.weight_percentage} onChange={(e) => updateRow(i, "weight_percentage", Number(e.target.value))} className="h-6 text-xs px-1 text-right" />
+                  <button onClick={() => removeRow(i)} className="text-destructive/60 hover:text-destructive p-0.5">
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+              <div className="flex items-center gap-2 pt-1">
+                <Button variant="ghost" size="sm" className="h-6 text-xs gap-1" onClick={addRow}>
+                  <Plus className="h-3 w-3" /> Adicionar
+                </Button>
+                <div className="flex-1" />
+                <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setEditing(false)} disabled={saving}>
+                  Cancelar
+                </Button>
+                <Button size="sm" className="h-6 text-xs gap-1" onClick={handleSave} disabled={saving}>
+                  {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                  Salvar
+                </Button>
+              </div>
+            </div>
+          ) : holdings.length === 0 ? (
+            <div className="text-center py-4">
+              <p className="text-xs text-muted-foreground mb-2">Nenhum ativo cadastrado.</p>
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={startEdit}>
+                <Plus className="h-3 w-3" /> Cadastrar Ativos
+              </Button>
+            </div>
+          ) : (
+            <div>
+              <div className="space-y-2">
+                {Object.entries(grouped).map(([cls, items]) => {
+                  const classTotal = items.reduce((s, h) => s + Number(h.weight_percentage), 0);
+                  return (
+                    <div key={cls}>
+                      <div className="flex items-center justify-between px-1 py-0.5">
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{cls}</span>
+                        <span className="text-[10px] font-semibold text-foreground tabular-nums">{classTotal.toFixed(1)}%</span>
+                      </div>
+                      {items.map((h) => (
+                        <div key={h.id} className="flex items-center justify-between px-1 py-0.5 text-xs">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-foreground font-medium truncate">{h.asset_name}</span>
+                            {h.ticker && <span className="text-muted-foreground text-[10px]">({h.ticker})</span>}
+                          </div>
+                          <span className="text-foreground font-semibold tabular-nums shrink-0">{Number(h.weight_percentage).toFixed(2)}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex items-center justify-between px-1 pt-2 mt-2 border-t border-border">
+                <span className="text-xs font-semibold text-foreground">Total</span>
+                <span className="text-xs font-bold text-foreground tabular-nums">{total.toFixed(1)}%</span>
+              </div>
+              <div className="flex justify-end mt-2">
+                <Button variant="outline" size="sm" className="h-6 text-xs gap-1" onClick={startEdit}>
+                  <Pencil className="h-3 w-3" /> Editar
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Portfolio Card (unchanged logic, adds HoldingsSection) ──
 function PortfolioCard({
   model,
   onSave,
@@ -187,6 +385,9 @@ function PortfolioCard({
           )}
         </div>
       </div>
+
+      {/* Holdings drill-down section */}
+      <HoldingsSection portfolioName={model.name} />
     </div>
   );
 }
@@ -213,7 +414,7 @@ export function AllocationTab() {
     const grouped: Record<string, AllocationSlice[]> = {};
     portfolioNames.forEach((n) => (grouped[n] = []));
 
-    (data || []).forEach((row: any, idx: number) => {
+    (data || []).forEach((row: any) => {
       if (!grouped[row.portfolio_name]) grouped[row.portfolio_name] = [];
       grouped[row.portfolio_name].push({
         id: row.id,
@@ -232,7 +433,6 @@ export function AllocationTab() {
   }, []);
 
   const handleSave = async (portfolioName: string, allocations: AllocationSlice[]) => {
-    // Delete existing rows for this portfolio, then insert new ones
     await supabase.from("model_allocations").delete().eq("portfolio_name", portfolioName);
 
     const rows = allocations.map((a, i) => ({
