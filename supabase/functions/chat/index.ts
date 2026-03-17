@@ -931,6 +931,9 @@ Deno.serve(async (req) => {
     if (navsContext) {
       userMessageContent += `## HISTÓRICO RECENTE DE NAVs (SINGLE SOURCE OF TRUTH — TABELA daily_navs):\n\nEstes são os NAVs OFICIAIS e ATUALIZADOS dos portfólios. Use ESTES dados para qualquer consulta de performance/rentabilidade.\n\n${navsContext}\n\n---\n\n`;
     }
+    if (holdingsContext) {
+      userMessageContent += `## HOLDINGS OFICIAIS DOS PORTFÓLIOS (GOLDEN RULE — TABELA portfolio_holdings):\n\nEsta é a lista OFICIAL e COMPLETA de ativos individuais por portfólio. Para perguntas de detalhamento/drill-down, use EXCLUSIVAMENTE estes dados. É PROIBIDO usar PDFs para responder sobre holdings.\n\n${holdingsContext}\n\n---\n\n`;
+    }
     if (context) {
       userMessageContent += `## Documentos encontrados:\n\n${context}\n\n---\n`;
     }
