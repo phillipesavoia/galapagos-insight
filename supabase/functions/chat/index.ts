@@ -782,7 +782,7 @@ Deno.serve(async (req) => {
     let holdingsContext = "";
     const { data: holdingsData } = await serviceClient
       .from("portfolio_holdings")
-      .select("portfolio_name, asset_name, ticker, asset_class, weight_percentage")
+      .select("portfolio_name, asset_name, ticker, asset_class, weight_percentage, monthly_contribution, contribution_month")
       .eq("is_active", true)
       .order("portfolio_name")
       .order("asset_class")
@@ -796,9 +796,15 @@ Deno.serve(async (req) => {
       });
       holdingsContext = Object.entries(hGrouped)
         .map(([name, assets]) => {
-          const lines = assets.map((a: any) =>
-            `  - ${a.asset_name} (${a.ticker || "N/A"}) | Classe: ${a.asset_class} | Peso: ${Number(a.weight_percentage).toFixed(2)}%`
-          ).join("\n");
+          const lines = assets.map((a: any) => {
+            let line = `  - ${a.asset_name} (${a.ticker || "N/A"}) | Classe: ${a.asset_class} | Peso: ${Number(a.weight_percentage).toFixed(2)}%`;
+            if (a.monthly_contribution != null) {
+              const c = Number(a.monthly_contribution);
+              line += ` | Contribuição Mensal: ${c >= 0 ? "+" : ""}${c.toFixed(2)}%`;
+              if (a.contribution_month) line += ` (Ref: ${a.contribution_month})`;
+            }
+            return line;
+          }).join("\n");
           return `**${name}:**\n${lines}`;
         })
         .join("\n\n");
