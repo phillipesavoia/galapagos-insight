@@ -474,6 +474,17 @@ export default function Chat() {
                   </button>
                 </span>
               )}
+              {activeTicker && !activePortfolio && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200 animate-fade-in">
+                  📍 Ativo em Análise: {activeTicker}
+                  <button
+                    onClick={() => setActiveTicker(null)}
+                    className="ml-0.5 text-blue-400 hover:text-blue-600"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              )}
               <span className="text-[10px] text-gray-400">Advisor Chat</span>
             </div>
           </div>
