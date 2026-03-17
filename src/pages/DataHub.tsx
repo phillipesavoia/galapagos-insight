@@ -8,7 +8,7 @@ import { AllocationTab } from "@/components/datahub/AllocationTab";
 export default function DataHub() {
   return (
     <Layout>
-      <div className="p-8 max-w-7xl mx-auto">
+      <div className="p-8 max-w-7xl mx-auto overflow-x-hidden">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-foreground tracking-tight">Data Hub</h1>
