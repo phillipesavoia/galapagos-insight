@@ -9,16 +9,6 @@ import { toast } from "sonner";
 
 const PORTFOLIOS = ["Conservative", "Income", "Balanced", "Growth"];
 
-interface HoldingPrice {
-  portfolio: string;
-  ticker: string;
-  asset_name: string;
-  weight: number;
-  prevClose: number | null;
-  change: number | null;
-  error?: string;
-}
-
 interface EstimatedNav {
   portfolio: string;
   lastNav: number;
@@ -40,17 +30,9 @@ export function FetchMarketPrices() {
     setEstimates([]);
 
     try {
-      const finnhubKey = await getFinnhubKey();
-      if (!finnhubKey) {
-        setError("FINNHUB_API_KEY não configurada. Configure nas Edge Function secrets.");
-        setLoading(false);
-        return;
-      }
-
       const results: EstimatedNav[] = [];
 
       for (const portfolio of PORTFOLIOS) {
-        // Get holdings
         const { data: holdings } = await supabase
           .from("portfolio_holdings")
           .select("ticker, asset_name, weight_percentage, asset_class")
@@ -59,7 +41,6 @@ export function FetchMarketPrices() {
 
         if (!holdings || holdings.length === 0) continue;
 
-        // Get latest NAV
         const { data: navRows } = await supabase
           .from("daily_navs")
           .select("date, nav")
@@ -69,43 +50,45 @@ export function FetchMarketPrices() {
 
         if (!navRows || navRows.length === 0) continue;
 
-        const lastNav = navRows[0].nav;
+        const lastNav = Number(navRows[0].nav);
         const lastDate = navRows[0].date;
 
-        // Fetch prices for each holding with a ticker
+        // Collect tickers
+        const tickers = holdings.filter(h => h.ticker).map(h => h.ticker!);
+        if (tickers.length === 0) continue;
+
+        // Fetch quotes via edge function
+        const { data: quoteData, error: fnError } = await supabase.functions.invoke("fetch-market-quotes", {
+          body: { tickers },
+        });
+
+        if (fnError || !quoteData?.quotes) {
+          console.error("Quote fetch error:", fnError);
+          continue;
+        }
+
         let weightedChange = 0;
         let coverageWeight = 0;
         let holdingsUsed = 0;
 
         for (const h of holdings) {
           if (!h.ticker) continue;
-          try {
-            const res = await fetch(
-              `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(h.ticker)}&token=${finnhubKey}`
-            );
-            if (res.ok) {
-              const q = await res.json();
-              if (q.c && q.pc && q.pc > 0) {
-                const pctChange = ((q.c - q.pc) / q.pc) * 100;
-                weightedChange += pctChange * (h.weight_percentage / 100);
-                coverageWeight += h.weight_percentage;
-                holdingsUsed++;
-              }
-            }
-          } catch {
-            // skip individual ticker errors
+          const q = quoteData.quotes[h.ticker];
+          if (q && q.pc > 0) {
+            const pctChange = ((q.c - q.pc) / q.pc) * 100;
+            weightedChange += pctChange * (h.weight_percentage / 100);
+            coverageWeight += h.weight_percentage;
+            holdingsUsed++;
           }
         }
 
         if (holdingsUsed > 0) {
-          const estimatedChange = weightedChange;
-          const estimatedNav = lastNav * (1 + estimatedChange / 100);
           results.push({
             portfolio,
-            lastNav: Number(lastNav),
+            lastNav,
             lastDate,
-            estimatedChange: parseFloat(estimatedChange.toFixed(4)),
-            estimatedNav: parseFloat(estimatedNav.toFixed(2)),
+            estimatedChange: parseFloat(weightedChange.toFixed(4)),
+            estimatedNav: parseFloat((lastNav * (1 + weightedChange / 100)).toFixed(2)),
             holdingsUsed,
             coverageWeight: parseFloat(coverageWeight.toFixed(1)),
           });
@@ -113,7 +96,7 @@ export function FetchMarketPrices() {
       }
 
       if (results.length === 0) {
-        setError("Nenhum holding com ticker encontrado. Cadastre os holdings no Data Hub primeiro.");
+        setError("Nenhum holding com ticker válido encontrado. Cadastre os holdings com tickers no Data Hub.");
       } else {
         setEstimates(results);
         toast.success(`Preços D-1 obtidos para ${results.length} portfólios`);
@@ -141,7 +124,7 @@ export function FetchMarketPrices() {
 
       <p className="text-xs text-muted-foreground">
         Usa a Finnhub API para buscar o fechamento dos ativos que compõem cada modelo e estima a variação do NAV.
-        Requer holdings cadastrados com tickers válidos no Data Hub.
+        Requer holdings cadastrados com tickers válidos no Data Hub → Matriz de Alocação.
       </p>
 
       {error && (
@@ -183,16 +166,4 @@ export function FetchMarketPrices() {
       )}
     </div>
   );
-}
-
-async function getFinnhubKey(): Promise<string | null> {
-  // The Finnhub key is server-side only. We'll call via edge function proxy.
-  // For now, attempt direct call — the key needs to be accessible client-side or via proxy.
-  // Using a simple edge function approach:
-  try {
-    const { data } = await supabase.functions.invoke("get-finnhub-key");
-    return data?.key || null;
-  } catch {
-    return null;
-  }
 }
