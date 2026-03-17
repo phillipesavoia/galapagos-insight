@@ -187,6 +187,7 @@ export default function Chat() {
     setMessages([]);
     setExpandedSources({});
     setShowHistory(false);
+    setActivePortfolio(null);
   };
 
   const handleSelectSession = (sid: string) => {
