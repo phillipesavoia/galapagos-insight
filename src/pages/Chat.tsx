@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { InlineBarChart } from "@/components/chat/InlineBarChart";
 import { FlashFactsheet } from "@/components/chat/FlashFactsheet";
 import { InlineDonutChart } from "@/components/chat/InlineDonutChart";
+import { InlineComparisonTable } from "@/components/chat/InlineComparisonTable";
 
 interface ChatSource {
   name: string;
@@ -355,6 +356,17 @@ export default function Chat() {
           title={tc.input.title || "Alocação por Classe de Ativo"}
           portfolio={tc.input.portfolio || ""}
           data={tc.input.data || []}
+        />
+      );
+    }
+    if (tc.tool === "renderizar_tabela_comparativa" && tc.input) {
+      return (
+        <InlineComparisonTable
+          key={idx}
+          title={tc.input.title || ""}
+          columns={tc.input.columns || []}
+          rows={tc.input.rows || []}
+          footerRow={tc.input.footerRow}
         />
       );
     }

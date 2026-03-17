@@ -630,6 +630,56 @@ REGRA: Use EXCLUSIVAMENTE os dados da seção "ALOCAÇÃO OFICIAL DOS MODEL PORT
       required: ["title", "portfolio", "data"],
     },
   },
+  {
+    name: "renderizar_tabela_comparativa",
+    description: `Use esta ferramenta OBRIGATORIAMENTE quando precisar comparar dados numéricos entre múltiplos ativos ou portfólios (contribuição mensal, retorno, peso, performance). Esta é a ferramenta PADRÃO para análises comparativas — produz uma tabela zebra profissional com alinhamento tabular, estilo institucional.
+
+REGRA: Para análises de múltiplos portfólios ou ativos lado a lado, PREFIRA SEMPRE esta tabela ao invés do gráfico de barras. O gráfico de barras é permitido apenas para visualizações simples de 1 métrica.
+
+Exemplos de quando usar:
+- "Compare a performance dos portfólios"
+- "Qual a contribuição de cada ativo no Growth?"
+- "Mostre os retornos mensais de todos os portfólios"
+- "Detalhar os ativos do Growth com contribuição"
+- Qualquer comparação numérica entre 3+ itens`,
+    input_schema: {
+      type: "object",
+      properties: {
+        title: {
+          type: "string",
+          description: "Título da tabela (ex: 'Contribuição por Ativo — Growth (Fev/26)')",
+        },
+        columns: {
+          type: "array",
+          description: "Definição das colunas. Cada item tem 'key' (campo no dado), 'label' (header), 'align' (left/right/center) e 'format' (percent/number/text).",
+          items: {
+            type: "object",
+            properties: {
+              key: { type: "string", description: "Campo no objeto de dados (ex: 'ticker', 'contribution')" },
+              label: { type: "string", description: "Label do header (ex: 'Ticker', 'Contribuição')" },
+              align: { type: "string", description: "'left', 'right' ou 'center'", enum: ["left", "right", "center"] },
+              format: { type: "string", description: "'percent', 'number' ou 'text'", enum: ["percent", "number", "text"] },
+            },
+            required: ["key", "label"],
+          },
+        },
+        rows: {
+          type: "array",
+          description: "Array de objetos com os dados de cada linha.",
+          items: {
+            type: "object",
+            additionalProperties: true,
+          },
+        },
+        footerRow: {
+          type: "object",
+          description: "Linha de rodapé opcional (ex: totais). Mesmo formato das rows.",
+          additionalProperties: true,
+        },
+      },
+      required: ["title", "columns", "rows"],
+    },
+  },
 ];
 
 Deno.serve(async (req) => {
@@ -732,7 +782,7 @@ Deno.serve(async (req) => {
     let holdingsContext = "";
     const { data: holdingsData } = await serviceClient
       .from("portfolio_holdings")
-      .select("portfolio_name, asset_name, ticker, asset_class, weight_percentage")
+      .select("portfolio_name, asset_name, ticker, asset_class, weight_percentage, monthly_contribution, contribution_month")
       .eq("is_active", true)
       .order("portfolio_name")
       .order("asset_class")
@@ -746,9 +796,15 @@ Deno.serve(async (req) => {
       });
       holdingsContext = Object.entries(hGrouped)
         .map(([name, assets]) => {
-          const lines = assets.map((a: any) =>
-            `  - ${a.asset_name} (${a.ticker || "N/A"}) | Classe: ${a.asset_class} | Peso: ${Number(a.weight_percentage).toFixed(2)}%`
-          ).join("\n");
+          const lines = assets.map((a: any) => {
+            let line = `  - ${a.asset_name} (${a.ticker || "N/A"}) | Classe: ${a.asset_class} | Peso: ${Number(a.weight_percentage).toFixed(2)}%`;
+            if (a.monthly_contribution != null) {
+              const c = Number(a.monthly_contribution);
+              line += ` | Contribuição Mensal: ${c >= 0 ? "+" : ""}${c.toFixed(2)}%`;
+              if (a.contribution_month) line += ` (Ref: ${a.contribution_month})`;
+            }
+            return line;
+          }).join("\n");
           return `**${name}:**\n${lines}`;
         })
         .join("\n\n");
@@ -1160,7 +1216,7 @@ Todos os portfólios modelo operam em ambiente Offshore. Inclua: "📌 Moeda bas
 
 1. EXAUSTÃO TOTAL: Quando questionado sobre múltiplos portfólios (Conservative, Income, Balanced, Growth) ou ativos, você DEVE extrair e apresentar TODOS os dados disponíveis. NUNCA resuma, corte, crie 'top 5' ou omita dados por conta própria.
 
-2. GRÁFICOS OBRIGATÓRIOS PARA DADOS NUMÉRICOS: Quando a resposta contiver dados numéricos comparativos entre portfólios ou ativos (performance, retorno, drawdown, peso, contribuição, YTD, MTD, etc.), você DEVE OBRIGATORIAMENTE usar a ferramenta 'renderizar_grafico_barras' para enviar os dados estruturados. Isso inclui quando você lista retornos mensais ou YTD de múltiplos portfólios — NUNCA use bullet points ou tabelas markdown para isso. Use SEMPRE a ferramenta de gráfico. O frontend renderizará um gráfico de barras interativo com os valores percentuais visíveis.
+2. TABELA COMPARATIVA OBRIGATÓRIA PARA MÚLTIPLOS ITENS: Quando a resposta contiver dados numéricos comparativos entre 3+ portfólios ou ativos (performance, retorno, contribuição, peso, YTD, MTD, etc.), você DEVE OBRIGATORIAMENTE usar a ferramenta 'renderizar_tabela_comparativa' para enviar os dados estruturados em formato de tabela zebra profissional com alinhamento tabular. O gráfico de barras ('renderizar_grafico_barras') é permitido APENAS para visualizações simples de 1-2 métricas. Para análises completas com múltiplas colunas (ticker, classe, peso, contribuição), USE SEMPRE a tabela comparativa. NUNCA use tabelas markdown — use sempre a ferramenta.
 
 3. FOCO NO ASSESSOR: Entregue os números diretos, motivos de alterações nos modelos e impactos na performance, sem linguagem comercial.
 
