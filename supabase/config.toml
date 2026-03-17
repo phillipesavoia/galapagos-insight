@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.generate-document]
 verify_jwt = false
+
+[functions.fetch-market-quotes]
+verify_jwt = false
