@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useReactToPrint } from "react-to-print";
-import { Download, RefreshCw, Loader2 } from "lucide-react";
+import { Download, RefreshCw, Loader2, Sparkles } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,6 +36,7 @@ interface Holding {
   ticker: string | null;
   asset_class: string;
   weight_percentage: number;
+  monthly_contribution: number | null;
 }
 
 function filterByPeriod<T extends { date: string }>(data: T[], period: Period): T[] {
@@ -78,6 +79,8 @@ export default function Reports() {
   const [holdings, setHoldings] = useState<Holding[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchingBenchmarks, setFetchingBenchmarks] = useState(false);
+  const [aiCommentary, setAiCommentary] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
 
   const printRef = useRef<HTMLDivElement>(null);
   const handlePrint = useReactToPrint({
@@ -114,12 +117,12 @@ export default function Reports() {
     const fetchHoldings = async () => {
       const { data } = await supabase
         .from("portfolio_holdings")
-        .select("asset_name, ticker, asset_class, weight_percentage")
+        .select("asset_name, ticker, asset_class, weight_percentage, monthly_contribution")
         .eq("portfolio_name", portfolio)
         .eq("is_active", true)
         .order("weight_percentage", { ascending: false })
-        .limit(10);
-      setHoldings(data || []);
+        .limit(15);
+      setHoldings((data as Holding[]) || []);
     };
     fetchHoldings();
   }, [portfolio]);
@@ -155,7 +158,6 @@ export default function Reports() {
       await supabase.functions.invoke("fetch-benchmark-data", {
         body: { tickers: selectedBenchmarks },
       });
-      // Refresh data
       const results: BenchmarkData[] = [];
       for (const ticker of selectedBenchmarks) {
         const { data } = await supabase
@@ -176,6 +178,63 @@ export default function Reports() {
     }
   };
 
+  const handleGenerateAiCommentary = async () => {
+    setAiLoading(true);
+    setAiCommentary("");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const chatUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+      const resp = await fetch(chatUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          query: `Gere um resumo executivo de EXATAMENTE 3 pontos-chave sobre a performance do portfólio ${portfolio} no período recente (${period}). Use dados das atas de gestão e do Asset Dictionary. Formato: 3 bullets curtos e técnicos, sem introdução. Cada ponto em uma linha começando com "•". Máximo 50 palavras por ponto.`,
+          filter_type: "all",
+          session_id: crypto.randomUUID(),
+          active_portfolio: portfolio,
+        }),
+      });
+
+      if (!resp.ok || !resp.body) throw new Error(`HTTP ${resp.status}`);
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let fullContent = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+          const line = buffer.slice(0, newlineIndex).trim();
+          buffer = buffer.slice(newlineIndex + 1);
+          if (!line.startsWith("data: ")) continue;
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") continue;
+          try {
+            const event = JSON.parse(jsonStr);
+            if (event.type === "delta" && event.text) {
+              fullContent += event.text;
+              setAiCommentary(fullContent);
+            }
+          } catch { /* partial */ }
+        }
+      }
+    } catch (err) {
+      console.error("AI commentary error:", err);
+      setAiCommentary("Erro ao gerar comentário. Tente novamente.");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   const toggleBenchmark = (ticker: string) => {
     setSelectedBenchmarks(prev =>
       prev.includes(ticker) ? prev.filter(t => t !== ticker) : prev.length >= 3 ? prev : [...prev, ticker]
@@ -193,7 +252,7 @@ export default function Reports() {
   return (
     <Layout>
       <div className="flex-1 flex flex-col min-h-0 bg-background">
-        <div className="px-6 pt-6 pb-4 border-b border-border">
+        <div className="px-6 pt-6 pb-4 border-b border-border print:hidden">
           <h1 className="text-xl font-semibold text-foreground tracking-tight">Relatórios & Performance</h1>
           <p className="text-sm text-muted-foreground mt-1">Compare portfólios com benchmarks e gere relatórios PDF</p>
         </div>
@@ -201,7 +260,7 @@ export default function Reports() {
         <div className="flex-1 overflow-y-auto">
           <div className="flex gap-6 p-6 min-h-full">
             {/* Left: Controls */}
-            <div className="w-80 shrink-0 space-y-4">
+            <div className="w-80 shrink-0 space-y-4 print:hidden">
               <div className="rounded-xl border border-border bg-card p-5 space-y-4">
                 <h2 className="text-sm font-semibold text-foreground">Configuração</h2>
 
@@ -255,9 +314,30 @@ export default function Reports() {
                   <label className="block text-xs font-medium text-muted-foreground mb-1.5">Comentário de Mercado</label>
                   <textarea value={comment} onChange={e => setComment(e.target.value)}
                     placeholder="Cole aqui o resumo de mercado..."
-                    rows={6}
+                    rows={4}
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-y" />
                 </div>
+              </div>
+
+              {/* AI Commentary */}
+              <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-primary" />
+                    IA Investment Commentary
+                  </h2>
+                </div>
+                <p className="text-[11px] text-muted-foreground">Gere automaticamente um resumo de 3 pontos sobre a performance do portfólio.</p>
+                <Button variant="outline" size="sm" onClick={handleGenerateAiCommentary} disabled={aiLoading}
+                  className="w-full gap-1.5 text-xs">
+                  {aiLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                  {aiLoading ? "Gerando..." : "Gerar Comentário IA"}
+                </Button>
+                {aiCommentary && (
+                  <div className="text-xs text-foreground leading-relaxed whitespace-pre-wrap bg-secondary/30 rounded-lg p-3 border border-border">
+                    {aiCommentary}
+                  </div>
+                )}
               </div>
 
               <Button onClick={() => handlePrint()} className="w-full gap-2">
@@ -278,7 +358,8 @@ export default function Reports() {
                   loading={loading}
                   comment={comment}
                   benchmarks={filteredBenchmarks}
-                  topHoldings={holdings.slice(0, 5)}
+                  topHoldings={holdings.slice(0, 10)}
+                  aiCommentary={aiCommentary}
                 />
               </div>
             </div>

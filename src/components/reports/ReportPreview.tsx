@@ -4,7 +4,7 @@ import {
 } from "recharts";
 import type { NavDataPoint, PortfolioName } from "@/pages/Dashboard";
 
-const RISK_FREE_RATE = 0.045;
+const RISK_FREE_RATE = 0.05;
 const TRADING_DAYS = 252;
 
 const BENCHMARK_COLORS: Record<string, string> = {
@@ -25,6 +25,7 @@ interface Holding {
   ticker: string | null;
   asset_class: string;
   weight_percentage: number;
+  monthly_contribution?: number | null;
 }
 
 interface ReportPreviewProps {
@@ -36,6 +37,7 @@ interface ReportPreviewProps {
   comment: string;
   benchmarks?: BenchmarkSeries[];
   topHoldings?: Holding[];
+  aiCommentary?: string;
 }
 
 function computeMetrics(data: NavDataPoint[]) {
@@ -60,9 +62,8 @@ function computeMetrics(data: NavDataPoint[]) {
     const dd = (d.nav - peak) / peak;
     if (dd < maxDD) maxDD = dd;
   }
-  const accumulatedReturn = data.length >= 2 ? (lastNav / firstNav) - 1 : 0;
-  const mtdReturn = data.length >= 2 ? accumulatedReturn : 0;
-  return { accumulatedReturn, volatility: annualizedVol, sharpe, maxDrawdown: maxDD, mtdReturn };
+  const accumulatedReturn = (lastNav / firstNav) - 1;
+  return { accumulatedReturn, volatility: annualizedVol, sharpe, maxDrawdown: maxDD };
 }
 
 function normalizeToBase100(data: { date: string; value: number }[]): { date: string; value: number }[] {
@@ -73,11 +74,10 @@ function normalizeToBase100(data: { date: string; value: number }[]): { date: st
 }
 
 export const ReportPreview = forwardRef<HTMLDivElement, ReportPreviewProps>(
-  ({ portfolio, clientName, periodLabel, data, loading, comment, benchmarks = [], topHoldings = [] }, ref) => {
+  ({ portfolio, clientName, periodLabel, data, loading, comment, benchmarks = [], topHoldings = [], aiCommentary }, ref) => {
     const metrics = useMemo(() => computeMetrics(data), [data]);
     const today = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
 
-    // Build comparison chart data (all normalized to base 100)
     const chartData = useMemo(() => {
       if (data.length === 0) return [];
       const navNorm = normalizeToBase100(data.map(d => ({ date: d.date, value: d.nav })));
@@ -87,7 +87,6 @@ export const ReportPreview = forwardRef<HTMLDivElement, ReportPreviewProps>(
         normalized: normalizeToBase100(b.data.map(d => ({ date: d.date, value: d.price }))),
       }));
 
-      // Build merged dataset by date
       const dateSet = new Set(navNorm.map(d => d.date));
       benchNorms.forEach(b => b.normalized.forEach(d => dateSet.add(d.date)));
       const dates = Array.from(dateSet).sort();
@@ -104,11 +103,18 @@ export const ReportPreview = forwardRef<HTMLDivElement, ReportPreviewProps>(
       });
     }, [data, benchmarks, portfolio]);
 
+    const s = {
+      page: { width: "210mm", minHeight: "297mm", padding: "20mm 18mm", fontFamily: "'Inter', 'Helvetica Neue', Arial, sans-serif" } as React.CSSProperties,
+      headerBar: { borderBottom: "2px solid #10b981", paddingBottom: "12px", marginBottom: "24px" } as React.CSSProperties,
+      sectionTitle: { fontSize: "13px", fontWeight: 600, color: "#111827", margin: "0 0 10px 0", textTransform: "uppercase" as const, letterSpacing: "0.05em" } as React.CSSProperties,
+      metricCard: { border: "1px solid #e5e7eb", borderRadius: "8px", padding: "12px 14px", textAlign: "center" as const } as React.CSSProperties,
+      metricLabel: { fontSize: "10px", color: "#6b7280", textTransform: "uppercase" as const, letterSpacing: "0.05em", margin: "0 0 4px 0" } as React.CSSProperties,
+    };
+
     return (
-      <div ref={ref} className="bg-white text-gray-900 shadow-xl border border-gray-200 rounded-sm"
-        style={{ width: "210mm", minHeight: "297mm", padding: "20mm 18mm", fontFamily: "'Inter', 'Helvetica Neue', Arial, sans-serif" }}>
+      <div ref={ref} className="bg-white text-gray-900 shadow-xl border border-gray-200 rounded-sm print:shadow-none print:border-none" style={s.page}>
         {/* Header */}
-        <div style={{ borderBottom: "2px solid #10b981", paddingBottom: "12px", marginBottom: "24px" }}>
+        <div style={s.headerBar}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
               <h1 style={{ fontSize: "22px", fontWeight: 700, color: "#111827", margin: 0 }}>Galapagos Capital Advisory</h1>
@@ -166,23 +172,21 @@ export const ReportPreview = forwardRef<HTMLDivElement, ReportPreviewProps>(
             {[
               { label: "Retorno Acumulado", value: `${metrics.accumulatedReturn >= 0 ? "+" : ""}${(metrics.accumulatedReturn * 100).toFixed(2)}%`, color: metrics.accumulatedReturn >= 0 ? "#10b981" : "#ef4444" },
               { label: "Volatilidade Anual.", value: `${(metrics.volatility * 100).toFixed(2)}%`, color: "#111827" },
-              { label: "Índice Sharpe", value: metrics.sharpe.toFixed(2), color: "#111827" },
+              { label: "Índice Sharpe", value: metrics.sharpe.toFixed(2), color: metrics.sharpe >= 0 ? "#10b981" : "#ef4444" },
               { label: "Max Drawdown", value: `${(metrics.maxDrawdown * 100).toFixed(2)}%`, color: "#ef4444" },
             ].map(m => (
-              <div key={m.label} style={{ border: "1px solid #e5e7eb", borderRadius: "8px", padding: "12px 14px", textAlign: "center" }}>
-                <p style={{ fontSize: "10px", color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 4px 0" }}>{m.label}</p>
+              <div key={m.label} style={s.metricCard}>
+                <p style={s.metricLabel}>{m.label}</p>
                 <p style={{ fontSize: "18px", fontWeight: 700, color: m.color, margin: 0, fontVariantNumeric: "tabular-nums" }}>{m.value}</p>
               </div>
             ))}
           </div>
         )}
 
-        {/* Top Holdings Card */}
-        {topHoldings.length > 0 && (
+        {/* Top Holdings */}
+        {topHoldings && topHoldings.length > 0 && (
           <div style={{ marginBottom: "24px" }}>
-            <h3 style={{ fontSize: "13px", fontWeight: 600, color: "#111827", margin: "0 0 10px 0", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Principais Posições
-            </h3>
+            <h3 style={s.sectionTitle}>Principais Posições</h3>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11px" }}>
               <thead>
                 <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
@@ -190,15 +194,22 @@ export const ReportPreview = forwardRef<HTMLDivElement, ReportPreviewProps>(
                   <th style={{ textAlign: "left", padding: "6px 8px", color: "#6b7280", fontWeight: 600 }}>Ticker</th>
                   <th style={{ textAlign: "left", padding: "6px 8px", color: "#6b7280", fontWeight: 600 }}>Classe</th>
                   <th style={{ textAlign: "right", padding: "6px 8px", color: "#6b7280", fontWeight: 600 }}>Peso (%)</th>
+                  <th style={{ textAlign: "right", padding: "6px 8px", color: "#6b7280", fontWeight: 600 }}>Contrib.</th>
                 </tr>
               </thead>
               <tbody>
                 {topHoldings.map((h, i) => (
                   <tr key={i} style={{ borderBottom: "1px solid #f3f4f6", backgroundColor: i % 2 === 0 ? "#ffffff" : "#f9fafb" }}>
                     <td style={{ padding: "6px 8px", color: "#111827" }}>{h.asset_name}</td>
-                    <td style={{ padding: "6px 8px", color: "#6b7280", fontFamily: "monospace" }}>{h.ticker || "—"}</td>
+                    <td style={{ padding: "6px 8px", color: "#6b7280", fontFamily: "monospace", fontSize: "10px" }}>{h.ticker || "—"}</td>
                     <td style={{ padding: "6px 8px", color: "#6b7280" }}>{h.asset_class}</td>
                     <td style={{ padding: "6px 8px", color: "#111827", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{h.weight_percentage.toFixed(1)}%</td>
+                    <td style={{
+                      padding: "6px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums",
+                      color: h.monthly_contribution != null ? (h.monthly_contribution >= 0 ? "#10b981" : "#ef4444") : "#9ca3af",
+                    }}>
+                      {h.monthly_contribution != null ? `${h.monthly_contribution >= 0 ? "+" : ""}${h.monthly_contribution.toFixed(2)}%` : "—"}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -206,12 +217,24 @@ export const ReportPreview = forwardRef<HTMLDivElement, ReportPreviewProps>(
           </div>
         )}
 
+        {/* AI Commentary */}
+        {aiCommentary && (
+          <div style={{ marginBottom: "24px" }}>
+            <h3 style={s.sectionTitle}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                ✨ IA Investment Commentary
+              </span>
+            </h3>
+            <div style={{ fontSize: "12px", lineHeight: "1.8", color: "#374151", whiteSpace: "pre-wrap", borderLeft: "3px solid #8b5cf6", paddingLeft: "14px", backgroundColor: "#faf5ff", padding: "12px 14px", borderRadius: "0 6px 6px 0" }}>
+              {aiCommentary}
+            </div>
+          </div>
+        )}
+
         {/* Comment */}
         {comment && (
           <div style={{ marginBottom: "24px" }}>
-            <h3 style={{ fontSize: "13px", fontWeight: 600, color: "#111827", margin: "0 0 8px 0", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Comentário de Mercado
-            </h3>
+            <h3 style={s.sectionTitle}>Comentário de Mercado</h3>
             <div style={{ fontSize: "12px", lineHeight: "1.7", color: "#374151", whiteSpace: "pre-wrap", borderLeft: "3px solid #10b981", paddingLeft: "14px" }}>
               {comment}
             </div>
@@ -221,7 +244,7 @@ export const ReportPreview = forwardRef<HTMLDivElement, ReportPreviewProps>(
         {/* Footer */}
         <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: "12px", marginTop: "auto", display: "flex", justifyContent: "space-between", fontSize: "9px", color: "#9ca3af" }}>
           <span>Galapagos Capital Advisory — Documento confidencial</span>
-          <span>Gerado automaticamente via Galapagos Connect</span>
+          <span>Taxa livre de risco: {(RISK_FREE_RATE * 100).toFixed(0)}% a.a. | Gerado via Galapagos Connect</span>
         </div>
       </div>
     );
