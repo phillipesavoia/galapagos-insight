@@ -872,6 +872,9 @@ Deno.serve(async (req) => {
     if (!context && !assetKnowledgeContext && !allocationContext && !navsContext) {
       userMessageContent += `Não encontrei documentos relevantes para: "${query}". Informe que não há documentos indexados sobre este tema.\n`;
     }
+    if (active_portfolio) {
+      userMessageContent += `## CONTEXTO DE FOCO ATIVO (MEMÓRIA DE TÓPICO):\n\nO usuário está FOCANDO no portfólio **${active_portfolio}**. Responda com base neste portfólio até que o usuário mude de assunto. Priorize dados e ativos deste portfólio específico.\n\n---\n\n`;
+    }
     userMessageContent += `\nPergunta: ${query}`;
 
     const claudeMessages = [
