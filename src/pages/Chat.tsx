@@ -37,10 +37,27 @@ interface ChatSession {
 const PORTFOLIO_NAMES = ["Liquidity", "Bonds", "Conservative", "Income", "Balanced", "Growth"];
 const PORTFOLIO_REGEX = new RegExp(`\\b(${PORTFOLIO_NAMES.join("|")})\\b`, "i");
 
+// Detect ticker mentions like "BAI US", "KWEB", "SPY", "ACWI US", etc.
+const TICKER_REGEX = /\b([A-Z]{2,5}(?:\s+(?:US|LN|GR|FP|JP|HK|AU|CN|IM|NA|SS|SZ|SE|GY|AV|SM|PL|ID|BB|FH|DC|NO|IT|MC|SW|CT))?)\b/;
+
 function detectPortfolio(text: string): string | null {
   const match = text.match(PORTFOLIO_REGEX);
   if (!match) return null;
   return PORTFOLIO_NAMES.find((p) => p.toLowerCase() === match[1].toLowerCase()) || null;
+}
+
+function detectTicker(text: string): string | null {
+  // Skip very short or generic words
+  const SKIP_WORDS = new Set(["ME", "UM", "OS", "NO", "DO", "SE", "OU", "DE", "DA", "NA", "EU", "AS", "AO", "EL", "LA", "EN", "ES", "IT", "AT", "TO", "IN", "ON", "OR", "AN", "IS", "IF", "OF", "BY", "UP", "SO"]);
+  const match = text.match(TICKER_REGEX);
+  if (!match) return null;
+  const ticker = match[1].trim();
+  if (SKIP_WORDS.has(ticker)) return null;
+  // Must be at least 2 chars and look like a ticker (all caps)
+  if (ticker.length < 2 || ticker !== ticker.toUpperCase()) return null;
+  // Avoid matching portfolio names as tickers
+  if (PORTFOLIO_NAMES.some(p => p.toUpperCase() === ticker)) return null;
+  return ticker;
 }
 
 const allSuggestions = [
@@ -98,6 +115,7 @@ export default function Chat() {
   const [randomSuggestions] = useState(() => getRandomSuggestions(4));
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [activePortfolio, setActivePortfolio] = useState<string | null>(null);
+  const [activeTicker, setActiveTicker] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const isEmpty = messages.length === 0;
@@ -189,6 +207,7 @@ export default function Chat() {
     setExpandedSources({});
     setShowHistory(false);
     setActivePortfolio(null);
+    setActiveTicker(null);
   };
 
   const handleSelectSession = (sid: string) => {
@@ -204,7 +223,16 @@ export default function Chat() {
 
     // Detect portfolio context from user message
     const detected = detectPortfolio(msg);
-    if (detected) setActivePortfolio(detected);
+    if (detected) {
+      setActivePortfolio(detected);
+      setActiveTicker(null); // portfolio takes priority, clear ticker
+    }
+
+    // Detect ticker context
+    const detectedTicker = detectTicker(msg);
+    if (detectedTicker && !detected) {
+      setActiveTicker(detectedTicker);
+    }
 
     const newMsg: ChatMessage = {
       id: Date.now().toString(),
@@ -217,6 +245,7 @@ export default function Chat() {
 
       const filter_type = "all";
       const currentPortfolio = detected || activePortfolio;
+      const currentTicker = detectedTicker || activeTicker;
 
       await persistMessage(newMsg, sessionId, { filter_type });
 
@@ -235,7 +264,7 @@ export default function Chat() {
           Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
-        body: JSON.stringify({ query: msg, filter_type, session_id: sessionId, active_portfolio: currentPortfolio || undefined }),
+        body: JSON.stringify({ query: msg, filter_type, session_id: sessionId, active_portfolio: currentPortfolio || undefined, active_ticker: currentTicker || undefined }),
       });
 
       if (!resp.ok || !resp.body) {
@@ -440,6 +469,17 @@ export default function Chat() {
                   <button
                     onClick={() => setActivePortfolio(null)}
                     className="ml-0.5 text-emerald-400 hover:text-emerald-600"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              )}
+              {activeTicker && !activePortfolio && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200 animate-fade-in">
+                  📍 Ativo em Análise: {activeTicker}
+                  <button
+                    onClick={() => setActiveTicker(null)}
+                    className="ml-0.5 text-blue-400 hover:text-blue-600"
                   >
                     <X className="h-3 w-3" />
                   </button>

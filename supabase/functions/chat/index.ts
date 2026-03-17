@@ -708,7 +708,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { query, filter_type, filter_fund, session_id, active_portfolio } = await req.json();
+    const { query, filter_type, filter_fund, session_id, active_portfolio, active_ticker } = await req.json();
     if (!query) return new Response(JSON.stringify({ error: "query required" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -999,6 +999,9 @@ Deno.serve(async (req) => {
     if (active_portfolio) {
       userMessageContent += `## CONTEXTO DE FOCO ATIVO (MEMÓRIA DE TÓPICO):\n\nO usuário está FOCANDO no portfólio **${active_portfolio}**. Responda com base neste portfólio até que o usuário mude de assunto. Priorize dados e ativos deste portfólio específico.\n\n---\n\n`;
     }
+    if (active_ticker) {
+      userMessageContent += `## CONTEXTO DE ATIVO EM ANÁLISE (MEMÓRIA DE TICKER):\n\n📍 O usuário está atualmente analisando o ativo/ticker **${active_ticker}**. Qualquer pergunta subsequente sobre métricas (YTD, performance, volatilidade, preço, retorno, drawdown) DEVE se referir a este ticker, a menos que o usuário mencione explicitamente outro ativo ou portfólio.\n\nSe a pergunta for ambígua (ex: "Qual o YTD?" sem contexto claro), ASSUMA que se refere ao ticker **${active_ticker}** e NÃO aos portfólios modelo.\n\nPara dados de mercado atualizados deste ativo, use as ferramentas de busca externa (tavily_web_search, finnhub_ticker_news) para trazer o dado real-time, mencionando a data da cotação.\n\n---\n\n`;
+    }
     userMessageContent += `\nPergunta: ${query}`;
 
     const claudeMessages = [
@@ -1180,6 +1183,24 @@ Quando o usuário usar QUALQUER um destes termos: 'abrir', 'detalhar', 'quais at
 - Se o usuário perguntar "Quais ativos compõem o Balanced?" → Nível 2 (Micro) → Tabela de holdings
 - Se o usuário perguntar "Abrir o Balanced" ou "Detalhar Growth" → Nível 2 (Micro) → Tabela de holdings
 - Se o contexto anterior já mostrou o Nível 1 e o usuário pedir "detalhar" ou "abrir" → Nível 2 (Micro) obrigatório
+
+---
+
+### REGRA DE CONTINUIDADE DE CONTEXTO — TICKER TRACKING (INQUEBRÁVEL):
+
+**PRIORIDADE DE TICKER:** Se o usuário acabou de perguntar sobre um Ticker/ETF/Ativo específico (ex: BAI US, KWEB, SPY, HYG), qualquer pergunta subsequente sobre métricas (YTD, Performance, Volatilidade, Preço, Retorno) DEVE se referir a esse Ticker, e NÃO aos portfólios modelo globais. O contexto de ticker persiste até que o usuário mencione explicitamente outro ativo ou portfólio.
+
+**TRATAMENTO DE AMBIGUIDADE (MÚLTIPLA ESCOLHA):** Se a pergunta for ambígua (ex: "Quanto está no YTD?", "Qual a performance?", "E o retorno?") e houver TANTO um ticker ativo quanto um portfólio ativo na conversa, você DEVE:
+1. Se há apenas ticker ativo → responda sobre o ticker
+2. Se há apenas portfólio ativo → responda sobre o portfólio
+3. Se há ambos → priorize o ÚLTIMO mencionado na conversa
+4. Se não há contexto → pergunte: "Você se refere ao YTD de um ativo específico ou dos Portfólios Modelo?"
+
+**ATIVOS DE MERCADO vs. ATIVOS DA CASA:** Quando o usuário perguntar sobre um ativo que é de mercado público (ETF, ação) mas que TAMBÉM pode estar nos portfólios da casa:
+- Para dados quantitativos de MERCADO (preço, YTD de mercado, cotação): Use as ferramentas de busca externa (tavily_web_search, finnhub_ticker_news) para trazer o dado real-time. NÃO aplique o "Aviso de Defasagem" — esse aviso é APENAS para dados dos portfólios modelo.
+- Para dados de POSIÇÃO na casa (peso, contribuição): Use os dados estruturados do portfolio_holdings.
+
+**NAVEGAÇÃO FLUIDA:** O sistema mantém o foco no ticker/ativo até o usuário explicitamente mudar para outro tema. Não reinicie o contexto desnecessariamente.
 
 ---
 
