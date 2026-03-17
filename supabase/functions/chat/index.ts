@@ -620,7 +620,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { query, filter_type, filter_fund, session_id } = await req.json();
+    const { query, filter_type, filter_fund, session_id, active_portfolio } = await req.json();
     if (!query) return new Response(JSON.stringify({ error: "query required" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
