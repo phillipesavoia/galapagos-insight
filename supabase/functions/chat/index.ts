@@ -629,13 +629,66 @@ Deno.serve(async (req) => {
     const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
     if (!anthropicKey) throw new Error("Missing ANTHROPIC_API_KEY");
 
-    // --- 0. Asset Knowledge lookup (priority context) ---
+    // --- 0. Asset Knowledge + Structured Data lookup (priority context) ---
     let assetKnowledgeContext = "";
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const serviceClient = createClient(supabaseUrl, serviceRoleKey);
     
     const queryUpper = query.toUpperCase();
     const { data: allAssets } = await serviceClient.from("asset_knowledge").select("*");
+
+    // --- 0b. Model Allocations (Single Source of Truth) ---
+    let allocationContext = "";
+    const { data: allocData } = await serviceClient
+      .from("model_allocations")
+      .select("portfolio_name, asset_class, weight_pct")
+      .order("portfolio_name")
+      .order("weight_pct", { ascending: false });
+
+    if (allocData && allocData.length > 0) {
+      const grouped: Record<string, { asset_class: string; weight_pct: number }[]> = {};
+      allocData.forEach((r: any) => {
+        if (!grouped[r.portfolio_name]) grouped[r.portfolio_name] = [];
+        grouped[r.portfolio_name].push({ asset_class: r.asset_class, weight_pct: Number(r.weight_pct) });
+      });
+      allocationContext = Object.entries(grouped)
+        .map(([name, slices]) => {
+          const lines = slices.map((s) => `  - ${s.asset_class}: ${s.weight_pct}%`).join("\n");
+          return `**${name}:**\n${lines}`;
+        })
+        .join("\n\n");
+      console.log(`Model Allocations: loaded ${allocData.length} rows for ${Object.keys(grouped).length} portfolios`);
+    }
+
+    // --- 0c. Recent NAVs (Single Source of Truth) ---
+    let navsContext = "";
+    const { data: recentNavs } = await serviceClient
+      .from("daily_navs")
+      .select("date, portfolio_name, nav, daily_return, ytd_return")
+      .order("date", { ascending: false })
+      .limit(60);
+
+    if (recentNavs && recentNavs.length > 0) {
+      // Group by date, show last 5 dates
+      const dateMap: Record<string, Record<string, { nav: number; daily_return: number | null; ytd_return: number | null }>> = {};
+      recentNavs.forEach((r: any) => {
+        if (!dateMap[r.date]) dateMap[r.date] = {};
+        dateMap[r.date][r.portfolio_name] = { nav: Number(r.nav), daily_return: r.daily_return ? Number(r.daily_return) : null, ytd_return: r.ytd_return ? Number(r.ytd_return) : null };
+      });
+      const dates = Object.keys(dateMap).sort().reverse().slice(0, 5);
+      navsContext = dates.map((d) => {
+        const portfolios = Object.entries(dateMap[d])
+          .map(([name, data]) => {
+            let line = `  - ${name}: NAV ${data.nav.toFixed(2)}`;
+            if (data.daily_return != null) line += ` | Daily: ${data.daily_return.toFixed(2)}%`;
+            if (data.ytd_return != null) line += ` | YTD: ${data.ytd_return.toFixed(2)}%`;
+            return line;
+          })
+          .join("\n");
+        return `**${d}:**\n${portfolios}`;
+      }).join("\n\n");
+      console.log(`Daily NAVs: loaded ${recentNavs.length} rows, showing last ${dates.length} dates`);
+    }
     
     if (allAssets && allAssets.length > 0) {
       const matchedAssets = allAssets.filter((a: any) => {
