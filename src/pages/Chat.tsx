@@ -33,6 +33,15 @@ interface ChatSession {
   created_at: string;
 }
 
+const PORTFOLIO_NAMES = ["Liquidity", "Bonds", "Conservative", "Income", "Balanced", "Growth"];
+const PORTFOLIO_REGEX = new RegExp(`\\b(${PORTFOLIO_NAMES.join("|")})\\b`, "i");
+
+function detectPortfolio(text: string): string | null {
+  const match = text.match(PORTFOLIO_REGEX);
+  if (!match) return null;
+  return PORTFOLIO_NAMES.find((p) => p.toLowerCase() === match[1].toLowerCase()) || null;
+}
+
 const allSuggestions = [
   "Qual foi o drawdown máximo no último trimestre?",
   "Compare a performance YTD de todos os portfólios",
