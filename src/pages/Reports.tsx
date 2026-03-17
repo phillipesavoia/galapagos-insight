@@ -152,16 +152,16 @@ export default function Reports() {
       setBenchmarkData(results);
     };
     fetchBench();
-  }, [selectedBenchmarks]);
+  }, [effectiveBenchmarks]);
 
   const handleFetchBenchmarks = async () => {
     setFetchingBenchmarks(true);
     try {
       await supabase.functions.invoke("fetch-benchmark-data", {
-        body: { tickers: selectedBenchmarks },
+        body: { tickers: effectiveBenchmarks },
       });
       const results: BenchmarkData[] = [];
-      for (const ticker of selectedBenchmarks) {
+      for (const ticker of effectiveBenchmarks) {
         const { data } = await supabase
           .from("benchmark_prices")
           .select("date, price, name")
