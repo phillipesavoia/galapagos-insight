@@ -525,80 +525,59 @@ export default function Chat() {
                     ) : (
                       <p className="whitespace-pre-wrap">{msg.content}</p>
                     )}
-                    {msg.role === "assistant" && msg.sources && msg.sources.length > 0 && (
-                      <div className="mt-4 pt-3 border-t border-gray-100">
-                        <button
-                          onClick={() =>
-                            setExpandedSources((prev) => ({ ...prev, [msg.id]: !prev[msg.id] }))
-                          }
-                          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 transition-colors"
-                        >
-                          {expandedSources[msg.id] ? (
-                            <ChevronDown className="h-3 w-3" />
-                          ) : (
-                            <ChevronRight className="h-3 w-3" />
-                          )}
-                          Fontes ({msg.sources.length})
-                        </button>
-                        {expandedSources[msg.id] && (
-                          <div className="flex flex-wrap gap-1.5 mt-2">
-                            {msg.sources.map((src, i) => (
-                              src.file_url ? (
-                                <a
-                                  key={i}
-                                  href={src.file_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center px-2.5 py-1 rounded-md bg-emerald-50 text-xs text-emerald-700 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 transition-colors cursor-pointer"
-                                >
-                                  {src.name} · {src.period}
-                                </a>
-                              ) : (
-                                <span
-                                  key={i}
-                                  className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-100 text-xs text-gray-600 border border-gray-200"
-                                >
-                                  {src.name} · {src.period}
-                                </span>
-                              )
-                            ))}
-                          </div>
+                    {msg.role === "assistant" && (msg.content || (msg.toolCalls && msg.toolCalls.length > 0)) && (
+                      <div className="flex items-center gap-2 mt-3 pt-2 border-t border-gray-100">
+                        {msg.sources && msg.sources.length > 0 && (
+                          <button
+                            onClick={() =>
+                              setExpandedSources((prev) => ({ ...prev, [msg.id]: !prev[msg.id] }))
+                            }
+                            className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors mr-1"
+                          >
+                            {expandedSources[msg.id] ? (
+                              <ChevronDown className="h-3 w-3" />
+                            ) : (
+                              <ChevronRight className="h-3 w-3" />
+                            )}
+                            Fontes ({msg.sources.length})
+                          </button>
                         )}
+                        <div className="flex items-center gap-0.5">
+                          <button onClick={() => {}} className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" title="Útil">
+                            <ThumbsUp className="h-3 w-3" strokeWidth={1.5} />
+                          </button>
+                          <button onClick={() => {}} className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" title="Não útil">
+                            <ThumbsDown className="h-3 w-3" strokeWidth={1.5} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              const lastUserMsg = messages.slice(0, messages.indexOf(msg)).reverse().find(m => m.role === "user");
+                              if (lastUserMsg) handleSend(lastUserMsg.content);
+                            }}
+                            className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" title="Regenerar"
+                          >
+                            <RefreshCw className="h-3 w-3" strokeWidth={1.5} />
+                          </button>
+                          <button onClick={() => navigator.clipboard.writeText(msg.content)} className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" title="Copiar">
+                            <Copy className="h-3 w-3" strokeWidth={1.5} />
+                          </button>
+                        </div>
                       </div>
                     )}
-                    {msg.role === "assistant" && (msg.content || (msg.toolCalls && msg.toolCalls.length > 0)) && (
-                      <div className="flex items-center gap-0.5 mt-2 pt-1.5">
-                        <button
-                          onClick={() => {/* TODO: feedback */}}
-                          className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-                          title="Útil"
-                        >
-                          <ThumbsUp className="h-3 w-3" strokeWidth={1.5} />
-                        </button>
-                        <button
-                          onClick={() => {/* TODO: feedback */}}
-                          className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-                          title="Não útil"
-                        >
-                          <ThumbsDown className="h-3 w-3" strokeWidth={1.5} />
-                        </button>
-                        <button
-                          onClick={() => {
-                            const lastUserMsg = messages.slice(0, messages.indexOf(msg)).reverse().find(m => m.role === "user");
-                            if (lastUserMsg) handleSend(lastUserMsg.content);
-                          }}
-                          className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-                          title="Regenerar"
-                        >
-                          <RefreshCw className="h-3 w-3" strokeWidth={1.5} />
-                        </button>
-                        <button
-                          onClick={() => navigator.clipboard.writeText(msg.content)}
-                          className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-                          title="Copiar"
-                        >
-                          <Copy className="h-3 w-3" strokeWidth={1.5} />
-                        </button>
+                    {msg.role === "assistant" && expandedSources[msg.id] && msg.sources && msg.sources.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {msg.sources.map((src, i) => (
+                          src.file_url ? (
+                            <a key={i} href={src.file_url} target="_blank" rel="noopener noreferrer"
+                              className="inline-flex items-center px-2.5 py-1 rounded-md bg-emerald-50 text-xs text-emerald-700 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 transition-colors cursor-pointer">
+                              {src.name} · {src.period}
+                            </a>
+                          ) : (
+                            <span key={i} className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-100 text-xs text-gray-600 border border-gray-200">
+                              {src.name} · {src.period}
+                            </span>
+                          )
+                        ))}
                       </div>
                     )}
                   </div>
