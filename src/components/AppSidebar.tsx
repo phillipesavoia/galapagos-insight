@@ -12,6 +12,7 @@ const publicNavItems = [
 ];
 
 const adminNavItems = [
+  { title: "Data Hub", label: "Data Hub", url: "/data-hub", icon: Database },
   { title: "Base de Documentos", label: "Base de Documentos", url: "/library", icon: FolderOpen },
   { title: "Asset Dictionary", label: "Asset Dictionary", url: "/admin/assets", icon: BookOpen },
   { title: "Upload NAV", label: "Upload NAV", url: "/admin/nav-upload", icon: Upload },
