@@ -9,6 +9,25 @@ import html2pdf from "html2pdf.js";
 const tabs = ["Carta Mensal", "Resumo de Fundo", "Comparativo"] as const;
 type Tab = (typeof tabs)[number];
 
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="block text-[11px] font-semibold text-foreground/70 uppercase tracking-wider mb-1">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function ToggleGroup({ options, value, onChange }: { options: string[]; value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="flex gap-0.5 bg-secondary/60 rounded-md p-0.5 border border-border">
+      {options.map((o) => (
+        <button key={o} onClick={() => onChange(o)} className={`flex-1 px-2 py-1.5 rounded text-[11px] font-medium transition-colors ${value === o ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>{o}</button>
+      ))}
+    </div>
+  );
+}
+
 export default function Generator() {
   const previewRef = useRef<HTMLDivElement>(null);
   const [fundNames, setFundNames] = useState<string[]>([]);
