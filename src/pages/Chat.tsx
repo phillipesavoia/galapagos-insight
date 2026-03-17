@@ -5,6 +5,7 @@ import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { InlineBarChart } from "@/components/chat/InlineBarChart";
 import { FlashFactsheet } from "@/components/chat/FlashFactsheet";
+import { InlineDonutChart } from "@/components/chat/InlineDonutChart";
 
 interface ChatSource {
   name: string;
@@ -30,6 +31,15 @@ interface ChatSession {
   session_id: string;
   preview: string;
   created_at: string;
+}
+
+const PORTFOLIO_NAMES = ["Liquidity", "Bonds", "Conservative", "Income", "Balanced", "Growth"];
+const PORTFOLIO_REGEX = new RegExp(`\\b(${PORTFOLIO_NAMES.join("|")})\\b`, "i");
+
+function detectPortfolio(text: string): string | null {
+  const match = text.match(PORTFOLIO_REGEX);
+  if (!match) return null;
+  return PORTFOLIO_NAMES.find((p) => p.toLowerCase() === match[1].toLowerCase()) || null;
 }
 
 const allSuggestions = [
@@ -86,6 +96,7 @@ export default function Chat() {
   const [showHistory, setShowHistory] = useState(true);
   const [randomSuggestions] = useState(() => getRandomSuggestions(4));
   const [initialLoadDone, setInitialLoadDone] = useState(false);
+  const [activePortfolio, setActivePortfolio] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const isEmpty = messages.length === 0;
@@ -176,6 +187,7 @@ export default function Chat() {
     setMessages([]);
     setExpandedSources({});
     setShowHistory(false);
+    setActivePortfolio(null);
   };
 
   const handleSelectSession = (sid: string) => {
@@ -189,6 +201,10 @@ export default function Chat() {
     const msg = text || input;
     if (!msg.trim() || isLoading) return;
 
+    // Detect portfolio context from user message
+    const detected = detectPortfolio(msg);
+    if (detected) setActivePortfolio(detected);
+
     const newMsg: ChatMessage = {
       id: Date.now().toString(),
       role: "user",
@@ -199,6 +215,7 @@ export default function Chat() {
     setIsLoading(true);
 
       const filter_type = "all";
+      const currentPortfolio = detected || activePortfolio;
 
       await persistMessage(newMsg, sessionId, { filter_type });
 
@@ -217,7 +234,7 @@ export default function Chat() {
           Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
-        body: JSON.stringify({ query: msg, filter_type, session_id: sessionId }),
+        body: JSON.stringify({ query: msg, filter_type, session_id: sessionId, active_portfolio: currentPortfolio || undefined }),
       });
 
       if (!resp.ok || !resp.body) {
@@ -331,6 +348,16 @@ export default function Chat() {
         />
       );
     }
+    if (tc.tool === "renderizar_grafico_alocacao" && tc.input) {
+      return (
+        <InlineDonutChart
+          key={idx}
+          title={tc.input.title || "Alocação por Classe de Ativo"}
+          portfolio={tc.input.portfolio || ""}
+          data={tc.input.data || []}
+        />
+      );
+    }
     return null;
   };
 
@@ -394,7 +421,20 @@ export default function Chat() {
               <span className="text-xs font-semibold text-gray-700 tracking-wide">Galapagos RIA</span>
               <span className="text-[10px] text-gray-400 font-medium tracking-widest uppercase">Offshore</span>
             </div>
-            <span className="text-[10px] text-gray-400">Advisor Chat</span>
+            <div className="flex items-center gap-2">
+              {activePortfolio && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 animate-fade-in">
+                  📍 Foco: {activePortfolio}
+                  <button
+                    onClick={() => setActivePortfolio(null)}
+                    className="ml-0.5 text-emerald-400 hover:text-emerald-600"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              )}
+              <span className="text-[10px] text-gray-400">Advisor Chat</span>
+            </div>
           </div>
 
           {isEmpty ? (
