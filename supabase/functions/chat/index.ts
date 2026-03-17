@@ -999,6 +999,9 @@ Deno.serve(async (req) => {
     if (active_portfolio) {
       userMessageContent += `## CONTEXTO DE FOCO ATIVO (MEMÓRIA DE TÓPICO):\n\nO usuário está FOCANDO no portfólio **${active_portfolio}**. Responda com base neste portfólio até que o usuário mude de assunto. Priorize dados e ativos deste portfólio específico.\n\n---\n\n`;
     }
+    if (active_ticker) {
+      userMessageContent += `## CONTEXTO DE ATIVO EM ANÁLISE (MEMÓRIA DE TICKER):\n\n📍 O usuário está atualmente analisando o ativo/ticker **${active_ticker}**. Qualquer pergunta subsequente sobre métricas (YTD, performance, volatilidade, preço, retorno, drawdown) DEVE se referir a este ticker, a menos que o usuário mencione explicitamente outro ativo ou portfólio.\n\nSe a pergunta for ambígua (ex: "Qual o YTD?" sem contexto claro), ASSUMA que se refere ao ticker **${active_ticker}** e NÃO aos portfólios modelo.\n\nPara dados de mercado atualizados deste ativo, use as ferramentas de busca externa (tavily_web_search, finnhub_ticker_news) para trazer o dado real-time, mencionando a data da cotação.\n\n---\n\n`;
+    }
     userMessageContent += `\nPergunta: ${query}`;
 
     const claudeMessages = [
