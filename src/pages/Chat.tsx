@@ -5,6 +5,7 @@ import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { InlineBarChart } from "@/components/chat/InlineBarChart";
 import { FlashFactsheet } from "@/components/chat/FlashFactsheet";
+import { InlineDonutChart } from "@/components/chat/InlineDonutChart";
 
 interface ChatSource {
   name: string;
