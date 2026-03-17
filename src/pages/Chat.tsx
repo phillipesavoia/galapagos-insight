@@ -201,6 +201,10 @@ export default function Chat() {
     const msg = text || input;
     if (!msg.trim() || isLoading) return;
 
+    // Detect portfolio context from user message
+    const detected = detectPortfolio(msg);
+    if (detected) setActivePortfolio(detected);
+
     const newMsg: ChatMessage = {
       id: Date.now().toString(),
       role: "user",
@@ -211,6 +215,7 @@ export default function Chat() {
     setIsLoading(true);
 
       const filter_type = "all";
+      const currentPortfolio = detected || activePortfolio;
 
       await persistMessage(newMsg, sessionId, { filter_type });
 
