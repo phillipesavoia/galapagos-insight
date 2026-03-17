@@ -8,38 +8,38 @@ import { AllocationTab } from "@/components/datahub/AllocationTab";
 export default function DataHub() {
   return (
     <Layout>
-      <div className="p-8 max-w-7xl mx-auto overflow-x-hidden">
+      <div className="p-8 max-w-7xl mx-auto overflow-x-hidden animate-fade-up">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-foreground tracking-tight">Data Hub</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Central unificada de uploads e gestão de dados dos portfólios.
+          <p className="text-[10px] text-muted-foreground mt-1 font-mono uppercase tracking-widest">
+            Unified data management for model portfolios
           </p>
         </div>
 
         {/* Tabs */}
         <Tabs defaultValue="documents" className="space-y-6">
-          <TabsList className="bg-secondary/50 border border-border p-1 h-auto gap-1">
+          <TabsList className="glass-card border-white/5 p-0.5 h-auto gap-0.5 rounded-xl">
             <TabsTrigger
               value="documents"
-              className="gap-2 px-4 py-2.5 text-sm data-[state=active]:bg-card data-[state=active]:shadow-sm"
+              className="gap-2 px-4 py-2 text-[10px] font-mono uppercase tracking-wider rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
-              <FileText className="h-4 w-4" strokeWidth={1.5} />
-              Documentos
+              <FileText className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Documents
             </TabsTrigger>
             <TabsTrigger
               value="navs"
-              className="gap-2 px-4 py-2.5 text-sm data-[state=active]:bg-card data-[state=active]:shadow-sm"
+              className="gap-2 px-4 py-2 text-[10px] font-mono uppercase tracking-wider rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
-              <TrendingUp className="h-4 w-4" strokeWidth={1.5} />
-              Histórico de Cotas
+              <TrendingUp className="h-3.5 w-3.5" strokeWidth={1.5} />
+              NAV History
             </TabsTrigger>
             <TabsTrigger
               value="allocation"
-              className="gap-2 px-4 py-2.5 text-sm data-[state=active]:bg-card data-[state=active]:shadow-sm"
+              className="gap-2 px-4 py-2 text-[10px] font-mono uppercase tracking-wider rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
-              <PieChart className="h-4 w-4" strokeWidth={1.5} />
-              Matriz de Alocação
+              <PieChart className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Allocation Matrix
             </TabsTrigger>
           </TabsList>
 
