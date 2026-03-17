@@ -234,7 +234,7 @@ export default function Chat() {
           Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
-        body: JSON.stringify({ query: msg, filter_type, session_id: sessionId }),
+        body: JSON.stringify({ query: msg, filter_type, session_id: sessionId, active_portfolio: currentPortfolio || undefined }),
       });
 
       if (!resp.ok || !resp.body) {
