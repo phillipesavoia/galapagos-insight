@@ -348,6 +348,16 @@ export default function Chat() {
         />
       );
     }
+    if (tc.tool === "renderizar_grafico_alocacao" && tc.input) {
+      return (
+        <InlineDonutChart
+          key={idx}
+          title={tc.input.title || "Alocação por Classe de Ativo"}
+          portfolio={tc.input.portfolio || ""}
+          data={tc.input.data || []}
+        />
+      );
+    }
     return null;
   };
 
