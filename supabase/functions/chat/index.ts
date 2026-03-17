@@ -727,6 +727,33 @@ Deno.serve(async (req) => {
       }).join("\n\n");
       console.log(`Daily NAVs: loaded ${recentNavs.length} rows, showing last ${dates.length} dates`);
     }
+
+    // --- 0d. Portfolio Holdings (Golden Rule for Drill-Down) ---
+    let holdingsContext = "";
+    const { data: holdingsData } = await serviceClient
+      .from("portfolio_holdings")
+      .select("portfolio_name, asset_name, ticker, asset_class, weight_percentage")
+      .eq("is_active", true)
+      .order("portfolio_name")
+      .order("asset_class")
+      .order("weight_percentage", { ascending: false });
+
+    if (holdingsData && holdingsData.length > 0) {
+      const hGrouped: Record<string, any[]> = {};
+      holdingsData.forEach((r: any) => {
+        if (!hGrouped[r.portfolio_name]) hGrouped[r.portfolio_name] = [];
+        hGrouped[r.portfolio_name].push(r);
+      });
+      holdingsContext = Object.entries(hGrouped)
+        .map(([name, assets]) => {
+          const lines = assets.map((a: any) =>
+            `  - ${a.asset_name} (${a.ticker || "N/A"}) | Classe: ${a.asset_class} | Peso: ${Number(a.weight_percentage).toFixed(2)}%`
+          ).join("\n");
+          return `**${name}:**\n${lines}`;
+        })
+        .join("\n\n");
+      console.log(`Portfolio Holdings: loaded ${holdingsData.length} holdings for ${Object.keys(hGrouped).length} portfolios`);
+    }
     
     if (allAssets && allAssets.length > 0) {
       const matchedAssets = allAssets.filter((a: any) => {
