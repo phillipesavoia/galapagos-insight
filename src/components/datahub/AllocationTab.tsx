@@ -377,7 +377,7 @@ function PortfolioCard({
               <div key={i} className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <div className="h-2 w-2 rounded-full shrink-0" style={{ background: a.color }} />
-                  <span className="text-xs text-muted-foreground truncate">{a.asset_class}</span>
+                  <span className="text-xs text-muted-foreground break-words">{a.asset_class}</span>
                 </div>
                 <span className="text-xs font-semibold text-foreground tabular-nums">{a.weight_pct}%</span>
               </div>
