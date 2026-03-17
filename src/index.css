@@ -6,44 +6,50 @@
 
 @layer base {
   :root {
-    --background: 240 20% 4%;
-    --foreground: 240 5% 96%;
+    /* Ares Aesthetic — Midnight Blue + Neon */
+    --background: 222 47% 3%;
+    --foreground: 210 20% 92%;
 
-    --card: 240 15% 7%;
-    --card-foreground: 240 5% 96%;
+    --card: 220 40% 5%;
+    --card-foreground: 210 20% 92%;
 
-    --popover: 240 15% 7%;
-    --popover-foreground: 240 5% 96%;
+    --popover: 220 40% 5%;
+    --popover-foreground: 210 20% 92%;
 
-    --primary: 160 84% 39%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 142 69% 58%;
+    --primary-foreground: 222 47% 5%;
 
-    --secondary: 240 10% 12%;
-    --secondary-foreground: 240 5% 96%;
+    --secondary: 220 30% 9%;
+    --secondary-foreground: 210 20% 92%;
 
-    --muted: 240 10% 12%;
-    --muted-foreground: 240 5% 65%;
+    --muted: 220 25% 12%;
+    --muted-foreground: 215 15% 55%;
 
-    --accent: 240 10% 15%;
-    --accent-foreground: 240 5% 96%;
+    --accent: 25 95% 53%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 351 75% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 10% 16%;
-    --input: 240 10% 16%;
-    --ring: 160 84% 39%;
+    --border: 220 25% 14%;
+    --input: 220 25% 14%;
+    --ring: 142 69% 58%;
 
     --radius: 0.75rem;
 
-    --sidebar-background: 240 18% 5%;
-    --sidebar-foreground: 240 5% 65%;
-    --sidebar-primary: 160 84% 39%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 160 84% 39%;
+    /* Neon tokens */
+    --neon-green: 142 69% 58%;
+    --neon-rose: 351 89% 72%;
+    --neon-orange: 25 95% 53%;
+
+    --sidebar-background: 222 55% 5%;
+    --sidebar-foreground: 215 15% 55%;
+    --sidebar-primary: 142 69% 58%;
+    --sidebar-primary-foreground: 222 47% 5%;
+    --sidebar-accent: 25 95% 53%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 240 10% 16%;
-    --sidebar-ring: 160 84% 39%;
+    --sidebar-border: 220 25% 14%;
+    --sidebar-ring: 142 69% 58%;
 
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
@@ -79,6 +85,34 @@
     background: hsl(var(--border));
     border-radius: 3px;
   }
+
+  .text-neon-green {
+    color: hsl(var(--neon-green));
+  }
+  .text-neon-rose {
+    color: hsl(var(--neon-rose));
+  }
+  .text-neon-orange {
+    color: hsl(var(--neon-orange));
+  }
+  .bg-neon-green {
+    background-color: hsl(var(--neon-green));
+  }
+  .bg-neon-rose {
+    background-color: hsl(var(--neon-rose));
+  }
+  .bg-neon-orange {
+    background-color: hsl(var(--neon-orange));
+  }
+  .border-neon-green {
+    border-color: hsl(var(--neon-green));
+  }
+  .border-neon-rose {
+    border-color: hsl(var(--neon-rose));
+  }
+  .border-neon-orange {
+    border-color: hsl(var(--neon-orange));
+  }
 }
 
 /* Global zebra-striped tables with tabular numbers */
@@ -101,12 +135,11 @@
     border-radius: var(--radius);
     overflow: hidden;
   }
-}
 
   .field-input {
     @apply w-full bg-background border border-border rounded-md px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/60 focus:border-primary/40 transition-colors;
   }
-
+}
 
 /* Print styles for PDF export */
 @media print {

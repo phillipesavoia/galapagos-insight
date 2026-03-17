@@ -44,20 +44,20 @@ export function AppSidebar() {
       {/* Logo */}
       <div className="p-6 pb-4">
         <div className="flex items-center gap-2">
-          <span className="text-2xl font-bold text-primary tracking-tight">GC</span>
+          <span className="text-2xl font-bold text-neon-orange tracking-tight">GC</span>
         </div>
-        <p className="text-xs text-muted-foreground mt-0.5">Galapagos Connect</p>
+        <p className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-widest">Galapagos Connect</p>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 space-y-1">
+      <nav className="flex-1 px-3 space-y-0.5">
         {navItems.map((item) => (
           <NavLink
             key={item.url}
             to={item.url}
             end
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-accent/10 transition-colors border-l-2 border-transparent"
-            activeClassName="border-l-2 !border-primary text-primary bg-primary/10 font-medium"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors border-r-2 border-transparent"
+            activeClassName="border-r-2 !border-neon-green text-neon-green bg-neon-green/5 font-medium"
           >
             <item.icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
             <span>{item.label}</span>
@@ -72,8 +72,8 @@ export function AppSidebar() {
             onClick={() => setClientMode(!clientMode)}
             className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm transition-colors ${
               clientMode
-                ? "bg-primary/10 text-primary font-medium"
-                : "text-muted-foreground hover:text-foreground hover:bg-accent/10"
+                ? "bg-neon-green/10 text-neon-green font-medium"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
             }`}
           >
             {clientMode ? <EyeOff className="h-4 w-4 shrink-0" strokeWidth={1.5} /> : <Eye className="h-4 w-4 shrink-0" strokeWidth={1.5} />}
@@ -82,7 +82,7 @@ export function AppSidebar() {
         )}
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-accent/10 transition-colors"
+          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
         >
           <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.5} />
           <span>Sair</span>
@@ -91,4 +91,3 @@ export function AppSidebar() {
     </aside>
   );
 }
-
