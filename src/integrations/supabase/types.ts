@@ -326,9 +326,11 @@ export type Database = {
         Row: {
           asset_class: string
           asset_name: string
+          contribution_month: string | null
           created_at: string
           id: string
           is_active: boolean
+          monthly_contribution: number | null
           portfolio_name: string
           ticker: string | null
           updated_at: string
@@ -337,9 +339,11 @@ export type Database = {
         Insert: {
           asset_class: string
           asset_name: string
+          contribution_month?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
+          monthly_contribution?: number | null
           portfolio_name: string
           ticker?: string | null
           updated_at?: string
@@ -348,9 +352,11 @@ export type Database = {
         Update: {
           asset_class?: string
           asset_name?: string
+          contribution_month?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
+          monthly_contribution?: number | null
           portfolio_name?: string
           ticker?: string | null
           updated_at?: string
