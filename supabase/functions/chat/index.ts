@@ -31,54 +31,6 @@ async function generateEmbedding(text: string, googleKey: string): Promise<numbe
   }
 }
 
-// --- Live Market Data fetcher ---
-async function fetchLiveMarketData(ticker: string, isin: string | null): Promise<any> {
-  const apiKey = Deno.env.get("MARKET_DATA_API_KEY");
-  if (!apiKey) {
-    console.warn("MARKET_DATA_API_KEY not configured — returning placeholder response");
-    return {
-      status: "api_not_configured",
-      message: `A API de dados de mercado ainda não está configurada. Configure a variável MARKET_DATA_API_KEY para habilitar dados em tempo real.`,
-      ticker,
-      isin: isin || null,
-    };
-  }
-
-  // Placeholder implementation — replace with actual API call when ready
-  // Example APIs: Financial Modeling Prep, Alpha Vantage, Polygon.io, Bloomberg B-PIPE
-  const identifier = isin || ticker;
-  const apiUrl = `https://api.marketdata.example.com/v1/quote?symbol=${encodeURIComponent(identifier)}&apikey=${apiKey}`;
-
-  try {
-    const res = await fetch(apiUrl);
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error(`Market data API error [${res.status}]:`, errText);
-      return {
-        status: "api_error",
-        message: `Erro ao buscar dados de mercado para ${ticker}: HTTP ${res.status}`,
-        ticker,
-        isin: isin || null,
-      };
-    }
-    const data = await res.json();
-    return {
-      status: "success",
-      ticker,
-      isin: isin || null,
-      ...data,
-    };
-  } catch (err) {
-    console.error("Market data fetch error:", err);
-    return {
-      status: "fetch_error",
-      message: `Falha na conexão com API de mercado para ${ticker}`,
-      ticker,
-      isin: isin || null,
-    };
-  }
-}
-
 // --- Macro Market Context Search via Gemini + Google Search Grounding ---
 async function searchMacroMarketContext(query: string, googleKey: string): Promise<any> {
   try {
@@ -94,7 +46,7 @@ async function searchMacroMarketContext(query: string, googleKey: string): Promi
               role: "user",
               parts: [
                 {
-                  text: `Você é um analista macroeconômico sênior. Responda em português brasileiro de forma técnica e concisa.\n\nPesquise e resuma os principais fatores macroeconômicos, geopolíticos e de mercado que explicam o seguinte:\n\n${query}\n\nEstruture sua resposta em:\n1. **Principais Drivers Macro** (políticas monetárias, dados econômicos, decisões de bancos centrais)\n2. **Fatores Geopolíticos** (tensões comerciais, regulação, eventos políticos)\n3. **Dinâmica de Mercado** (fluxos, sentimento, posicionamento técnico)\n4. **Resultados Corporativos / Setoriais** (se aplicável)\n\nSeja factual e cite fontes/datas quando possível. Máximo 400 palavras.`,
+                  text: `Você é um analista macroeconômico sênior. Responda em português brasileiro de forma técnica e concisa.\n\nPesquise e resuma os principais fatores macroeconômicos, geopolíticos e de mercado que explicam o seguinte:\n\n${query}\n\nSeja factual e cite fontes/datas quando possível. Máximo 400 palavras.`,
                 },
               ],
             },
@@ -111,43 +63,24 @@ async function searchMacroMarketContext(query: string, googleKey: string): Promi
     if (!res.ok) {
       const errText = await res.text();
       console.error(`Gemini search error [${res.status}]:`, errText);
-      return {
-        status: "error",
-        message: `Erro na busca macro: HTTP ${res.status}`,
-        query,
-      };
+      return { status: "error", message: `Erro na busca macro: HTTP ${res.status}`, query };
     }
 
     const data = await res.json();
     const textParts = data?.candidates?.[0]?.content?.parts || [];
-    const textContent = textParts
-      .filter((p: any) => p.text)
-      .map((p: any) => p.text)
-      .join("\n");
+    const textContent = textParts.filter((p: any) => p.text).map((p: any) => p.text).join("\n");
 
-    // Extract grounding metadata (sources)
     const groundingMetadata = data?.candidates?.[0]?.groundingMetadata;
-    const searchSuggestions = groundingMetadata?.searchEntryPoint?.renderedContent || null;
     const groundingSources =
       groundingMetadata?.groundingChunks?.map((c: any) => ({
         title: c.web?.title || "",
         url: c.web?.uri || "",
       })) || [];
 
-    return {
-      status: "success",
-      query,
-      analysis: textContent,
-      sources: groundingSources,
-      searchSuggestions,
-    };
+    return { status: "success", query, analysis: textContent, sources: groundingSources };
   } catch (err) {
     console.error("Macro search error:", err);
-    return {
-      status: "fetch_error",
-      message: `Falha na busca de contexto macro para: "${query}"`,
-      query,
-    };
+    return { status: "fetch_error", message: `Falha na busca de contexto macro para: "${query}"`, query };
   }
 }
 
@@ -166,16 +99,13 @@ async function getCompanyTickerNews(symbol: string, fromDate: string, toDate: st
               role: "user",
               parts: [
                 {
-                  text: `Você é um analista financeiro sênior. Pesquise e liste as principais notícias, manchetes e eventos corporativos relacionados ao ticker "${symbol}" no período de ${fromDate} a ${toDate}.\n\nEstruture sua resposta em ordem cronológica com:\n- **Data** — Manchete/Evento\n- Breve contexto (1-2 frases) sobre o impacto no preço/mercado\n\nFoque em:\n1. Resultados trimestrais / balanços\n2. Mudanças regulatórias que afetem o ativo\n3. Notícias corporativas relevantes (M&A, guidance, downgrades/upgrades)\n4. Eventos de mercado que moveram o preço significativamente\n\nResponda em português brasileiro. Seja factual. Máximo 500 palavras.`,
+                  text: `Você é um analista financeiro sênior. Pesquise e liste as principais notícias e eventos corporativos relacionados ao ticker "${symbol}" no período de ${fromDate} a ${toDate}.\n\nResponda em português brasileiro. Seja factual. Máximo 500 palavras.`,
                 },
               ],
             },
           ],
           tools: [{ googleSearch: {} }],
-          generationConfig: {
-            temperature: 0.2,
-            maxOutputTokens: 1200,
-          },
+          generationConfig: { temperature: 0.2, maxOutputTokens: 1200 },
         }),
       },
     );
@@ -188,10 +118,7 @@ async function getCompanyTickerNews(symbol: string, fromDate: string, toDate: st
 
     const data = await res.json();
     const textParts = data?.candidates?.[0]?.content?.parts || [];
-    const textContent = textParts
-      .filter((p: any) => p.text)
-      .map((p: any) => p.text)
-      .join("\n");
+    const textContent = textParts.filter((p: any) => p.text).map((p: any) => p.text).join("\n");
 
     const groundingMetadata = data?.candidates?.[0]?.groundingMetadata;
     const groundingSources =
@@ -200,51 +127,33 @@ async function getCompanyTickerNews(symbol: string, fromDate: string, toDate: st
         url: c.web?.uri || "",
       })) || [];
 
-    return {
-      status: "success",
-      symbol,
-      period: `${fromDate} a ${toDate}`,
-      news: textContent,
-      sources: groundingSources,
-    };
+    return { status: "success", symbol, period: `${fromDate} a ${toDate}`, news: textContent, sources: groundingSources };
   } catch (err) {
     console.error("Company news error:", err);
-    return {
-      status: "fetch_error",
-      message: `Falha ao buscar notícias para ${symbol}`,
-      symbol,
-    };
+    return { status: "fetch_error", message: `Falha ao buscar notícias para ${symbol}`, symbol };
   }
 }
 
 Deno.serve(async (req) => {
-  // This is needed if you're planning to invoke your function from a browser.
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
     const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
-    if (!googleKey) {
-      throw new Error("Missing GOOGLE_AI_API_KEY env var.");
-    }
+    if (!googleKey) throw new Error("Missing GOOGLE_AI_API_KEY env var.");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY");
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error("Missing SUPABASE_URL or SUPABASE_ANON_KEY env vars.");
-    }
+    if (!supabaseUrl || !supabaseKey) throw new Error("Missing SUPABASE_URL or SUPABASE_ANON_KEY env vars.");
 
     const supabaseClient = createClient(supabaseUrl, supabaseKey, {
-      auth: {
-        persistSession: false,
-      },
+      auth: { persistSession: false },
     });
 
     const body = await req.json();
     const { query, messages: rawMessages, systemPrompt: clientSystemPrompt, geminiTools, session_id, active_portfolio, active_ticker, filter_type } = body;
 
-    // Support both formats: { query: "..." } from Chat.tsx or { messages: [...] } from other callers
     let messages: any[];
     if (rawMessages && Array.isArray(rawMessages)) {
       messages = rawMessages;
@@ -287,16 +196,16 @@ Deno.serve(async (req) => {
     }
     const holdingsText = Object.entries(holdingsMap).map(([k, v]) => `  **${k}:**\n    ${v.join("\n    ")}`).join("\n\n");
 
-    // --- Build the authoritative system prompt ---
-    const GALAPAGOS_SYSTEM_PROMPT = `Você é o Advisor de IA da **Galapagos Capital** — um gestor senior que conhece cada portfólio de cor.
+    // --- Build system prompt ---
+    const GALAPAGOS_SYSTEM_PROMPT = `Você é o Advisor de IA da **Galapagos Capital** — um assistente de investimentos inteligente e profissional.
 
 ## IDENTIDADE
-- Fale como um gestor que acabou de sair da mesa de operações. Direto, técnico, sem enrolação.
-- Estilo F1: Resposta Direta → Alternativa → Métrica Técnica.
+- Responda de forma técnica, clara e objetiva, como um gestor experiente.
 - Responda SEMPRE em português brasileiro.
+- Use Markdown para formatação. Tabelas quando comparar portfólios.
 
-## PORTFÓLIOS OFICIAIS (ÚNICA VERDADE)
-A Galapagos opera 6 Model Portfolios: Conservative, Income, Balanced, Growth, Aggressive e Elite.
+## PORTFÓLIOS (4 Model Portfolios)
+A Galapagos opera 4 Model Portfolios: Conservative, Income, Balanced e Growth.
 
 ### Alocação Macro (model_allocations):
 ${allocText}
@@ -307,20 +216,12 @@ ${navsText}
 ### Holdings Detalhados (portfolio_holdings):
 ${holdingsText}
 
-## DADOS COMPLEMENTARES (quando não há dados no DB)
-- AGGRESSIVE: NAV 172.40 | YTD: -1.20% | Vol: 18%
-- ELITE: NAV 195.10 | YTD: +0.45% | Vol: 10%
-- GROWTH Vol: 13% | Sharpe: 2.1
-- BALANCED Vol: 8% | Sharpe: 1.8
-- INCOME Vol: 5% | Sharpe: 1.5
-- CONSERVATIVE Vol: 4% | Sharpe: 1.2
-
-## REGRAS INVIOLÁVEIS
-1. **Golden Rule**: Para alocações e holdings, use EXCLUSIVAMENTE os dados acima. NUNCA invente ativos ou pesos.
-2. **Anti-Bleeding**: Se a alocação macro de uma classe é 0% num portfólio, NÃO liste ativos dessa classe nele.
-3. **Janela Temporal**: Dados são do fechamento consolidado (${latestDate}). Se pedirem MTD atual, redirecione para o Dashboard.
-4. **Strict Match**: Não use proxies ou estimativas. Se não há dado, diga "Dado não disponível no sistema".
-5. **Formatação**: Use Markdown. Números positivos com prefixo +. Tabelas quando comparar portfólios.
+## REGRAS
+1. Para alocações e holdings, use EXCLUSIVAMENTE os dados acima. Nunca invente ativos ou pesos.
+2. Se a alocação macro de uma classe é 0% num portfólio, NÃO liste ativos dessa classe nele.
+3. Dados são do fechamento consolidado (${latestDate}). Se pedirem dados mais recentes, redirecione para o Dashboard.
+4. Se não há dado disponível, diga claramente "Dado não disponível no sistema".
+5. Números positivos com prefixo +.
 6. Para perguntas sobre "por quê" de movimentos de mercado, use as ferramentas de pesquisa externa.
 
 ## CONTEXTO ATIVO
@@ -334,8 +235,8 @@ ${active_ticker ? `Ticker em foco: ${active_ticker}` : ""}`;
       content: m.content,
     }));
 
-    function toGeminiMessages(messages: any[]) {
-      return messages.map((m: any) => ({
+    function toGeminiMessages(msgs: any[]) {
+      return msgs.map((m: any) => ({
         role: m.role,
         parts: [{ text: m.content }],
       }));
@@ -344,61 +245,48 @@ ${active_ticker ? `Ticker em foco: ${active_ticker}` : ""}`;
     const PRIMARY_MODEL = "gemini-2.5-flash";
     const FALLBACK_MODEL = "gemini-1.5-flash";
 
-    const createGeminiResponse = async (messages: any[], model: string = PRIMARY_MODEL) => {
-      const geminiMessages = toGeminiMessages(messages);
+    const createGeminiResponse = async (msgs: any[], model: string = PRIMARY_MODEL) => {
+      const geminiMessages = toGeminiMessages(msgs);
+      const payload: any = {
+        contents: geminiMessages,
+        systemInstruction: { parts: [{ text: finalSystemPrompt }] },
+        generationConfig: { temperature: 0, maxOutputTokens: 4096 },
+      };
+      if (geminiTools) payload.tools = geminiTools;
+
       return await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${googleKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: geminiMessages,
-            systemInstruction: { parts: [{ text: finalSystemPrompt }] },
-            ...(geminiTools ? { tools: geminiTools } : {}),
-            generationConfig: {
-              temperature: 0,
-              maxOutputTokens: 4096,
-            },
-          }),
+          body: JSON.stringify(payload),
         },
       );
     };
 
-    const createGeminiResponseWithFallback = async (messages: any[]) => {
-      let response = await createGeminiResponse(messages, PRIMARY_MODEL);
-
+    const createGeminiResponseWithFallback = async (msgs: any[]) => {
+      let response = await createGeminiResponse(msgs, PRIMARY_MODEL);
       if (!response.ok) {
         const primaryErrorText = await response.text();
         const normalizedError = primaryErrorText.toLowerCase();
-
         if (response.status === 404 || normalizedError.includes("not found") || normalizedError.includes("no longer available")) {
           console.warn(`Primary model ${PRIMARY_MODEL} not available, falling back to ${FALLBACK_MODEL}`);
-          response = await createGeminiResponse(messages, FALLBACK_MODEL);
-
+          response = await createGeminiResponse(msgs, FALLBACK_MODEL);
           if (!response.ok) {
             const fallbackErrorText = await response.text();
             throw new Error(`Gemini error: ${fallbackErrorText}`);
           }
-
           return response;
         }
-
         throw new Error(`Gemini error: ${primaryErrorText}`);
       }
-
       return response;
     };
 
-    let initialRes = await createGeminiResponseWithFallback(claudeMessages);
-
-    if (!initialRes.ok) {
-      const errText = await initialRes.text();
-      throw new Error(`Gemini error: ${errText}`);
-    }
+    const initialRes = await createGeminiResponseWithFallback(claudeMessages);
 
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
-
     let sources: any[] = [];
 
     const stream = new ReadableStream({
@@ -408,14 +296,11 @@ ${active_ticker ? `Ticker em foco: ${active_ticker}` : ""}`;
         try {
           while (true) {
             const { done, value } = await reader.read();
-            if (done) {
-              break;
-            }
+            if (done) break;
 
             const chunkText = decoder.decode(value, { stream: true });
             currentText += chunkText;
 
-            // Process SSE events line by line
             let newlineIndex: number;
             while ((newlineIndex = currentText.indexOf("\n")) !== -1) {
               let line = currentText.slice(0, newlineIndex);
@@ -445,16 +330,13 @@ ${active_ticker ? `Ticker em foco: ${active_ticker}` : ""}`;
                   }
                 }
 
-                // Handle function calls from Gemini
+                // Handle function calls
                 if (data.candidates?.[0]?.content?.parts) {
                   for (const part of data.candidates[0].content.parts) {
                     if (part.functionCall) {
                       const { name, args } = part.functionCall;
                       let toolResult: any = null;
                       switch (name) {
-                        case "fetchLiveMarketData":
-                          toolResult = await fetchLiveMarketData(args.ticker, args.isin);
-                          break;
                         case "searchMacroMarketContext":
                           toolResult = await searchMacroMarketContext(args.query, googleKey);
                           if (toolResult?.sources) sources = sources.concat(toolResult.sources);
@@ -472,36 +354,12 @@ ${active_ticker ? `Ticker em foco: ${active_ticker}` : ""}`;
                   }
                 }
               } catch {
-                // Partial JSON, put it back and wait for more data
                 currentText = line + "\n" + currentText;
-                break;
-              }
-            }
-
-            // Handle continuation turns if needed
-            if (currentText.includes("DONE")) {
-              break;
-            }
-
-            if (currentText.includes("Continuation")) {
-              let currentMessages = [...claudeMessages];
-              const lastMessage = currentMessages[currentMessages.length - 1];
-              if (lastMessage.role === "model") {
-                lastMessage.content += " [CONT]";
-              }
-              currentMessages.push({ role: "user", content: "Continue" });
-
-              currentResponse = await createGeminiResponseWithFallback(currentMessages);
-
-              if (!currentResponse.ok) {
-                const errText = await currentResponse.text();
-                console.error("Continuation error:", errText);
                 break;
               }
             }
           }
 
-          // Send sources as final event
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "sources", sources })}\n\n`));
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
           controller.close();
@@ -523,13 +381,8 @@ ${active_ticker ? `Ticker em foco: ${active_ticker}` : ""}`;
   } catch (error) {
     console.error("Chat error:", error);
     return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : "Unknown error",
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
+      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });

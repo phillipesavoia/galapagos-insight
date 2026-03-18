@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, ChevronDown, ChevronRight, X, Plus, History, ThumbsUp, ThumbsDown, RefreshCw, Copy, PanelLeftClose, PanelLeft, SquarePen, Zap, Activity, Gauge, Signal } from "lucide-react";
+import { Send, ChevronDown, ChevronRight, X, Plus, History, ThumbsUp, ThumbsDown, RefreshCw, Copy, PanelLeftClose, PanelLeft, SquarePen } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,7 +34,7 @@ interface ChatSession {
   created_at: string;
 }
 
-const PORTFOLIO_NAMES = ["Conservative", "Income", "Balanced", "Growth", "Aggressive", "Elite"];
+const PORTFOLIO_NAMES = ["Conservative", "Income", "Balanced", "Growth"];
 const PORTFOLIO_REGEX = new RegExp(`\\b(${PORTFOLIO_NAMES.join("|")})\\b`, "i");
 
 const TICKER_REGEX = /\b([A-Z]{2,5}(?:\s+(?:US|LN|GR|FP|JP|HK|AU|CN|IM|NA|SS|SZ|SE|GY|AV|SM|PL|ID|BB|FH|DC|NO|IT|MC|SW|CT))?)\b/;
@@ -98,78 +98,6 @@ function generateSessionId() {
   return crypto.randomUUID();
 }
 
-// Telemetry Bar Component
-function TelemetryBar({ 
-  isStreaming, 
-  activeModel, 
-  latency,
-  activePortfolio,
-  activeTicker,
-  onClearPortfolio,
-  onClearTicker,
-}: {
-  isStreaming: boolean;
-  activeModel: string;
-  latency: number | null;
-  activePortfolio: string | null;
-  activeTicker: string | null;
-  onClearPortfolio: () => void;
-  onClearTicker: () => void;
-}) {
-  return (
-    <div className="h-8 border-b border-white/5 bg-card/60 backdrop-blur-sm flex items-center justify-between px-4 shrink-0 font-mono text-[10px]">
-      {/* Left: System Status */}
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1.5">
-          <div className={`h-1.5 w-1.5 rounded-full ${isStreaming ? 'bg-neon-green animate-pulse' : 'bg-neon-green'}`} />
-          <span className="text-muted-foreground uppercase tracking-widest">
-            {isStreaming ? 'STREAMING' : 'READY'}
-          </span>
-        </div>
-        <div className="h-3 w-px bg-white/10" />
-        <div className="flex items-center gap-1 text-muted-foreground">
-          <Zap className="h-3 w-3 text-neon-orange" />
-          <span className="text-neon-orange uppercase tracking-widest">{activeModel}</span>
-        </div>
-        {latency !== null && (
-          <>
-            <div className="h-3 w-px bg-white/10" />
-            <div className="flex items-center gap-1 text-muted-foreground">
-              <Activity className="h-3 w-3" />
-              <span className={latency < 500 ? 'text-neon-green' : latency < 2000 ? 'text-neon-orange' : 'text-neon-rose'}>
-                {latency}ms
-              </span>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Right: Active Context */}
-      <div className="flex items-center gap-2">
-        {activePortfolio && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-neon-green/10 text-neon-green border border-neon-green/20 glow-green">
-            <Signal className="h-2.5 w-2.5" />
-            {activePortfolio}
-            <button onClick={onClearPortfolio} className="ml-0.5 text-neon-green/60 hover:text-neon-green">
-              <X className="h-2.5 w-2.5" />
-            </button>
-          </span>
-        )}
-        {activeTicker && !activePortfolio && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-neon-rose/10 text-neon-rose border border-neon-rose/20 glow-rose">
-            <Gauge className="h-2.5 w-2.5" />
-            {activeTicker}
-            <button onClick={onClearTicker} className="ml-0.5 text-neon-rose/60 hover:text-neon-rose">
-              <X className="h-2.5 w-2.5" />
-            </button>
-          </span>
-        )}
-        <span className="text-muted-foreground/40 uppercase tracking-widest">F1 ENGINE</span>
-      </div>
-    </div>
-  );
-}
-
 export default function Chat() {
   const [sessionId, setSessionId] = useState(() => generateSessionId());
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -182,7 +110,6 @@ export default function Chat() {
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [activePortfolio, setActivePortfolio] = useState<string | null>(null);
   const [activeTicker, setActiveTicker] = useState<string | null>(null);
-  const [lastLatency, setLastLatency] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const isEmpty = messages.length === 0;
@@ -316,8 +243,6 @@ export default function Chat() {
     let sources: ChatSource[] = [];
     let toolCalls: ToolCallData[] = [];
 
-    const sendStart = performance.now();
-
     try {
       const chatUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
       const { data: { session } } = await supabase.auth.getSession();
@@ -340,7 +265,6 @@ export default function Chat() {
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-      let firstTokenReceived = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -359,11 +283,6 @@ export default function Chat() {
           try {
             const event = JSON.parse(jsonStr);
             if (event.type === "delta" && event.text) {
-              if (!firstTokenReceived) {
-                firstTokenReceived = true;
-                const ttft = Math.round(performance.now() - sendStart);
-                setLastLatency(ttft);
-              }
               fullContent += event.text;
               const snap = fullContent;
               const tcSnap = [...toolCalls];
@@ -449,13 +368,13 @@ export default function Chat() {
                 onClick={handleNewChat}
                 className="flex items-center gap-2 text-[10px] text-foreground hover:bg-white/[0.04] rounded-xl px-3 py-2 transition-colors w-full font-mono uppercase tracking-widest"
               >
-                <SquarePen className="h-3 w-3 text-neon-orange" strokeWidth={1.5} />
+                <SquarePen className="h-3 w-3 text-muted-foreground" strokeWidth={1.5} />
                 <span>New Session</span>
               </button>
             </div>
 
             <div className="px-3 pt-2 pb-1">
-              <h3 className="text-[9px] font-semibold text-neon-orange uppercase tracking-[0.2em] font-mono">Sessions</h3>
+              <h3 className="text-[9px] font-semibold text-muted-foreground uppercase tracking-[0.2em] font-mono">Sessions</h3>
             </div>
 
             <div className="flex-1 overflow-y-auto scrollbar-thin px-2 pb-2 space-y-0.5">
@@ -481,19 +400,8 @@ export default function Chat() {
 
         {/* Main Chat Area */}
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Telemetry Bar */}
-          <TelemetryBar
-            isStreaming={isLoading}
-            activeModel="Gemini Flash 09-25"
-            latency={lastLatency}
-            activePortfolio={activePortfolio}
-            activeTicker={activeTicker}
-            onClearPortfolio={() => setActivePortfolio(null)}
-            onClearTicker={() => setActiveTicker(null)}
-          />
-
           {/* Header */}
-          <div className="h-9 border-b border-white/5 bg-background/80 backdrop-blur-sm flex items-center justify-between px-4 shrink-0">
+          <div className="h-10 border-b border-white/5 bg-background/80 backdrop-blur-sm flex items-center justify-between px-4 shrink-0">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowHistory((prev) => !prev)}
@@ -504,22 +412,42 @@ export default function Chat() {
               </button>
               <img src="/galapagos-logo.png" alt="Galapagos" className="h-4 w-4 object-contain" />
               <span className="text-[11px] font-semibold text-foreground tracking-wide">Galapagos RIA</span>
-              <span className="text-[9px] text-muted-foreground/50 font-mono tracking-widest uppercase">Advisor Chat</span>
+              <span className="text-[9px] text-muted-foreground/50 font-mono tracking-widest uppercase">Advisor</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {activePortfolio && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-neon-green/10 text-neon-green text-[9px] font-mono border border-neon-green/20">
+                  {activePortfolio}
+                  <button onClick={() => setActivePortfolio(null)} className="ml-0.5 text-neon-green/60 hover:text-neon-green">
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </span>
+              )}
+              {activeTicker && !activePortfolio && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-neon-rose/10 text-neon-rose text-[9px] font-mono border border-neon-rose/20">
+                  {activeTicker}
+                  <button onClick={() => setActiveTicker(null)} className="ml-0.5 text-neon-rose/60 hover:text-neon-rose">
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </span>
+              )}
+              <div className="flex items-center gap-1.5">
+                <div className={`h-1.5 w-1.5 rounded-full ${isLoading ? 'bg-neon-green animate-pulse' : 'bg-neon-green/50'}`} />
+                <span className="text-[9px] text-muted-foreground/40 font-mono uppercase tracking-widest">
+                  {isLoading ? 'Streaming' : 'Ready'}
+                </span>
+              </div>
             </div>
           </div>
 
           {isEmpty ? (
             <div className="flex-1 flex items-center justify-center p-8 bg-background">
               <div className="max-w-xl w-full text-center animate-fade-up">
-                <div className="inline-flex items-center gap-2 mb-4 px-3 py-1.5 rounded-full glass-card border border-neon-green/20">
-                  <Zap className="h-3.5 w-3.5 text-neon-green" />
-                  <span className="text-[10px] font-mono text-neon-green uppercase tracking-widest">F1 Engine Active</span>
-                </div>
                 <h1 className="text-2xl font-bold tracking-tight text-foreground mb-2">
                   Advisor Intelligence
                 </h1>
                 <p className="text-[10px] text-muted-foreground mb-8 font-mono uppercase tracking-widest">
-                  Model Portfolios · RAG · Real-time Research
+                  Model Portfolios · RAG · Research
                 </p>
                 <div className="grid grid-cols-2 gap-2.5 stagger-children">
                   {randomSuggestions.map((s) => (
@@ -577,7 +505,7 @@ export default function Chat() {
                           </div>
                         )}
                         {msg.toolPending && (
-                          <div className="mt-2 flex items-center gap-2 text-[10px] text-neon-orange glass-card rounded-lg px-2.5 py-1.5 animate-pulse font-mono border border-neon-orange/20">
+                          <div className="mt-2 flex items-center gap-2 text-[10px] text-muted-foreground glass-card rounded-lg px-2.5 py-1.5 animate-pulse font-mono border border-white/5">
                             <svg className="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
                             <span>{msg.toolPending}</span>
                           </div>
@@ -615,7 +543,7 @@ export default function Chat() {
                               const lastUserMsg = messages.slice(0, messages.indexOf(msg)).reverse().find(m => m.role === "user");
                               if (lastUserMsg) handleSend(lastUserMsg.content);
                             }}
-                            className="p-1 rounded text-muted-foreground hover:text-neon-orange hover:bg-neon-orange/5 transition-colors" title="Regenerate"
+                            className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-white/[0.04] transition-colors" title="Regenerate"
                           >
                             <RefreshCw className="h-2.5 w-2.5" strokeWidth={1.5} />
                           </button>
@@ -675,13 +603,13 @@ export default function Chat() {
                     handleSend();
                   }
                 }}
-                placeholder="Ask about portfolios, assets, or performance..."
+                placeholder="Pergunte sobre portfólios, ativos ou performance..."
                 rows={1}
                 className="flex-1 resize-none glass-card rounded-lg px-3.5 py-2.5 text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-neon-green/30 font-mono text-[11px] border border-white/5"
               />
               <button
                 onClick={() => handleSend()}
-                className="h-10 w-10 rounded-lg bg-neon-green/90 text-primary-foreground flex items-center justify-center hover:bg-neon-green transition-colors shrink-0 glow-green"
+                className="h-10 w-10 rounded-lg bg-neon-green/90 text-primary-foreground flex items-center justify-center hover:bg-neon-green transition-colors shrink-0"
               >
                 <Send className="h-3.5 w-3.5" strokeWidth={1.5} />
               </button>
