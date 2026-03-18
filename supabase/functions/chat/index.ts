@@ -192,7 +192,9 @@ Deno.serve(async (req) => {
       const key = row.portfolio_name;
       if (!holdingsMap[key]) holdingsMap[key] = [];
       const contrib = row.monthly_contribution != null ? ` | Contribuição: ${row.monthly_contribution >= 0 ? "+" : ""}${row.monthly_contribution.toFixed(2)}%` : "";
-      holdingsMap[key].push(`${row.ticker || "N/A"} (${row.asset_name}) — ${row.asset_class}, Peso: ${row.weight_percentage}%${contrib}`);
+      const ytd = row.ytd_return != null ? ` | Retorno YTD: ${row.ytd_return >= 0 ? "+" : ""}${row.ytd_return.toFixed(2)}%` : "";
+      const monthly = row.monthly_return != null ? ` | Retorno Mês: ${row.monthly_return >= 0 ? "+" : ""}${row.monthly_return.toFixed(2)}%` : "";
+      holdingsMap[key].push(`${row.ticker || "N/A"} (${row.asset_name}) — ${row.asset_class}, Peso: ${row.weight_percentage}%${ytd}${monthly}${contrib}`);
     }
     const holdingsText = Object.entries(holdingsMap).map(([k, v]) => `  **${k}:**\n    ${v.join("\n    ")}`).join("\n\n");
 
