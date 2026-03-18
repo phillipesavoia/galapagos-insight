@@ -669,7 +669,9 @@ Exemplos de quando usar:
           description: "Array de objetos com os dados de cada linha.",
           items: {
             type: "object",
-            additionalProperties: true,
+            properties: {
+              label: { type: "string", description: "Identificador da linha" },
+            },
           },
         },
         footerRow: {
