@@ -68,7 +68,10 @@ async function searchMacroMarketContext(query: string, googleKey: string): Promi
 
     const data = await res.json();
     const textParts = data?.candidates?.[0]?.content?.parts || [];
-    const textContent = textParts.filter((p: any) => p.text).map((p: any) => p.text).join("\n");
+    const textContent = textParts
+      .filter((p: any) => p.text)
+      .map((p: any) => p.text)
+      .join("\n");
 
     const groundingMetadata = data?.candidates?.[0]?.groundingMetadata;
     const groundingSources =
@@ -118,7 +121,10 @@ async function getCompanyTickerNews(symbol: string, fromDate: string, toDate: st
 
     const data = await res.json();
     const textParts = data?.candidates?.[0]?.content?.parts || [];
-    const textContent = textParts.filter((p: any) => p.text).map((p: any) => p.text).join("\n");
+    const textContent = textParts
+      .filter((p: any) => p.text)
+      .map((p: any) => p.text)
+      .join("\n");
 
     const groundingMetadata = data?.candidates?.[0]?.groundingMetadata;
     const groundingSources =
@@ -337,3 +343,138 @@ ${active_ticker ? `Ticker em foco: ${active_ticker}` : ""}`;
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
+    };
+
+    const createGeminiResponseWithFallback = async (msgs: any[]) => {
+      let response = await createGeminiResponse(msgs, PRIMARY_MODEL);
+      if (!response.ok) {
+        const primaryErrorText = await response.text();
+        const normalizedError = primaryErrorText.toLowerCase();
+        if (
+          response.status === 404 ||
+          normalizedError.includes("not found") ||
+          normalizedError.includes("no longer available")
+        ) {
+          console.warn(`Primary model ${PRIMARY_MODEL} not available, falling back to ${FALLBACK_MODEL}`);
+          response = await createGeminiResponse(msgs, FALLBACK_MODEL);
+          if (!response.ok) {
+            const fallbackErrorText = await response.text();
+            throw new Error(`Gemini error: ${fallbackErrorText}`);
+          }
+          return response;
+        }
+        throw new Error(`Gemini error: ${primaryErrorText}`);
+      }
+      return response;
+    };
+
+    const initialRes = await createGeminiResponseWithFallback(claudeMessages);
+
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+
+    let sources: any[] = [...documentSources];
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        const reader = initialRes.body!.getReader();
+        let currentText = "";
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunkText = decoder.decode(value, { stream: true });
+            currentText += chunkText;
+
+            let newlineIndex: number;
+            while ((newlineIndex = currentText.indexOf("\n")) !== -1) {
+              let line = currentText.slice(0, newlineIndex);
+              currentText = currentText.slice(newlineIndex + 1);
+
+              if (line.endsWith("\r")) line = line.slice(0, -1);
+              if (!line || line.trim() === "" || line.startsWith(":")) continue;
+              if (!line.startsWith("data: ")) continue;
+
+              const jsonStr = line.slice(6).trim();
+              if (jsonStr === "[DONE]") break;
+
+              try {
+                const data = JSON.parse(jsonStr);
+
+                if (data.error) {
+                  console.error("Gemini error in stream:", data.error);
+                  controller.error(data.error);
+                  return;
+                }
+
+                if (data.candidates?.[0]?.content?.parts) {
+                  for (const part of data.candidates[0].content.parts) {
+                    if (part.text) {
+                      controller.enqueue(
+                        encoder.encode(`data: ${JSON.stringify({ type: "delta", text: part.text })}\n\n`),
+                      );
+                    }
+                  }
+                }
+
+                if (data.candidates?.[0]?.content?.parts) {
+                  for (const part of data.candidates[0].content.parts) {
+                    if (part.functionCall) {
+                      const { name, args } = part.functionCall;
+                      let toolResult: any = null;
+                      switch (name) {
+                        case "searchMacroMarketContext":
+                          toolResult = await searchMacroMarketContext(args.query, googleKey);
+                          if (toolResult?.sources) sources = sources.concat(toolResult.sources);
+                          break;
+                        case "getCompanyTickerNews":
+                          toolResult = await getCompanyTickerNews(args.symbol, args.fromDate, args.toDate, googleKey);
+                          if (toolResult?.sources) sources = sources.concat(toolResult.sources);
+                          break;
+                        default:
+                          console.warn("Unknown tool call:", name);
+                          toolResult = { status: "error", message: `Tool ${name} not implemented` };
+                      }
+                      controller.enqueue(
+                        encoder.encode(`data: ${JSON.stringify({ type: "tool_call", tool: name, input: args })}\n\n`),
+                      );
+                    }
+                  }
+                }
+              } catch {
+                currentText = line + "\n" + currentText;
+                break;
+              }
+            }
+          }
+
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "sources", sources })}\n\n`));
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          controller.close();
+        } catch (err) {
+          console.error("Stream error:", err);
+          controller.error(err);
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+    });
+  } catch (error) {
+    console.error("Chat error:", error);
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});
