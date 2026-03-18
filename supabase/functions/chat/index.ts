@@ -967,7 +967,7 @@ Deno.serve(async (req) => {
     }
 
     // --- Stream Claude response with tool calling ---
-    console.log(`Calling Claude with ${filteredChunks.length} chunks, tools enabled...`);
+    console.log(`Calling Gemini Flash with ${filteredChunks.length} chunks, tools enabled...`);
 
     // Build user message with asset knowledge as priority context
     let userMessageContent = "";
