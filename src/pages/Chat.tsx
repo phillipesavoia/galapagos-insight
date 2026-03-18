@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Send, ChevronDown, ChevronRight, X, Plus, History, ThumbsUp, ThumbsDown, RefreshCw, Copy, PanelLeftClose, PanelLeft, SquarePen } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { InlineBarChart } from "@/components/chat/InlineBarChart";
@@ -69,7 +70,28 @@ function extractFollowUps(content: string): { cleanContent: string; followUps: s
   return { cleanContent, followUps };
 }
 
+function normalizeMarkdownTables(content: string) {
+  const lines = content.split("\n");
+  const normalized: string[] = [];
 
+  for (let i = 0; i < lines.length; i += 1) {
+    const currentLine = lines[i];
+    const trimmedCurrentLine = currentLine.trim();
+    const previousMeaningfulLine = normalized.length > 0 ? normalized[normalized.length - 1].trim() : "";
+    const nextMeaningfulLine = lines.slice(i + 1).find((line) => line.trim().length > 0)?.trim() ?? "";
+
+    const isBlankLine = trimmedCurrentLine === "";
+    const isInsideTable = previousMeaningfulLine.startsWith("|") && nextMeaningfulLine.startsWith("|");
+
+    if (isBlankLine && isInsideTable) {
+      continue;
+    }
+
+    normalized.push(currentLine);
+  }
+
+  return normalized.join("\n");
+}
 
 function generateSessionId() {
   return crypto.randomUUID();
@@ -88,7 +110,6 @@ export default function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const isEmpty = messages.length === 0;
-  
 
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -197,9 +218,9 @@ export default function Chat() {
     setInput("");
     setIsLoading(true);
 
-      const filter_type = "all";
+    const filter_type = "all";
 
-      await persistMessage(newMsg, sessionId, { filter_type });
+    await persistMessage(newMsg, sessionId, { filter_type });
 
     const assistantId = (Date.now() + 1).toString();
     let fullContent = "";
@@ -427,58 +448,64 @@ export default function Chat() {
                       <>
                         {msg.content && (() => {
                           const { cleanContent, followUps } = extractFollowUps(msg.content);
+                          const normalizedMarkdown = normalizeMarkdownTables(cleanContent);
+
                           return (
                             <>
-                              <div className="prose prose-sm max-w-none text-gray-800 [&_p]:my-2 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-1 [&_strong]:text-gray-900 [&_strong]:font-semibold [&_h1]:text-[15px] [&_h2]:text-[14px] [&_h3]:text-[13px] [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-semibold [&_h1]:mt-4 [&_h2]:mt-4 [&_h3]:mt-3 [&_h1]:mb-2 [&_h2]:mb-2 [&_h3]:mb-1 [&_ul]:pl-5 [&_ol]:pl-5 [&_li]:text-gray-700 [&_hr]:my-3 [&_hr]:border-gray-200">
+                              <div className="prose prose-sm max-w-none text-foreground [&_p]:my-2 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-1 [&_strong]:text-foreground [&_strong]:font-semibold [&_h1]:text-[15px] [&_h2]:text-[14px] [&_h3]:text-[13px] [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-semibold [&_h1]:mt-4 [&_h2]:mt-4 [&_h3]:mt-3 [&_h1]:mb-2 [&_h2]:mb-2 [&_h3]:mb-1 [&_ul]:pl-5 [&_ol]:pl-5 [&_li]:text-muted-foreground [&_hr]:my-3 [&_hr]:border-border">
                                 <ReactMarkdown
+                                  remarkPlugins={[remarkGfm]}
                                   components={{
                                     table: ({ children }) => (
-                                      <div className="my-3 overflow-x-auto rounded-lg border border-gray-200">
-                                        <table className="w-full text-[11px] font-mono border-collapse">
+                                      <div className="my-4 overflow-x-auto rounded-xl border border-border bg-card">
+                                        <table className="w-full min-w-max border-collapse text-xs">
                                           {children}
                                         </table>
                                       </div>
                                     ),
                                     thead: ({ children }) => (
-                                      <thead className="bg-gray-900 text-orange-400">
+                                      <thead className="border-b border-border bg-secondary text-primary">
                                         {children}
                                       </thead>
                                     ),
                                     th: ({ children }) => (
-                                      <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest whitespace-nowrap">
+                                      <th className="px-3 py-2 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.24em] whitespace-nowrap">
                                         {children}
                                       </th>
                                     ),
                                     tbody: ({ children }) => (
-                                      <tbody className="divide-y divide-gray-100">
+                                      <tbody className="divide-y divide-border/70">
                                         {children}
                                       </tbody>
                                     ),
                                     tr: ({ children }) => (
-                                      <tr className="hover:bg-gray-50 transition-colors">
+                                      <tr className="transition-colors hover:bg-accent/40">
                                         {children}
                                       </tr>
                                     ),
                                     td: ({ children }) => {
-                                      const text = String(children ?? "");
-                                      const isPositive = /^\+?\d+(\.\d+)?%$/.test(text.trim());
-                                      const isNegative = /^-\d+(\.\d+)?%$/.test(text.trim());
-                                      const isNA = text.trim() === "N/A";
+                                      const text = String(children ?? "").trim();
+                                      const isPositive = /^\+\d+(\.\d+)?%$/.test(text);
+                                      const isNegative = /^-\d+(\.\d+)?%$/.test(text);
+                                      const isNA = text === "N/A";
+
                                       return (
                                         <td
-                                          className={`px-3 py-1.5 whitespace-nowrap tabular-nums ${
-                                            isPositive ? "text-emerald-400 font-medium" :
-                                            isNegative ? "text-rose-400 font-medium" :
-                                            isNA ? "text-gray-300" :
-                                            "text-gray-700"
-                                          }`}
+                                          className={[
+                                            "px-3 py-2 align-top font-mono tabular-nums text-foreground whitespace-nowrap",
+                                            isPositive && "text-primary font-medium",
+                                            isNegative && "text-destructive font-medium",
+                                            isNA && "text-muted-foreground",
+                                          ].filter(Boolean).join(" ")}
                                         >
                                           {children}
                                         </td>
                                       );
                                     },
                                   }}
-                                >{cleanContent}</ReactMarkdown>
+                                >
+                                  {normalizedMarkdown}
+                                </ReactMarkdown>
                               </div>
                               {followUps.length > 0 && (
                                 <div className="mt-2 flex flex-wrap gap-1.5">
