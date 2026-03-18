@@ -715,7 +715,7 @@ Deno.serve(async (req) => {
 
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
     const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
-    if (!anthropicKey) throw new Error("Missing ANTHROPIC_API_KEY");
+    if (!googleKey) throw new Error("Missing GOOGLE_AI_API_KEY");
 
     // --- 0. Asset Knowledge + Structured Data lookup (priority context) ---
     let assetKnowledgeContext = "";
@@ -967,7 +967,7 @@ Deno.serve(async (req) => {
     }
 
     // --- Stream Claude response with tool calling ---
-    console.log(`Calling Claude with ${filteredChunks.length} chunks, tools enabled...`);
+    console.log(`Calling Gemini Flash with ${filteredChunks.length} chunks, tools enabled...`);
 
     // Build user message with asset knowledge as priority context
     let userMessageContent = "";
@@ -1206,7 +1206,15 @@ Quando o usuário usar QUALQUER um destes termos: 'abrir', 'detalhar', 'quais at
 
 ## REGRAS OPERACIONAIS
 
-Responda sempre em português brasileiro de forma técnica, analítica e ultra-direta, utilizando jargões de mercado financeiro apropriados.
+Responda sempre em português brasileiro de forma técnica, analítica e ultra-direta. Seja CONCISO. Elimine introduções polidas ("Claro!", "Ótima pergunta!", "Vou verificar..."). Vá direto ao ponto com dados brutos e decisões estratégicas.
+
+### REGRA DE PROATIVIDADE OBRIGATÓRIA (F1 ENGINE):
+
+Para CADA resposta, você DEVE OBRIGATORIAMENTE fornecer TRÊS blocos:
+
+1. **📊 Resposta Direta** — A resposta factual à pergunta do assessor, com dados e fontes.
+2. **💡 Alternativa Estratégica** — Uma ideia alternativa de investimento ou rebalanceamento baseada em gestão de risco. Exemplo: "Considere aumentar a exposição em X para reduzir a correlação com Y."
+3. **📐 Telemetria** — Uma métrica quantitativa que valide a sugestão (Sharpe Ratio, Beta, Volatilidade, Max Drawdown, Correlação). Se a métrica não estiver disponível nos dados, indique "Métrica não disponível — consulte Performance Analítica."
 
 ### REGRA ESTRITA DE RESPOSTA: CONSULTA DE PERFORMANCE (DIRETRIZ ABSOLUTA — ORDEM OBRIGATÓRIA):
 
@@ -1288,52 +1296,104 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
 2. [Pergunta que aprofunda ou compara com outro portfólio/ativo]
 3. [Pergunta sobre risco, alocação ou performance complementar]`;
 
-    // First Claude call — may produce tool_use blocks
-    const createClaudeResponse = async (messages: any[]) => {
-      return await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": anthropicKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 4096,
-          temperature: 0,
-          stream: true,
-          system: systemPrompt,
-          tools: TOOLS,
-          messages,
-        }),
+    // Convert tools to Gemini function declarations
+    const geminiTools = [{
+      functionDeclarations: TOOLS.map(t => ({
+        name: t.name,
+        description: t.description,
+        parameters: t.input_schema,
+      })),
+    }];
+
+    // Convert messages to Gemini format
+    function toGeminiMessages(msgs: any[]) {
+      return msgs.map(m => {
+        if (m.role === "user") {
+          if (typeof m.content === "string") {
+            return { role: "user", parts: [{ text: m.content }] };
+          }
+          // Tool result
+          const toolResults = m.content.filter((c: any) => c.type === "tool_result");
+          if (toolResults.length > 0) {
+            return {
+              role: "user",
+              parts: toolResults.map((tr: any) => ({
+                functionResponse: {
+                  name: tr._toolName || "unknown",
+                  response: JSON.parse(tr.content),
+                },
+              })),
+            };
+          }
+          return { role: "user", parts: [{ text: JSON.stringify(m.content) }] };
+        }
+        if (m.role === "assistant") {
+          if (typeof m.content === "string") {
+            return { role: "model", parts: [{ text: m.content }] };
+          }
+          // Tool use
+          const toolUses = m.content.filter((c: any) => c.type === "tool_use");
+          if (toolUses.length > 0) {
+            return {
+              role: "model",
+              parts: toolUses.map((tu: any) => ({
+                functionCall: { name: tu.name, args: tu.input },
+              })),
+            };
+          }
+          return { role: "model", parts: [{ text: JSON.stringify(m.content) }] };
+        }
+        return { role: "user", parts: [{ text: String(m.content) }] };
       });
-    };
-
-    const initialClaudeRes = await createClaudeResponse(claudeMessages);
-
-    if (!initialClaudeRes.ok) {
-      const errText = await initialClaudeRes.text();
-      throw new Error(`Claude error: ${errText}`);
     }
 
-    // We need to handle server-side tools in a multi-step loop
-    // For UI tools (chart, factsheet), we stream to the client
+    const createGeminiResponse = async (messages: any[]) => {
+      const geminiMessages = toGeminiMessages(messages);
+      return await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:streamGenerateContent?alt=sse&key=${googleKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: geminiMessages,
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            tools: geminiTools,
+            generationConfig: {
+              temperature: 0,
+              maxOutputTokens: 4096,
+            },
+          }),
+        }
+      );
+    };
+
+    const initialRes = await createGeminiResponse(claudeMessages);
+
+    if (!initialRes.ok) {
+      const errText = await initialRes.text();
+      throw new Error(`Gemini error: ${errText}`);
+    }
 
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
-        // Helper to process a Claude SSE stream
+        const SERVER_TOOLS = new Set([
+          "fetch_live_asset_data",
+          "search_macro_market_context",
+          "get_company_ticker_news",
+          "ask_perplexity_researcher",
+          "tavily_web_search",
+          "finnhub_ticker_news",
+        ]);
+
         async function processStream(
-          claudeRes: Response,
+          geminiRes: Response,
           handleServerTool: boolean,
-        ): Promise<{ needsToolResult: boolean; toolId: string; toolName: string; toolInput: any } | null> {
-          const reader = claudeRes.body!.getReader();
+        ): Promise<{ needsToolResult: boolean; toolName: string; toolInput: any } | null> {
+          const reader = geminiRes.body!.getReader();
           const decoder = new TextDecoder();
           let buffer = "";
-          let currentToolId = "";
-          let currentToolName = "";
-          let toolInputJson = "";
-          let serverToolCall: { id: string; name: string; input: any } | null = null;
+          let serverToolCall: { name: string; input: any } | null = null;
 
           while (true) {
             const { done, value } = await reader.read();
@@ -1347,55 +1407,35 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
 
               if (!line.startsWith("data: ")) continue;
               const jsonStr = line.slice(6);
-              if (jsonStr === "[DONE]") continue;
 
               try {
                 const event = JSON.parse(jsonStr);
-
-                if (event.type === "content_block_delta" && event.delta?.type === "text_delta" && event.delta?.text) {
-                  controller.enqueue(
-                    encoder.encode(`data: ${JSON.stringify({ type: "delta", text: event.delta.text })}\n\n`)
-                  );
-                }
-
-                if (event.type === "content_block_start" && event.content_block?.type === "tool_use") {
-                  currentToolId = event.content_block.id || "";
-                  currentToolName = event.content_block.name || "";
-                  toolInputJson = "";
-                }
-
-                if (event.type === "content_block_delta" && event.delta?.type === "input_json_delta") {
-                  toolInputJson += event.delta.partial_json || "";
-                }
-
-                if (event.type === "content_block_stop" && currentToolName) {
-                  try {
-                    const toolInput = JSON.parse(toolInputJson);
-
-                    if (handleServerTool && (
-                      currentToolName === "fetch_live_asset_data" ||
-                      currentToolName === "search_macro_market_context" ||
-                      currentToolName === "get_company_ticker_news" ||
-                      currentToolName === "ask_perplexity_researcher" ||
-                      currentToolName === "tavily_web_search" ||
-                      currentToolName === "finnhub_ticker_news"
-                    )) {
-                      serverToolCall = { id: currentToolId, name: currentToolName, input: toolInput };
-                    } else {
+                const candidates = event.candidates || [];
+                for (const candidate of candidates) {
+                  const parts = candidate.content?.parts || [];
+                  for (const part of parts) {
+                    if (part.text) {
                       controller.enqueue(
-                        encoder.encode(`data: ${JSON.stringify({
-                          type: "tool_call",
-                          tool: currentToolName,
-                          input: toolInput,
-                        })}\n\n`)
+                        encoder.encode(`data: ${JSON.stringify({ type: "delta", text: part.text })}\n\n`)
                       );
                     }
-                  } catch (e) {
-                    console.error("Failed to parse tool input JSON:", e, toolInputJson);
+                    if (part.functionCall) {
+                      const toolName = part.functionCall.name;
+                      const toolInput = part.functionCall.args || {};
+
+                      if (handleServerTool && SERVER_TOOLS.has(toolName)) {
+                        serverToolCall = { name: toolName, input: toolInput };
+                      } else {
+                        controller.enqueue(
+                          encoder.encode(`data: ${JSON.stringify({
+                            type: "tool_call",
+                            tool: toolName,
+                            input: toolInput,
+                          })}\n\n`)
+                        );
+                      }
+                    }
                   }
-                  currentToolId = "";
-                  currentToolName = "";
-                  toolInputJson = "";
                 }
               } catch {
                 // partial JSON, ignore
@@ -1406,7 +1446,6 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
           if (serverToolCall) {
             return {
               needsToolResult: true,
-              toolId: serverToolCall.id,
               toolName: serverToolCall.name,
               toolInput: serverToolCall.input,
             };
@@ -1421,17 +1460,11 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
           }
           if (toolName === "search_macro_market_context") {
             console.log(`Executing search_macro_market_context: "${toolInput.query}"`);
-            if (!googleKey) {
-              return { status: "error", message: "GOOGLE_AI_API_KEY não configurada para busca macro." };
-            }
-            return await searchMacroMarketContext(toolInput.query, googleKey);
+            return await searchMacroMarketContext(toolInput.query, googleKey!);
           }
           if (toolName === "get_company_ticker_news") {
             console.log(`Executing get_company_ticker_news for: ${toolInput.symbol}`);
-            if (!googleKey) {
-              return { status: "error", message: "GOOGLE_AI_API_KEY não configurada para busca de notícias." };
-            }
-            return await getCompanyTickerNews(toolInput.symbol, toolInput.from_date, toolInput.to_date, googleKey);
+            return await getCompanyTickerNews(toolInput.symbol, toolInput.from_date, toolInput.to_date, googleKey!);
           }
           if (toolName === "ask_perplexity_researcher") {
             console.log(`Executing ask_perplexity_researcher`);
@@ -1450,7 +1483,7 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
 
         try {
           let currentMessages = [...claudeMessages];
-          let currentResponse: Response = initialClaudeRes;
+          let currentResponse: Response = initialRes;
           const maxSteps = 5;
 
           for (let step = 0; step < maxSteps; step++) {
@@ -1460,7 +1493,7 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
               break;
             }
 
-            // Emit tool_pending event so frontend shows a spinner
+            // Emit tool_pending event
             const toolLabels: Record<string, string> = {
               "fetch_live_asset_data": "Buscando dados de mercado...",
               "search_macro_market_context": "Pesquisando contexto macroeconômico...",
@@ -1481,18 +1514,18 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
               {
                 role: "assistant",
                 content: [
-                  { type: "tool_use", id: toolResult.toolId, name: toolResult.toolName, input: toolResult.toolInput },
+                  { type: "tool_use", name: toolResult.toolName, input: toolResult.toolInput },
                 ],
               },
               {
                 role: "user",
                 content: [
-                  { type: "tool_result", tool_use_id: toolResult.toolId, content: JSON.stringify(toolResultData) },
+                  { type: "tool_result", _toolName: toolResult.toolName, content: JSON.stringify(toolResultData) },
                 ],
               },
             ];
 
-            currentResponse = await createClaudeResponse(currentMessages);
+            currentResponse = await createGeminiResponse(currentMessages);
 
             if (!currentResponse.ok) {
               const errText = await currentResponse.text();
