@@ -358,7 +358,7 @@ Deno.serve(async (req) => {
                 if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts) {
                   const geminiPart = data.candidates[0].content.parts[0];
                   if (geminiPart.text) {
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text", text: geminiPart.text })}\n\n`));
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "delta", text: geminiPart.text })}\n\n`));
                   }
                 }
 
