@@ -337,17 +337,24 @@ Deno.serve(async (req) => {
               break;
             }
 
-            const chunkText = decoder.decode(value);
+            const chunkText = decoder.decode(value, { stream: true });
             currentText += chunkText;
 
-            // Process SSE events
-            let eventSeparator = currentText.indexOf("\n\n");
-            while (eventSeparator > 0) {
-              const event = currentText.substring(0, eventSeparator);
-              currentText = currentText.substring(eventSeparator + 2);
+            // Process SSE events line by line
+            let newlineIndex: number;
+            while ((newlineIndex = currentText.indexOf("\n")) !== -1) {
+              let line = currentText.slice(0, newlineIndex);
+              currentText = currentText.slice(newlineIndex + 1);
 
-              if (event.startsWith("data: ")) {
-                const data = JSON.parse(event.substring(6));
+              if (line.endsWith("\r")) line = line.slice(0, -1);
+              if (!line || line.trim() === "" || line.startsWith(":")) continue;
+              if (!line.startsWith("data: ")) continue;
+
+              const jsonStr = line.slice(6).trim();
+              if (jsonStr === "[DONE]") break;
+
+              try {
+                const data = JSON.parse(jsonStr);
 
                 if (data.error) {
                   console.error("Gemini error in stream:", data.error);
@@ -355,20 +362,19 @@ Deno.serve(async (req) => {
                   return;
                 }
 
-                if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts) {
-                  const geminiPart = data.candidates[0].content.parts[0];
-                  if (geminiPart.text) {
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text", text: geminiPart.text })}\n\n`));
+                if (data.candidates?.[0]?.content?.parts) {
+                  for (const part of data.candidates[0].content.parts) {
+                    if (part.text) {
+                      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "delta", text: part.text })}\n\n`));
+                    }
                   }
                 }
 
-                if (data.candidates && data.candidates[0].toolCalls) {
-                  const toolCalls = data.candidates[0].toolCalls;
-                  for (const toolCall of toolCalls) {
-                    if (toolCall.functionCall) {
-                      const { name, args } = toolCall.functionCall;
-
-                      // Dispatch tool call and enqueue result
+                // Handle function calls from Gemini
+                if (data.candidates?.[0]?.content?.parts) {
+                  for (const part of data.candidates[0].content.parts) {
+                    if (part.functionCall) {
+                      const { name, args } = part.functionCall;
                       let toolResult: any = null;
                       switch (name) {
                         case "fetchLiveMarketData":
@@ -376,29 +382,25 @@ Deno.serve(async (req) => {
                           break;
                         case "searchMacroMarketContext":
                           toolResult = await searchMacroMarketContext(args.query, googleKey);
-                          if (toolResult?.sources) {
-                            sources = sources.concat(toolResult.sources);
-                          }
+                          if (toolResult?.sources) sources = sources.concat(toolResult.sources);
                           break;
                         case "getCompanyTickerNews":
                           toolResult = await getCompanyTickerNews(args.symbol, args.fromDate, args.toDate, googleKey);
-                          if (toolResult?.sources) {
-                            sources = sources.concat(toolResult.sources);
-                          }
+                          if (toolResult?.sources) sources = sources.concat(toolResult.sources);
                           break;
                         default:
                           console.warn("Unknown tool call:", name);
                           toolResult = { status: "error", message: `Tool ${name} not implemented` };
                       }
-
-                      const toolResultString = JSON.stringify(toolResult);
-                      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool_result", tool_call_id: toolCall.id, content: toolResultString })}\n\n`));
+                      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool_call", tool: name, input: args })}\n\n`));
                     }
                   }
                 }
+              } catch {
+                // Partial JSON, put it back and wait for more data
+                currentText = line + "\n" + currentText;
+                break;
               }
-
-              eventSeparator = currentText.indexOf("\n\n");
             }
 
             // Handle continuation turns if needed
