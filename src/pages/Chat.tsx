@@ -484,7 +484,7 @@ export default function Chat() {
           {/* Telemetry Bar */}
           <TelemetryBar
             isStreaming={isLoading}
-            activeModel="Gemini 2.5 Flash"
+            activeModel="Gemini Flash 09-25"
             latency={lastLatency}
             activePortfolio={activePortfolio}
             activeTicker={activeTicker}
