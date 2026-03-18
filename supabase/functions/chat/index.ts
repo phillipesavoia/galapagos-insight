@@ -278,8 +278,8 @@ Deno.serve(async (req) => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             contents: geminiMessages,
-            systemInstruction: { parts: [{ text: systemPrompt }] },
-            tools: geminiTools,
+            ...(systemPrompt ? { systemInstruction: { parts: [{ text: systemPrompt }] } } : {}),
+            ...(geminiTools ? { tools: geminiTools } : {}),
             generationConfig: {
               temperature: 0,
               maxOutputTokens: 4096,
