@@ -242,7 +242,7 @@ Deno.serve(async (req) => {
     });
 
     const body = await req.json();
-    const { query, messages: rawMessages, systemPrompt, geminiTools, session_id, active_portfolio, active_ticker, filter_type } = body;
+    const { query, messages: rawMessages, systemPrompt: clientSystemPrompt, geminiTools, session_id, active_portfolio, active_ticker, filter_type } = body;
 
     // Support both formats: { query: "..." } from Chat.tsx or { messages: [...] } from other callers
     let messages: any[];
@@ -253,6 +253,81 @@ Deno.serve(async (req) => {
     } else {
       throw new Error("Missing messages or query in request.");
     }
+
+    // --- Fetch live portfolio data from Supabase ---
+    const [allocRes, navsRes, holdingsRes] = await Promise.all([
+      supabaseClient.from("model_allocations").select("portfolio_name, asset_class, weight_pct").order("portfolio_name").order("weight_pct", { ascending: false }),
+      supabaseClient.from("daily_navs").select("portfolio_name, date, nav, daily_return, ytd_return").order("date", { ascending: false }).limit(10),
+      supabaseClient.from("portfolio_holdings").select("portfolio_name, ticker, asset_name, asset_class, weight_percentage, monthly_contribution, contribution_month").eq("is_active", true).order("portfolio_name").order("weight_percentage", { ascending: false }),
+    ]);
+
+    // Build allocation summary
+    const allocMap: Record<string, string[]> = {};
+    for (const row of allocRes.data || []) {
+      const key = row.portfolio_name;
+      if (!allocMap[key]) allocMap[key] = [];
+      allocMap[key].push(`${row.asset_class}: ${row.weight_pct}%`);
+    }
+    const allocText = Object.entries(allocMap).map(([k, v]) => `  ${k}: ${v.join(", ")}`).join("\n");
+
+    // Build latest NAVs
+    const latestDate = navsRes.data?.[0]?.date || "N/A";
+    const navsText = (navsRes.data || [])
+      .filter((r: any) => r.date === latestDate)
+      .map((r: any) => `  ${r.portfolio_name}: NAV ${r.nav} | Daily ${r.daily_return >= 0 ? "+" : ""}${r.daily_return?.toFixed(2)}% | YTD ${r.ytd_return >= 0 ? "+" : ""}${r.ytd_return?.toFixed(2)}%`)
+      .join("\n");
+
+    // Build holdings per portfolio
+    const holdingsMap: Record<string, string[]> = {};
+    for (const row of (holdingsRes.data || [])) {
+      const key = row.portfolio_name;
+      if (!holdingsMap[key]) holdingsMap[key] = [];
+      const contrib = row.monthly_contribution != null ? ` | Contribuição: ${row.monthly_contribution >= 0 ? "+" : ""}${row.monthly_contribution.toFixed(2)}%` : "";
+      holdingsMap[key].push(`${row.ticker || "N/A"} (${row.asset_name}) — ${row.asset_class}, Peso: ${row.weight_percentage}%${contrib}`);
+    }
+    const holdingsText = Object.entries(holdingsMap).map(([k, v]) => `  **${k}:**\n    ${v.join("\n    ")}`).join("\n\n");
+
+    // --- Build the authoritative system prompt ---
+    const GALAPAGOS_SYSTEM_PROMPT = `Você é o Advisor de IA da **Galapagos Capital** — um gestor senior que conhece cada portfólio de cor.
+
+## IDENTIDADE
+- Fale como um gestor que acabou de sair da mesa de operações. Direto, técnico, sem enrolação.
+- Estilo F1: Resposta Direta → Alternativa → Métrica Técnica.
+- Responda SEMPRE em português brasileiro.
+
+## PORTFÓLIOS OFICIAIS (ÚNICA VERDADE)
+A Galapagos opera 6 Model Portfolios: Conservative, Income, Balanced, Growth, Aggressive e Elite.
+
+### Alocação Macro (model_allocations):
+${allocText}
+
+### NAVs e Performance (Dados: ${latestDate}):
+${navsText}
+
+### Holdings Detalhados (portfolio_holdings):
+${holdingsText}
+
+## DADOS COMPLEMENTARES (quando não há dados no DB)
+- AGGRESSIVE: NAV 172.40 | YTD: -1.20% | Vol: 18%
+- ELITE: NAV 195.10 | YTD: +0.45% | Vol: 10%
+- GROWTH Vol: 13% | Sharpe: 2.1
+- BALANCED Vol: 8% | Sharpe: 1.8
+- INCOME Vol: 5% | Sharpe: 1.5
+- CONSERVATIVE Vol: 4% | Sharpe: 1.2
+
+## REGRAS INVIOLÁVEIS
+1. **Golden Rule**: Para alocações e holdings, use EXCLUSIVAMENTE os dados acima. NUNCA invente ativos ou pesos.
+2. **Anti-Bleeding**: Se a alocação macro de uma classe é 0% num portfólio, NÃO liste ativos dessa classe nele.
+3. **Janela Temporal**: Dados são do fechamento consolidado (${latestDate}). Se pedirem MTD atual, redirecione para o Dashboard.
+4. **Strict Match**: Não use proxies ou estimativas. Se não há dado, diga "Dado não disponível no sistema".
+5. **Formatação**: Use Markdown. Números positivos com prefixo +. Tabelas quando comparar portfólios.
+6. Para perguntas sobre "por quê" de movimentos de mercado, use as ferramentas de pesquisa externa.
+
+## CONTEXTO ATIVO
+${active_portfolio ? `Portfólio em foco: ${active_portfolio}` : "Nenhum portfólio selecionado"}
+${active_ticker ? `Ticker em foco: ${active_ticker}` : ""}`;
+
+    const finalSystemPrompt = clientSystemPrompt || GALAPAGOS_SYSTEM_PROMPT;
 
     const claudeMessages = messages.map((m: any) => ({
       role: m.role === "assistant" ? "model" : m.role,
@@ -278,7 +353,7 @@ Deno.serve(async (req) => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             contents: geminiMessages,
-            ...(systemPrompt ? { systemInstruction: { parts: [{ text: systemPrompt }] } } : {}),
+            systemInstruction: { parts: [{ text: finalSystemPrompt }] },
             ...(geminiTools ? { tools: geminiTools } : {}),
             generationConfig: {
               temperature: 0,
