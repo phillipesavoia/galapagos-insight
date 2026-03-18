@@ -677,7 +677,9 @@ Exemplos de quando usar:
         footerRow: {
           type: "object",
           description: "Linha de rodapé opcional (ex: totais). Mesmo formato das rows.",
-          additionalProperties: true,
+          properties: {
+            label: { type: "string", description: "Label do rodapé (ex: 'Total')" },
+          },
         },
       },
       required: ["title", "columns", "rows"],
