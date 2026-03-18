@@ -1350,7 +1350,7 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
     const createGeminiResponse = async (messages: any[]) => {
       const geminiMessages = toGeminiMessages(messages);
       return await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:streamGenerateContent?alt=sse&key=${googleKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:streamGenerateContent?alt=sse&key=${googleKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
