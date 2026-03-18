@@ -1351,7 +1351,7 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
       });
     }
 
-    const PRIMARY_MODEL = 'gemini-2.0-flash';
+    const PRIMARY_MODEL = 'gemini-2.5-flash-preview';
     const FALLBACK_MODEL = 'gemini-1.5-flash';
 
     const createGeminiResponse = async (messages: any[], model: string = PRIMARY_MODEL) => {
