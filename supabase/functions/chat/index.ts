@@ -241,10 +241,17 @@ Deno.serve(async (req) => {
       },
     });
 
-    const { messages, systemPrompt, geminiTools } = await req.json();
+    const body = await req.json();
+    const { query, messages: rawMessages, systemPrompt, geminiTools, session_id, active_portfolio, active_ticker, filter_type } = body;
 
-    if (!messages) {
-      throw new Error("Missing messages in request.");
+    // Support both formats: { query: "..." } from Chat.tsx or { messages: [...] } from other callers
+    let messages: any[];
+    if (rawMessages && Array.isArray(rawMessages)) {
+      messages = rawMessages;
+    } else if (query) {
+      messages = [{ role: "user", content: query }];
+    } else {
+      throw new Error("Missing messages or query in request.");
     }
 
     const claudeMessages = messages.map((m: any) => ({
