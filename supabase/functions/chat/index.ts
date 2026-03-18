@@ -68,10 +68,7 @@ async function searchMacroMarketContext(query: string, googleKey: string): Promi
 
     const data = await res.json();
     const textParts = data?.candidates?.[0]?.content?.parts || [];
-    const textContent = textParts
-      .filter((p: any) => p.text)
-      .map((p: any) => p.text)
-      .join("\n");
+    const textContent = textParts.filter((p: any) => p.text).map((p: any) => p.text).join("\n");
 
     const groundingMetadata = data?.candidates?.[0]?.groundingMetadata;
     const groundingSources =
@@ -121,10 +118,7 @@ async function getCompanyTickerNews(symbol: string, fromDate: string, toDate: st
 
     const data = await res.json();
     const textParts = data?.candidates?.[0]?.content?.parts || [];
-    const textContent = textParts
-      .filter((p: any) => p.text)
-      .map((p: any) => p.text)
-      .join("\n");
+    const textContent = textParts.filter((p: any) => p.text).map((p: any) => p.text).join("\n");
 
     const groundingMetadata = data?.candidates?.[0]?.groundingMetadata;
     const groundingSources =
@@ -191,7 +185,6 @@ Deno.serve(async (req) => {
     try {
       const queryEmbedding = await generateEmbedding(query, googleKey);
       if (queryEmbedding) {
-        // match_documents é a função RPC padrão. Se você usava outro nome (ex: match_page_sections), o erro aparecerá nos logs.
         const { data: matchedDocs, error: matchError } = await supabaseClient.rpc("match_documents", {
           query_embedding: queryEmbedding,
           match_threshold: 0.7,
@@ -304,9 +297,10 @@ Leia atentamente os trechos extraídos dos nossos documentos abaixo para respond
 ${documentContext ? documentContext : "Nenhum documento específico encontrado para esta consulta."}
 
 ## REGRAS
-1. Sempre priorize as informações exatas contidas na seção "CONHECIMENTO DOS DOCUMENTOS" e "DADOS DO BANCO DE DADOS".
-2. Nunca invente dados. Se não estiver em nenhuma das fontes acima, diga "Dado não disponível no sistema".
-3. Crie tabelas bem formatadas em Markdown sempre que o usuário pedir listas, alocações ou retornos.
+1. Baseie-se APENAS em "DADOS DO BANCO DE DADOS" e "CONHECIMENTO DOS DOCUMENTOS". Nunca invente ativos, pesos ou retornos.
+2. Se o usuário pedir várias informações e você só tiver parte delas (ex: tem as posições e pesos, mas faltam os retornos), MOSTRE A TABELA COM O QUE TEM e preencha as colunas vazias com "N/A" ou "Indisponível". Não recuse a resposta inteira.
+3. Sempre estruture listas de ativos, alocações e retornos em formato de Tabela Markdown clara e legível.
+4. Redirecione para o Dashboard apenas se o usuário pedir dados em tempo real ou gráficos.
 
 ## CONTEXTO ATIVO
 ${active_portfolio ? `Portfólio em foco: ${active_portfolio}` : "Nenhum portfólio selecionado"}
@@ -343,140 +337,3 @@ ${active_ticker ? `Ticker em foco: ${active_ticker}` : ""}`;
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        },
-      );
-    };
-
-    const createGeminiResponseWithFallback = async (msgs: any[]) => {
-      let response = await createGeminiResponse(msgs, PRIMARY_MODEL);
-      if (!response.ok) {
-        const primaryErrorText = await response.text();
-        const normalizedError = primaryErrorText.toLowerCase();
-        if (
-          response.status === 404 ||
-          normalizedError.includes("not found") ||
-          normalizedError.includes("no longer available")
-        ) {
-          console.warn(`Primary model ${PRIMARY_MODEL} not available, falling back to ${FALLBACK_MODEL}`);
-          response = await createGeminiResponse(msgs, FALLBACK_MODEL);
-          if (!response.ok) {
-            const fallbackErrorText = await response.text();
-            throw new Error(`Gemini error: ${fallbackErrorText}`);
-          }
-          return response;
-        }
-        throw new Error(`Gemini error: ${primaryErrorText}`);
-      }
-      return response;
-    };
-
-    const initialRes = await createGeminiResponseWithFallback(claudeMessages);
-
-    const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
-
-    // Injetando as fontes dos documentos encontrados para aparecer na UI (botão de Sources)
-    let sources: any[] = [...documentSources];
-
-    const stream = new ReadableStream({
-      async start(controller) {
-        const reader = initialRes.body!.getReader();
-        let currentText = "";
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const chunkText = decoder.decode(value, { stream: true });
-            currentText += chunkText;
-
-            let newlineIndex: number;
-            while ((newlineIndex = currentText.indexOf("\n")) !== -1) {
-              let line = currentText.slice(0, newlineIndex);
-              currentText = currentText.slice(newlineIndex + 1);
-
-              if (line.endsWith("\r")) line = line.slice(0, -1);
-              if (!line || line.trim() === "" || line.startsWith(":")) continue;
-              if (!line.startsWith("data: ")) continue;
-
-              const jsonStr = line.slice(6).trim();
-              if (jsonStr === "[DONE]") break;
-
-              try {
-                const data = JSON.parse(jsonStr);
-
-                if (data.error) {
-                  console.error("Gemini error in stream:", data.error);
-                  controller.error(data.error);
-                  return;
-                }
-
-                if (data.candidates?.[0]?.content?.parts) {
-                  for (const part of data.candidates[0].content.parts) {
-                    if (part.text) {
-                      controller.enqueue(
-                        encoder.encode(`data: ${JSON.stringify({ type: "delta", text: part.text })}\n\n`),
-                      );
-                    }
-                  }
-                }
-
-                // Handle function calls
-                if (data.candidates?.[0]?.content?.parts) {
-                  for (const part of data.candidates[0].content.parts) {
-                    if (part.functionCall) {
-                      const { name, args } = part.functionCall;
-                      let toolResult: any = null;
-                      switch (name) {
-                        case "searchMacroMarketContext":
-                          toolResult = await searchMacroMarketContext(args.query, googleKey);
-                          if (toolResult?.sources) sources = sources.concat(toolResult.sources);
-                          break;
-                        case "getCompanyTickerNews":
-                          toolResult = await getCompanyTickerNews(args.symbol, args.fromDate, args.toDate, googleKey);
-                          if (toolResult?.sources) sources = sources.concat(toolResult.sources);
-                          break;
-                        default:
-                          console.warn("Unknown tool call:", name);
-                          toolResult = { status: "error", message: `Tool ${name} not implemented` };
-                      }
-                      controller.enqueue(
-                        encoder.encode(`data: ${JSON.stringify({ type: "tool_call", tool: name, input: args })}\n\n`),
-                      );
-                    }
-                  }
-                }
-              } catch {
-                currentText = line + "\n" + currentText;
-                break;
-              }
-            }
-          }
-
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "sources", sources })}\n\n`));
-          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-          controller.close();
-        } catch (err) {
-          console.error("Stream error:", err);
-          controller.error(err);
-        }
-      },
-    });
-
-    return new Response(stream, {
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
-      },
-    });
-  } catch (error) {
-    console.error("Chat error:", error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-});
