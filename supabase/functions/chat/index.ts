@@ -224,9 +224,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
+    const googleKey = Deno.env.get("GOOGLE_API_KEY");
     if (!googleKey) {
-      throw new Error("Missing GOOGLE_AI_API_KEY env var.");
+      throw new Error("Missing GOOGLE_API_KEY env var.");
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
