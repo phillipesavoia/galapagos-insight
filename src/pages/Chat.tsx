@@ -34,7 +34,7 @@ interface ChatSession {
   created_at: string;
 }
 
-const PORTFOLIO_NAMES = ["Liquidity", "Bonds", "Conservative", "Income", "Balanced", "Growth"];
+const PORTFOLIO_NAMES = ["Conservative", "Income", "Balanced", "Growth", "Aggressive", "Elite"];
 const PORTFOLIO_REGEX = new RegExp(`\\b(${PORTFOLIO_NAMES.join("|")})\\b`, "i");
 
 const TICKER_REGEX = /\b([A-Z]{2,5}(?:\s+(?:US|LN|GR|FP|JP|HK|AU|CN|IM|NA|SS|SZ|SE|GY|AV|SM|PL|ID|BB|FH|DC|NO|IT|MC|SW|CT))?)\b/;
