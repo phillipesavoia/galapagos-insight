@@ -40,7 +40,7 @@ export function InlineComparisonTable({ title, columns, rows, footerRow }: Inlin
   if (!rows || rows.length === 0) return null;
 
   return (
-    <div className="my-3 rounded-lg border border-border bg-card overflow-hidden">
+    <div className="my-3 rounded-2xl glass-card border border-white/5 overflow-hidden">
       <div className="px-4 py-2.5 border-b border-border">
         <h4 className="text-[11px] font-bold text-neon-orange uppercase tracking-widest">{title}</h4>
       </div>

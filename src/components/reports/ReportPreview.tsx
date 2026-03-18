@@ -1,6 +1,6 @@
 import { forwardRef, useMemo } from "react";
 import {
-  ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from "recharts";
 import type { NavDataPoint, PortfolioName } from "@/pages/Dashboard";
 
@@ -136,7 +136,7 @@ export const ReportPreview = forwardRef<HTMLDivElement, ReportPreviewProps>(
           </p>
         </div>
 
-        {/* Chart */}
+        {/* Chart - Area with gradient */}
         <div style={{ marginBottom: "24px" }}>
           {loading ? (
             <div style={{ height: "220px", display: "flex", alignItems: "center", justifyContent: "center", color: "#9ca3af", fontSize: "13px" }}>Carregando dados...</div>
@@ -144,19 +144,25 @@ export const ReportPreview = forwardRef<HTMLDivElement, ReportPreviewProps>(
             <div style={{ height: "220px", display: "flex", alignItems: "center", justifyContent: "center", color: "#9ca3af", fontSize: "13px", border: "1px dashed #d1d5db", borderRadius: "8px" }}>Sem dados disponíveis</div>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="report-portfolio-gradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.20} />
+                    <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid horizontal={true} vertical={false} strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis dataKey="date" tick={{ fill: "#6b7280", fontSize: 10 }} axisLine={{ stroke: "#d1d5db" }} tickLine={false}
                   tickFormatter={(v: string) => { const d = new Date(v); return `${d.getDate()}/${d.getMonth() + 1}`; }} />
                 <YAxis tick={{ fill: "#6b7280", fontSize: 10 }} axisLine={false} tickLine={false} domain={["dataMin - 2", "dataMax + 2"]} />
                 <Tooltip contentStyle={{ backgroundColor: "#fff", border: "1px solid #e5e7eb", borderRadius: "6px", fontSize: "11px" }}
                   labelFormatter={(v: string) => new Date(v).toLocaleDateString("pt-BR")} />
                 <Legend wrapperStyle={{ fontSize: "10px" }} />
-                <Line type="monotone" dataKey={portfolio} name={portfolio} stroke="#10b981" strokeWidth={2} dot={false} />
+                <Area type="monotone" dataKey={portfolio} name={portfolio} stroke="#10b981" strokeWidth={2} fill="url(#report-portfolio-gradient)" dot={false} />
                 {benchmarks.map(b => (
-                  <Line key={b.ticker} type="monotone" dataKey={b.ticker} name={b.name} stroke={BENCHMARK_COLORS[b.ticker] || "#94a3b8"} strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
+                  <Area key={b.ticker} type="monotone" dataKey={b.ticker} name={b.name} stroke={BENCHMARK_COLORS[b.ticker] || "#94a3b8"} strokeWidth={1.5} dot={false} strokeDasharray="4 2" fill="transparent" />
                 ))}
-              </LineChart>
+              </AreaChart>
             </ResponsiveContainer>
           )}
           {benchmarks.length > 0 && (

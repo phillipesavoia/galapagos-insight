@@ -16,9 +16,29 @@ interface NavChartProps {
   hideHeader?: boolean;
 }
 
+function CustomTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  const value = payload[0]?.value;
+  return (
+    <div className="rounded-xl px-3 py-2 text-[11px] font-mono border border-white/10 backdrop-blur-md"
+      style={{ backgroundColor: "#050b18" }}>
+      <p className="text-muted-foreground mb-0.5">
+        {new Date(label).toLocaleDateString("pt-BR")}
+      </p>
+      <p className="text-neon-green font-semibold">
+        ${typeof value === "number" ? value.toFixed(2) : value}
+      </p>
+    </div>
+  );
+}
+
 export function NavChart({ portfolio, data, loading, hideHeader }: NavChartProps) {
   const isEmpty = data.length === 0;
   const gradientId = `nav-gradient-${portfolio}`;
+
+  // Determine trend for color
+  const isPositive = data.length >= 2 ? data[data.length - 1].nav >= data[0].nav : true;
+  const strokeColor = isPositive ? "hsl(142, 69%, 58%)" : "hsl(351, 89%, 72%)";
 
   return (
     <div className={hideHeader ? "" : "glass-card rounded-2xl p-6"}>
@@ -48,15 +68,20 @@ export function NavChart({ portfolio, data, loading, hideHeader }: NavChartProps
           <AreaChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="hsl(142, 69%, 58%)" stopOpacity={0.25} />
-                <stop offset="100%" stopColor="hsl(142, 69%, 58%)" stopOpacity={0} />
+                <stop offset="0%" stopColor={strokeColor} stopOpacity={0.20} />
+                <stop offset="100%" stopColor={strokeColor} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+            <CartesianGrid
+              horizontal={true}
+              vertical={false}
+              strokeDasharray="3 3"
+              stroke="rgba(255,255,255,0.05)"
+            />
             <XAxis
               dataKey="date"
-              tick={{ fill: "hsl(215 15% 50%)", fontSize: 10 }}
-              axisLine={{ stroke: "rgba(255,255,255,0.04)" }}
+              tick={{ fill: "#475569", fontSize: 10, fontFamily: "JetBrains Mono, monospace" }}
+              axisLine={{ stroke: "rgba(255,255,255,0.05)" }}
               tickLine={false}
               tickFormatter={(v: string) => {
                 const d = new Date(v);
@@ -64,36 +89,22 @@ export function NavChart({ portfolio, data, loading, hideHeader }: NavChartProps
               }}
             />
             <YAxis
-              tick={{ fill: "hsl(215 15% 50%)", fontSize: 10 }}
+              tick={{ fill: "#475569", fontSize: 10, fontFamily: "JetBrains Mono, monospace" }}
               axisLine={false}
               tickLine={false}
               domain={["dataMin - 1", "dataMax + 1"]}
               tickFormatter={(v: number) => `$${v.toFixed(2)}`}
             />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "hsl(222 47% 4%)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                borderRadius: "12px",
-                fontSize: "11px",
-                color: "hsl(210 20% 92%)",
-                backdropFilter: "blur(12px)",
-              }}
-              labelFormatter={(v: string) => {
-                const d = new Date(v);
-                return d.toLocaleDateString("pt-BR");
-              }}
-              formatter={(value: number) => [`$${value.toFixed(2)}`, "NAV"]}
-            />
+            <Tooltip content={<CustomTooltip />} />
             <Area
               type="monotone"
               dataKey="nav"
               name="NAV"
-              stroke="hsl(142, 69%, 58%)"
+              stroke={strokeColor}
               strokeWidth={2}
               fill={`url(#${gradientId})`}
               dot={false}
-              activeDot={{ r: 4, fill: "hsl(142, 69%, 58%)", stroke: "hsl(222 47% 3%)", strokeWidth: 2 }}
+              activeDot={{ r: 4, fill: strokeColor, stroke: "#020617", strokeWidth: 2 }}
             />
           </AreaChart>
         </ResponsiveContainer>
