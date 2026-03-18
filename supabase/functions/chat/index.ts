@@ -1351,10 +1351,13 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
       });
     }
 
-    const createGeminiResponse = async (messages: any[]) => {
+    const PRIMARY_MODEL = 'gemini-2.0-flash';
+    const FALLBACK_MODEL = 'gemini-1.5-flash';
+
+    const createGeminiResponse = async (messages: any[], model: string = PRIMARY_MODEL) => {
       const geminiMessages = toGeminiMessages(messages);
       return await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:streamGenerateContent?alt=sse&key=${googleKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${googleKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1371,11 +1374,20 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
       );
     };
 
-    const initialRes = await createGeminiResponse(claudeMessages);
+    let initialRes = await createGeminiResponse(claudeMessages);
 
+    // Fallback: if primary model returns 404, retry with fallback
     if (!initialRes.ok) {
       const errText = await initialRes.text();
-      throw new Error(`Gemini error: ${errText}`);
+      if (initialRes.status === 404 || errText.includes('not found')) {
+        console.warn(`Primary model ${PRIMARY_MODEL} not found, falling back to ${FALLBACK_MODEL}`);
+        initialRes = await createGeminiResponse(claudeMessages, FALLBACK_MODEL);
+      }
+      if (!initialRes.ok) {
+        const fallbackErr = initialRes === initialRes ? errText : await initialRes.text();
+        throw new Error(`Gemini error: ${fallbackErr}`);
+      }
+    }
     }
 
     const encoder = new TextEncoder();
