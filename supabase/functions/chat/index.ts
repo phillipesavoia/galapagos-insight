@@ -83,7 +83,7 @@ async function searchMacroMarketContext(query: string, googleKey: string): Promi
   try {
     console.log(`Searching macro context: "${query}"`);
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${googleKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview:generateContent?key=${googleKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -154,7 +154,7 @@ async function getCompanyTickerNews(symbol: string, fromDate: string, toDate: st
   try {
     console.log(`Fetching news for ${symbol} from ${fromDate} to ${toDate}`);
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${googleKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview:generateContent?key=${googleKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1351,7 +1351,7 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
       });
     }
 
-    const PRIMARY_MODEL = 'gemini-2.0-flash';
+    const PRIMARY_MODEL = 'gemini-2.5-flash-preview';
     const FALLBACK_MODEL = 'gemini-1.5-flash';
 
     const createGeminiResponse = async (messages: any[], model: string = PRIMARY_MODEL) => {
