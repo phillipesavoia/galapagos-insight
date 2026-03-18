@@ -430,7 +430,55 @@ export default function Chat() {
                           return (
                             <>
                               <div className="prose prose-sm max-w-none text-gray-800 [&_p]:my-2 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-1 [&_strong]:text-gray-900 [&_strong]:font-semibold [&_h1]:text-[15px] [&_h2]:text-[14px] [&_h3]:text-[13px] [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-semibold [&_h1]:mt-4 [&_h2]:mt-4 [&_h3]:mt-3 [&_h1]:mb-2 [&_h2]:mb-2 [&_h3]:mb-1 [&_ul]:pl-5 [&_ol]:pl-5 [&_li]:text-gray-700 [&_hr]:my-3 [&_hr]:border-gray-200">
-                                <ReactMarkdown>{cleanContent}</ReactMarkdown>
+                                <ReactMarkdown
+                                  components={{
+                                    table: ({ children }) => (
+                                      <div className="my-3 overflow-x-auto rounded-lg border border-gray-200">
+                                        <table className="w-full text-[11px] font-mono border-collapse">
+                                          {children}
+                                        </table>
+                                      </div>
+                                    ),
+                                    thead: ({ children }) => (
+                                      <thead className="bg-gray-900 text-orange-400">
+                                        {children}
+                                      </thead>
+                                    ),
+                                    th: ({ children }) => (
+                                      <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest whitespace-nowrap">
+                                        {children}
+                                      </th>
+                                    ),
+                                    tbody: ({ children }) => (
+                                      <tbody className="divide-y divide-gray-100">
+                                        {children}
+                                      </tbody>
+                                    ),
+                                    tr: ({ children }) => (
+                                      <tr className="hover:bg-gray-50 transition-colors">
+                                        {children}
+                                      </tr>
+                                    ),
+                                    td: ({ children }) => {
+                                      const text = String(children ?? "");
+                                      const isPositive = /^\+?\d+(\.\d+)?%$/.test(text.trim());
+                                      const isNegative = /^-\d+(\.\d+)?%$/.test(text.trim());
+                                      const isNA = text.trim() === "N/A";
+                                      return (
+                                        <td
+                                          className={`px-3 py-1.5 whitespace-nowrap tabular-nums ${
+                                            isPositive ? "text-emerald-400 font-medium" :
+                                            isNegative ? "text-rose-400 font-medium" :
+                                            isNA ? "text-gray-300" :
+                                            "text-gray-700"
+                                          }`}
+                                        >
+                                          {children}
+                                        </td>
+                                      );
+                                    },
+                                  }}
+                                >{cleanContent}</ReactMarkdown>
                               </div>
                               {followUps.length > 0 && (
                                 <div className="mt-2 flex flex-wrap gap-1.5">
