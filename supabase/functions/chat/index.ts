@@ -715,7 +715,7 @@ Deno.serve(async (req) => {
 
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
     const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
-    if (!anthropicKey) throw new Error("Missing ANTHROPIC_API_KEY");
+    if (!googleKey) throw new Error("Missing GOOGLE_AI_API_KEY");
 
     // --- 0. Asset Knowledge + Structured Data lookup (priority context) ---
     let assetKnowledgeContext = "";
