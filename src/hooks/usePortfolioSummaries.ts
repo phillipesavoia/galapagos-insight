@@ -8,7 +8,7 @@ interface PortfolioSummary {
   mtdReturn: number | null;
 }
 
-const ALL_PORTFOLIOS = ["Liquidity", "Bonds", "Conservative", "Income", "Balanced", "Growth"];
+const ALL_PORTFOLIOS = ["Conservative", "Income", "Balanced", "Growth", "Aggressive", "Elite"];
 
 export function usePortfolioSummaries() {
   const [summaries, setSummaries] = useState<PortfolioSummary[]>([]);

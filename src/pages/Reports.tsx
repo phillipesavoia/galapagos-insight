@@ -9,7 +9,7 @@ import type { NavDataPoint, PortfolioName } from "@/pages/Dashboard";
 
 type Period = "MTD" | "3M" | "6M" | "YTD" | "1Y";
 
-const ALL_PORTFOLIOS = ["Liquidity", "Bonds", "Conservative", "Income", "Balanced", "Growth"];
+const ALL_PORTFOLIOS = ["Conservative", "Income", "Balanced", "Growth", "Aggressive", "Elite"];
 const PERIODS: { label: string; value: Period }[] = [
   { label: "Mês Atual", value: "MTD" },
   { label: "3 Meses", value: "3M" },

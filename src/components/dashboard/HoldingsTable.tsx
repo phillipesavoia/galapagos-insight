@@ -42,6 +42,24 @@ const mockHoldings: Record<PortfolioName, Holding[]> = {
     { ticker: "IWM", name: "iShares Russell 2000 ETF", weight: "10.0%", dailyReturn: "+0.45%", contribution: "+0.045%" },
     { ticker: "CASH", name: "USD Cash", weight: "10.0%", dailyReturn: "+0.01%", contribution: "+0.001%" },
   ],
+  Aggressive: [
+    { ticker: "QQQ", name: "Invesco QQQ Trust (Nasdaq 100)", weight: "30.0%", dailyReturn: "+0.55%", contribution: "+0.165%" },
+    { ticker: "SPY", name: "SPDR S&P 500 ETF", weight: "20.0%", dailyReturn: "+0.32%", contribution: "+0.064%" },
+    { ticker: "IWM", name: "iShares Russell 2000 ETF", weight: "15.0%", dailyReturn: "+0.45%", contribution: "+0.068%" },
+    { ticker: "EEM", name: "iShares MSCI Emerging Markets ETF", weight: "15.0%", dailyReturn: "+0.30%", contribution: "+0.045%" },
+    { ticker: "ARKK", name: "ARK Innovation ETF", weight: "10.0%", dailyReturn: "+0.72%", contribution: "+0.072%" },
+    { ticker: "CASH", name: "USD Cash", weight: "10.0%", dailyReturn: "+0.01%", contribution: "+0.001%" },
+  ],
+  Elite: [
+    { ticker: "SPY", name: "SPDR S&P 500 ETF", weight: "20.0%", dailyReturn: "+0.32%", contribution: "+0.064%" },
+    { ticker: "QQQ", name: "Invesco QQQ Trust (Nasdaq 100)", weight: "15.0%", dailyReturn: "+0.55%", contribution: "+0.083%" },
+    { ticker: "GLD", name: "SPDR Gold Shares", weight: "15.0%", dailyReturn: "+0.28%", contribution: "+0.042%" },
+    { ticker: "BITO", name: "ProShares Bitcoin Strategy ETF", weight: "10.0%", dailyReturn: "+1.20%", contribution: "+0.120%" },
+    { ticker: "VNQ", name: "Vanguard Real Estate ETF", weight: "10.0%", dailyReturn: "-0.18%", contribution: "-0.018%" },
+    { ticker: "EFA", name: "iShares MSCI EAFE ETF", weight: "10.0%", dailyReturn: "+0.18%", contribution: "+0.018%" },
+    { ticker: "HYG", name: "iShares High Yield Corporate Bond ETF", weight: "10.0%", dailyReturn: "+0.09%", contribution: "+0.009%" },
+    { ticker: "CASH", name: "USD Cash", weight: "10.0%", dailyReturn: "+0.01%", contribution: "+0.001%" },
+  ],
 };
 
 interface HoldingsTableProps {

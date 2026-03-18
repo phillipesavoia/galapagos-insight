@@ -83,7 +83,7 @@ async function searchMacroMarketContext(query: string, googleKey: string): Promi
   try {
     console.log(`Searching macro context: "${query}"`);
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${googleKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${googleKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -154,7 +154,7 @@ async function getCompanyTickerNews(symbol: string, fromDate: string, toDate: st
   try {
     console.log(`Fetching news for ${symbol} from ${fromDate} to ${toDate}`);
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${googleKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${googleKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1081,20 +1081,19 @@ Você é o assistente oficial e ESPECIALISTA EM ATIVOS da equipe de gestão da G
 
 A Galapagos Capital possui EXATAMENTE 6 portfólios modelo oficiais. Você DEVE reconhecer a existência de TODOS eles:
 
-1. **Conservative** — Apenas Fundos/ETFs UCITS
-2. **Income** — Apenas Fundos/ETFs UCITS
-3. **Balanced** — Apenas Fundos/ETFs UCITS
-4. **Growth** — Apenas Fundos/ETFs UCITS
-5. **Liquidity** — Apenas Fundos/ETFs UCITS
-6. **Bond Portfolio** — EXCLUSIVO para Bonds Diretos / Títulos Individuais (Corporate Bonds como Apple, Microsoft, Broadcom, e Sovereign Bonds)
+1. **Conservative** — Perfil conservador, foco em preservação de capital
+2. **Income** — Perfil de renda, foco em yield e dividendos
+3. **Balanced** — Perfil balanceado, mix equilibrado de classes
+4. **Growth** — Perfil de crescimento, foco em apreciação de capital
+5. **Aggressive** — Perfil agressivo, maior exposição a risco
+6. **Elite** — Perfil premium, estratégias sofisticadas e alternativas
 
 REGRAS DE RECONHECIMENTO (OBRIGATÓRIAS):
 
-- É ESTRITAMENTE PROIBIDO dizer que o "Bond Portfolio" não existe. Ele É um Model Portfolio oficial da casa e abriga TODOS os Corporate e Sovereign Bonds diretos listados na base de dados.
-- Sempre que o usuário perguntar sobre bonds diretos (títulos individuais), associe-os IMEDIATAMENTE à composição do "Bond Portfolio". NUNCA trate bonds diretos como ativos "soltos" ou "sem portfólio".
-- Os portfólios Conservative, Income, Balanced, Growth e Liquidity carregam EXCLUSIVAMENTE fundos e ETFs UCITS. NUNCA assuma que eles carregam bonds diretos/títulos individuais.
-- O portfólio Liquidity é um Model Portfolio de fundos/ETFs assim como os 4 modelos de risco. NUNCA confunda Liquidity com caixa ou bonds diretos.
-- Se o usuário perguntar "quais bonds temos?", responda apresentando a composição do Bond Portfolio. Se perguntar sobre "renda fixa" nos demais portfólios, esclareça que se tratam de ETFs/fundos de renda fixa, NÃO de títulos diretos.
+- Os 6 Model Portfolios oficiais são: Conservative, Income, Balanced, Growth, Aggressive e Elite.
+- NUNCA invente ou mencione portfólios que não existam nesta lista oficial.
+- Cada portfólio tem um perfil de risco crescente: Conservative → Income → Balanced → Growth → Aggressive → Elite.
+- Se o usuário perguntar sobre um portfólio que não esteja nesta lista, informe que não é um modelo oficial da casa.
 
 ### 🔴 REGRA DE TOLERÂNCIA ZERO PARA ALOCAÇÕES — PROVA REAL OBRIGATÓRIA (ANTI DATA-BLEEDING):
 
@@ -1350,7 +1349,7 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
     const createGeminiResponse = async (messages: any[]) => {
       const geminiMessages = toGeminiMessages(messages);
       return await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:streamGenerateContent?alt=sse&key=${googleKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:streamGenerateContent?alt=sse&key=${googleKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
