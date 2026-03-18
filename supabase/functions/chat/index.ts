@@ -167,7 +167,7 @@ Deno.serve(async (req) => {
     const [allocRes, navsRes, holdingsRes] = await Promise.all([
       supabaseClient.from("model_allocations").select("portfolio_name, asset_class, weight_pct").order("portfolio_name").order("weight_pct", { ascending: false }),
       supabaseClient.from("daily_navs").select("portfolio_name, date, nav, daily_return, ytd_return").order("date", { ascending: false }).limit(10),
-      supabaseClient.from("portfolio_holdings").select("portfolio_name, ticker, asset_name, asset_class, weight_percentage, monthly_contribution, contribution_month").eq("is_active", true).order("portfolio_name").order("weight_percentage", { ascending: false }),
+      supabaseClient.from("portfolio_holdings").select("portfolio_name, ticker, asset_name, asset_class, weight_percentage, monthly_contribution, contribution_month, ytd_return, monthly_return").eq("is_active", true).order("portfolio_name").order("weight_percentage", { ascending: false }),
     ]);
 
     // Build allocation summary
@@ -192,7 +192,9 @@ Deno.serve(async (req) => {
       const key = row.portfolio_name;
       if (!holdingsMap[key]) holdingsMap[key] = [];
       const contrib = row.monthly_contribution != null ? ` | Contribuição: ${row.monthly_contribution >= 0 ? "+" : ""}${row.monthly_contribution.toFixed(2)}%` : "";
-      holdingsMap[key].push(`${row.ticker || "N/A"} (${row.asset_name}) — ${row.asset_class}, Peso: ${row.weight_percentage}%${contrib}`);
+      const ytd = row.ytd_return != null ? ` | Retorno YTD: ${row.ytd_return >= 0 ? "+" : ""}${row.ytd_return.toFixed(2)}%` : "";
+      const monthly = row.monthly_return != null ? ` | Retorno Mês: ${row.monthly_return >= 0 ? "+" : ""}${row.monthly_return.toFixed(2)}%` : "";
+      holdingsMap[key].push(`${row.ticker || "N/A"} (${row.asset_name}) — ${row.asset_class}, Peso: ${row.weight_percentage}%${ytd}${monthly}${contrib}`);
     }
     const holdingsText = Object.entries(holdingsMap).map(([k, v]) => `  **${k}:**\n    ${v.join("\n    ")}`).join("\n\n");
 
