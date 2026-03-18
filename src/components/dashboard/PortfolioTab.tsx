@@ -21,7 +21,7 @@ function filterByPeriod(data: NavDataPoint[], period: Period): NavDataPoint[] {
   let cutoff: Date;
 
   if (period === "YTD") {
-    cutoff = new Date(lastDate.getFullYear(), 0, 1);
+    cutoff = new Date(lastDate.getFullYear(), 0, 1); // Jan 1st of last data year
   } else {
     const months = period === "1M" ? 1 : period === "3M" ? 3 : 12;
     cutoff = new Date(lastDate);
@@ -36,16 +36,16 @@ export function PortfolioTab({ portfolio, navData, loading, period, onPeriodChan
   const filtered = useMemo(() => filterByPeriod(navData, period), [navData, period]);
 
   return (
-    <div className="space-y-6 animate-fade-up">
-      <div className="glass-card rounded-2xl p-6">
-        <div className="flex items-center justify-between mb-5">
+    <div className="space-y-6">
+      <div className="rounded-xl border border-border bg-card p-5">
+        <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-sm font-semibold text-foreground">
               NAV Diário — {portfolio}
             </h3>
-            <p className="text-[10px] text-muted-foreground mt-0.5 font-mono uppercase tracking-widest">
+            <p className="text-xs text-muted-foreground mt-0.5">
               {filtered.length === 0 && !loading
-                ? "Nenhum dado disponível"
+                ? "Nenhum dado disponível — faça upload via /admin/nav-upload"
                 : "Evolução do período selecionado"}
             </p>
           </div>

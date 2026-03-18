@@ -17,10 +17,10 @@ const benchmarkPlaceholders = [
 
 function CardSkeleton() {
   return (
-    <div className="glass-card rounded-2xl p-6 space-y-3">
-      <Skeleton className="h-4 w-24 bg-white/[0.04]" />
-      <Skeleton className="h-8 w-32 bg-white/[0.04]" />
-      <Skeleton className="h-3 w-40 bg-white/[0.04]" />
+    <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+      <Skeleton className="h-4 w-24" />
+      <Skeleton className="h-8 w-32" />
+      <Skeleton className="h-3 w-40" />
     </div>
   );
 }
@@ -28,6 +28,7 @@ function CardSkeleton() {
 export default function LiveDashboard() {
   const { data: portfolios, loading } = usePortfolioMarketData();
 
+  // Determine last date from portfolios data
   const lastDate = portfolios.length > 0 ? portfolios[0].lastDate : null;
   const formattedDate = lastDate
     ? new Date(lastDate + "T00:00:00").toLocaleDateString("pt-BR")
@@ -35,41 +36,41 @@ export default function LiveDashboard() {
 
   return (
     <Layout>
-      <div className="w-full px-8 py-8 space-y-10 overflow-x-hidden">
+      <div className="w-full px-6 py-6 space-y-10 overflow-x-hidden">
         {/* Header */}
-        <div className="animate-fade-up">
+        <div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">
-            Live Market
+            Live Market Dashboard
           </h1>
-          <p className="text-xs text-muted-foreground mt-1 font-mono uppercase tracking-widest">
-            Closing prices (D-1) ·{" "}
-            <span className="text-neon-green">
-              {formattedDate}
+          <p className="text-sm text-muted-foreground mt-1">
+            Preços de fechamento (D-1) e performance de curto prazo ·{" "}
+            <span className="text-primary font-medium">
+              📅 Data Base: {formattedDate}
             </span>
           </p>
         </div>
 
         {/* Benchmarks */}
-        <section className="animate-fade-up" style={{ animationDelay: "100ms" }}>
-          <div className="flex items-center gap-2 mb-5">
-            <h2 className="text-[10px] font-semibold text-neon-orange uppercase tracking-widest font-mono">
-              Market Benchmarks
+        <section>
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+              Benchmarks de Mercado
             </h2>
-            <span className="inline-flex items-center gap-1 text-[9px] text-warning bg-warning/10 px-2 py-0.5 rounded-full font-mono">
-              <AlertTriangle className="h-2.5 w-2.5" />
-              Awaiting API
+            <span className="inline-flex items-center gap-1 text-[10px] text-warning bg-warning/10 px-2 py-0.5 rounded-full font-medium">
+              <AlertTriangle className="h-3 w-3" />
+              Aguardando API
             </span>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 stagger-children">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {benchmarkPlaceholders.map((b) => (
               <div
                 key={b.ticker}
-                className="glass-card rounded-2xl p-6 flex flex-col items-center justify-center text-center min-h-[140px] border-dashed"
+                className="rounded-xl border border-dashed border-border bg-card/50 p-5 flex flex-col items-center justify-center text-center min-h-[140px]"
               >
                 <p className="text-sm font-semibold text-foreground">{b.title}</p>
-                <p className="text-[9px] text-muted-foreground font-mono mt-0.5">{b.ticker}</p>
-                <p className="text-[10px] text-muted-foreground/60 mt-3 font-mono">
-                  Pending market API connection
+                <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{b.ticker}</p>
+                <p className="text-xs text-muted-foreground mt-3">
+                  Dados disponíveis quando a API de mercado for conectada
                 </p>
               </div>
             ))}
@@ -77,9 +78,9 @@ export default function LiveDashboard() {
         </section>
 
         {/* Portfolios */}
-        <section className="animate-fade-up" style={{ animationDelay: "200ms" }}>
-          <h2 className="text-[10px] font-semibold text-neon-orange uppercase tracking-widest font-mono mb-5">
-            Model Portfolios
+        <section>
+          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-4">
+            Portfólios Modelo Galapagos
           </h2>
           {loading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -88,11 +89,11 @@ export default function LiveDashboard() {
               ))}
             </div>
           ) : portfolios.length === 0 ? (
-            <p className="text-sm text-muted-foreground font-mono">
-              No NAV data found.
+            <p className="text-sm text-muted-foreground">
+              Nenhum dado de NAV encontrado na base.
             </p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {portfolios.map((p) => (
                 <MarketCard
                   key={p.name}
@@ -110,10 +111,12 @@ export default function LiveDashboard() {
         </section>
 
         {/* Disclaimer */}
-        <p className="text-[10px] text-muted-foreground/40 italic leading-relaxed max-w-3xl font-mono">
-          *Allocations reflect the current position via Bloomberg (base date shown above).
-          Positions may differ from those discussed in the last market meeting due to tactical
-          moves during the current month.*
+        <p className="text-[11px] text-muted-foreground/60 italic leading-relaxed max-w-3xl">
+          *Nota: As alocações refletem a posição atual via Bloomberg (📅 Data Base informada).
+          Estas posições podem diferir das alocações discutidas na última reunião mercadológica,
+          por conta de movimentações táticas realizadas durante o mês corrente que serão reportadas
+          na próxima reunião mercadológica. Para mais detalhes, consulte a equipe de Investor
+          Offshore.*
         </p>
       </div>
     </Layout>

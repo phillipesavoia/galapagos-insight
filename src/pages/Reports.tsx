@@ -1,88 +1,41 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useReactToPrint } from "react-to-print";
-import { Download, RefreshCw, Loader2, Sparkles } from "lucide-react";
+import { Download } from "lucide-react";
 import { Layout } from "@/components/Layout";
-import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { ReportPreview } from "@/components/reports/ReportPreview";
 import type { NavDataPoint, PortfolioName } from "@/pages/Dashboard";
+import type { Period } from "@/components/dashboard/PeriodFilter";
+import { ReportPreview } from "@/components/reports/ReportPreview";
 
-type Period = "MTD" | "3M" | "6M" | "YTD" | "1Y";
-
-const ALL_PORTFOLIOS = ["Conservative", "Income", "Balanced", "Growth", "Aggressive", "Elite"];
-const PERIODS: { label: string; value: Period }[] = [
-  { label: "Mês Atual", value: "MTD" },
-  { label: "3 Meses", value: "3M" },
-  { label: "6 Meses", value: "6M" },
+const portfolios: PortfolioName[] = ["Conservative", "Income", "Balanced", "Growth"];
+const periods: { label: string; value: Period }[] = [
+  { label: "1 Mês", value: "1M" },
   { label: "YTD", value: "YTD" },
-  { label: "1 Ano", value: "1Y" },
+  { label: "12 Meses", value: "12M" },
+  { label: "Máximo", value: "Máx" },
 ];
 
-const BENCHMARK_OPTIONS = [
-  { ticker: "SPY", name: "S&P 500 (SPY)" },
-  { ticker: "ACWI", name: "MSCI World (ACWI)" },
-  { ticker: "TLT", name: "US 20Y Treasury (TLT)" },
-  { ticker: "AGG", name: "Bloomberg Agg Bond (AGG)" },
-];
-
-interface BenchmarkData {
-  ticker: string;
-  name: string;
-  data: { date: string; price: number }[];
-}
-
-interface Holding {
-  asset_name: string;
-  ticker: string | null;
-  asset_class: string;
-  weight_percentage: number;
-  monthly_contribution: number | null;
-}
-
-function filterByPeriod<T extends { date: string }>(data: T[], period: Period): T[] {
-  if (data.length === 0) return data;
+function filterByPeriod(data: NavDataPoint[], period: Period): NavDataPoint[] {
+  if (data.length === 0 || period === "Máx") return data;
   const lastDate = new Date(data[data.length - 1].date);
   let cutoff: Date;
-  switch (period) {
-    case "MTD":
-      cutoff = new Date(lastDate.getFullYear(), lastDate.getMonth(), 1);
-      break;
-    case "YTD":
-      cutoff = new Date(lastDate.getFullYear(), 0, 1);
-      break;
-    case "3M":
-      cutoff = new Date(lastDate);
-      cutoff.setMonth(cutoff.getMonth() - 3);
-      break;
-    case "6M":
-      cutoff = new Date(lastDate);
-      cutoff.setMonth(cutoff.getMonth() - 6);
-      break;
-    case "1Y":
-      cutoff = new Date(lastDate);
-      cutoff.setFullYear(cutoff.getFullYear() - 1);
-      break;
-    default:
-      return data;
+  if (period === "YTD") {
+    cutoff = new Date(lastDate.getFullYear(), 0, 1);
+  } else {
+    const months = period === "1M" ? 1 : period === "3M" ? 3 : 12;
+    cutoff = new Date(lastDate);
+    cutoff.setMonth(cutoff.getMonth() - months);
   }
-  return data.filter(d => d.date >= cutoff.toISOString().slice(0, 10));
+  return data.filter((d) => d.date >= cutoff.toISOString().slice(0, 10));
 }
 
 export default function Reports() {
   const [clientName, setClientName] = useState("");
-  const [portfolio, setPortfolio] = useState("Conservative");
+  const [portfolio, setPortfolio] = useState<PortfolioName>("Conservative");
   const [period, setPeriod] = useState<Period>("YTD");
   const [comment, setComment] = useState("");
-  const [selectedBenchmarks, setSelectedBenchmarks] = useState<string[]>(["SPY"]);
-  // Ensure SPY is always included as default benchmark
-  const effectiveBenchmarks = selectedBenchmarks.length === 0 ? ["SPY"] : selectedBenchmarks;
   const [navData, setNavData] = useState<NavDataPoint[]>([]);
-  const [benchmarkData, setBenchmarkData] = useState<BenchmarkData[]>([]);
-  const [holdings, setHoldings] = useState<Holding[]>([]);
   const [loading, setLoading] = useState(true);
-  const [fetchingBenchmarks, setFetchingBenchmarks] = useState(false);
-  const [aiCommentary, setAiCommentary] = useState("");
-  const [aiLoading, setAiLoading] = useState(false);
 
   const printRef = useRef<HTMLDivElement>(null);
   const handlePrint = useReactToPrint({
@@ -90,7 +43,6 @@ export default function Reports() {
     documentTitle: `Relatorio_${portfolio}_${clientName || "Cliente"}`,
   });
 
-  // Fetch NAV data
   useEffect(() => {
     const fetchNav = async () => {
       setLoading(true);
@@ -100,279 +52,111 @@ export default function Reports() {
         .eq("portfolio_name", portfolio)
         .order("date", { ascending: true })
         .limit(1000);
-      if (!error && data) {
-        setNavData(data.map((r: any) => ({
-          date: r.date, nav: Number(r.nav),
-          daily_return: r.daily_return != null ? Number(r.daily_return) : null,
-          ytd_return: r.ytd_return != null ? Number(r.ytd_return) : null,
-        })));
-      } else {
+      if (error) {
+        console.error("Error fetching NAVs:", error);
         setNavData([]);
+      } else {
+        setNavData(
+          (data || []).map((r: any) => ({
+            date: r.date,
+            nav: Number(r.nav),
+            daily_return: r.daily_return != null ? Number(r.daily_return) : null,
+            ytd_return: r.ytd_return != null ? Number(r.ytd_return) : null,
+          }))
+        );
       }
       setLoading(false);
     };
     fetchNav();
   }, [portfolio]);
 
-  // Fetch holdings
-  useEffect(() => {
-    const fetchHoldings = async () => {
-      const { data } = await supabase
-        .from("portfolio_holdings")
-        .select("asset_name, ticker, asset_class, weight_percentage, monthly_contribution")
-        .eq("portfolio_name", portfolio)
-        .eq("is_active", true)
-        .order("weight_percentage", { ascending: false })
-        .limit(15);
-      setHoldings((data as Holding[]) || []);
-    };
-    fetchHoldings();
-  }, [portfolio]);
+  const filtered = useMemo(() => filterByPeriod(navData, period), [navData, period]);
 
-  // Fetch benchmark data from DB
-  useEffect(() => {
-    const fetchBench = async () => {
-      if (effectiveBenchmarks.length === 0) { setBenchmarkData([]); return; }
-      const results: BenchmarkData[] = [];
-      for (const ticker of effectiveBenchmarks) {
-        const { data } = await supabase
-          .from("benchmark_prices")
-          .select("date, price, name")
-          .eq("ticker", ticker)
-          .order("date", { ascending: true })
-          .limit(1000);
-        if (data && data.length > 0) {
-          results.push({
-            ticker,
-            name: data[0].name || ticker,
-            data: data.map((r: any) => ({ date: r.date, price: Number(r.price) })),
-          });
-        }
-      }
-      setBenchmarkData(results);
-    };
-    fetchBench();
-  }, [effectiveBenchmarks]);
-
-  const handleFetchBenchmarks = async () => {
-    setFetchingBenchmarks(true);
-    try {
-      await supabase.functions.invoke("fetch-benchmark-data", {
-        body: { tickers: effectiveBenchmarks },
-      });
-      const results: BenchmarkData[] = [];
-      for (const ticker of effectiveBenchmarks) {
-        const { data } = await supabase
-          .from("benchmark_prices")
-          .select("date, price, name")
-          .eq("ticker", ticker)
-          .order("date", { ascending: true })
-          .limit(1000);
-        if (data && data.length > 0) {
-          results.push({ ticker, name: data[0].name || ticker, data: data.map((r: any) => ({ date: r.date, price: Number(r.price) })) });
-        }
-      }
-      setBenchmarkData(results);
-    } catch (err) {
-      console.error("Benchmark fetch error:", err);
-    } finally {
-      setFetchingBenchmarks(false);
-    }
-  };
-
-  const handleGenerateAiCommentary = async () => {
-    setAiLoading(true);
-    setAiCommentary("");
-    try {
-      // Build enriched prompt with holdings context
-      const topDetractors = holdings
-        .filter(h => h.monthly_contribution != null && h.monthly_contribution < 0)
-        .sort((a, b) => (a.monthly_contribution ?? 0) - (b.monthly_contribution ?? 0))
-        .slice(0, 3);
-      const topContributors = holdings
-        .filter(h => h.monthly_contribution != null && h.monthly_contribution > 0)
-        .sort((a, b) => (b.monthly_contribution ?? 0) - (a.monthly_contribution ?? 0))
-        .slice(0, 3);
-
-      const holdingsContext = [
-        topContributors.length > 0 ? `Maiores contribuidores: ${topContributors.map(h => `${h.ticker || h.asset_name} (+${h.monthly_contribution?.toFixed(2)}%)`).join(", ")}` : "",
-        topDetractors.length > 0 ? `Maiores detratores: ${topDetractors.map(h => `${h.ticker || h.asset_name} (${h.monthly_contribution?.toFixed(2)}%)`).join(", ")}` : "",
-      ].filter(Boolean).join(". ");
-
-      const enrichedQuery = `Gere uma "Análise do Comitê de Investimentos" com EXATAMENTE 3 pontos-chave sobre a performance do portfólio ${portfolio} no período recente (${period}).
-
-DADOS QUANTITATIVOS DO PORTFÓLIO:
-${holdingsContext}
-
-INSTRUÇÕES:
-- Use os dados acima como base factual obrigatória.
-- Busque nas Atas de Gestão e Asset Dictionary as justificativas qualitativas para esses movimentos.
-- Formato: 3 bullets curtos e técnicos, sem introdução. Cada ponto em uma linha começando com "•".
-- Exemplo de tom: "• A queda de -0.44% no KWEB foi mitigada pela exposição ao ACWI (+0.14%), refletindo a rotação setorial descrita na Ata de Gestão."
-- Máximo 60 palavras por ponto.`;
-
-      const { data: { session } } = await supabase.auth.getSession();
-      const chatUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
-      const resp = await fetch(chatUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        },
-        body: JSON.stringify({
-          query: enrichedQuery,
-          filter_type: "all",
-          session_id: crypto.randomUUID(),
-          active_portfolio: portfolio,
-        }),
-      });
-
-      if (!resp.ok || !resp.body) throw new Error(`HTTP ${resp.status}`);
-
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let fullContent = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-
-        let newlineIndex: number;
-        while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
-          const line = buffer.slice(0, newlineIndex).trim();
-          buffer = buffer.slice(newlineIndex + 1);
-          if (!line.startsWith("data: ")) continue;
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") continue;
-          try {
-            const event = JSON.parse(jsonStr);
-            if (event.type === "delta" && event.text) {
-              fullContent += event.text;
-              setAiCommentary(fullContent);
-            }
-          } catch { /* partial */ }
-        }
-      }
-    } catch (err) {
-      console.error("AI commentary error:", err);
-      setAiCommentary("Erro ao gerar comentário. Tente novamente.");
-    } finally {
-      setAiLoading(false);
-    }
-  };
-
-  const toggleBenchmark = (ticker: string) => {
-    setSelectedBenchmarks(prev =>
-      prev.includes(ticker) ? prev.filter(t => t !== ticker) : prev.length >= 3 ? prev : [...prev, ticker]
-    );
-  };
-
-  const filteredNav = useMemo(() => filterByPeriod(navData, period), [navData, period]);
-  const filteredBenchmarks = useMemo(() =>
-    benchmarkData.map(b => ({ ...b, data: filterByPeriod(b.data, period) })),
-    [benchmarkData, period]
-  );
-
-  const periodLabel = PERIODS.find(p => p.value === period)?.label || period;
+  const periodLabel = periods.find((p) => p.value === period)?.label || period;
 
   return (
     <Layout>
       <div className="flex-1 flex flex-col min-h-0 bg-background">
-        <div className="px-6 pt-6 pb-4 border-b border-border print:hidden">
-          <h1 className="text-xl font-semibold text-foreground tracking-tight">Relatórios & Performance</h1>
-          <p className="text-sm text-muted-foreground mt-1">Compare portfólios com benchmarks e gere relatórios PDF</p>
+        <div className="px-6 pt-6 pb-4 border-b border-border">
+          <h1 className="text-xl font-semibold text-foreground tracking-tight">
+            Gerador de Relatórios
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Monte relatórios personalizados para seus clientes
+          </p>
         </div>
 
         <div className="flex-1 overflow-y-auto">
           <div className="flex gap-6 p-6 min-h-full">
             {/* Left: Controls */}
-            <div className="w-80 shrink-0 space-y-4 print:hidden">
+            <div className="w-80 shrink-0 space-y-5">
               <div className="rounded-xl border border-border bg-card p-5 space-y-4">
                 <h2 className="text-sm font-semibold text-foreground">Configuração</h2>
 
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Nome do Cliente</label>
-                  <input type="text" value={clientName} onChange={e => setClientName(e.target.value)}
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+                    Nome do Cliente (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={clientName}
+                    onChange={(e) => setClientName(e.target.value)}
                     placeholder="Ex: João Silva"
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Selecionar Modelo</label>
-                  <select value={portfolio} onChange={e => setPortfolio(e.target.value)}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer">
-                    {ALL_PORTFOLIOS.map(p => <option key={p} value={p}>{p}</option>)}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Período</label>
-                  <select value={period} onChange={e => setPeriod(e.target.value as Period)}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer">
-                    {PERIODS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Benchmarks (até 3)</label>
-                  <div className="flex flex-wrap gap-2">
-                    {BENCHMARK_OPTIONS.map(b => (
-                      <button key={b.ticker} onClick={() => toggleBenchmark(b.ticker)}
-                        className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${
-                          selectedBenchmarks.includes(b.ticker)
-                            ? "bg-primary/10 border-primary text-primary"
-                            : "bg-background border-border text-muted-foreground hover:border-primary/40"
-                        }`}>
-                        {b.ticker}
-                      </button>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+                    Portfólio
+                  </label>
+                  <select
+                    value={portfolio}
+                    onChange={(e) => setPortfolio(e.target.value as PortfolioName)}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+                  >
+                    {portfolios.map((p) => (
+                      <option key={p} value={p}>{p}</option>
                     ))}
-                  </div>
-                  {selectedBenchmarks.length > 0 && (
-                    <Button variant="ghost" size="sm" onClick={handleFetchBenchmarks} disabled={fetchingBenchmarks}
-                      className="mt-2 gap-1.5 text-xs text-muted-foreground w-full">
-                      {fetchingBenchmarks ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                      Atualizar Dados de Benchmarks (Finnhub)
-                    </Button>
-                  )}
+                  </select>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">Comentário de Mercado</label>
-                  <textarea value={comment} onChange={e => setComment(e.target.value)}
-                    placeholder="Cole aqui o resumo de mercado..."
-                    rows={4}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-y" />
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+                    Período
+                  </label>
+                  <select
+                    value={period}
+                    onChange={(e) => setPeriod(e.target.value as Period)}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+                  >
+                    {periods.map((p) => (
+                      <option key={p.value} value={p.value}>{p.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+                    Comentário de Mercado
+                  </label>
+                  <textarea
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    placeholder="Cole aqui o resumo de mercado gerado pela IA ou escreva seu próprio comentário..."
+                    rows={8}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-y"
+                  />
                 </div>
               </div>
 
-              {/* AI Commentary */}
-              <div className="rounded-xl border border-border bg-card p-5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-                    <Sparkles className="h-3.5 w-3.5 text-primary" />
-                    IA Investment Commentary
-                  </h2>
-                </div>
-                <p className="text-[11px] text-muted-foreground">Gere automaticamente um resumo de 3 pontos sobre a performance do portfólio.</p>
-                <Button variant="outline" size="sm" onClick={handleGenerateAiCommentary} disabled={aiLoading}
-                  className="w-full gap-1.5 text-xs">
-                  {aiLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                  {aiLoading ? "Gerando..." : "Gerar Comentário IA"}
-                </Button>
-                {aiCommentary && (
-                  <div className="text-xs text-foreground leading-relaxed whitespace-pre-wrap bg-secondary/30 rounded-lg p-3 border border-border">
-                    {aiCommentary}
-                  </div>
-                )}
-              </div>
-
-              <Button onClick={() => handlePrint()} className="w-full gap-2">
+              <button
+                onClick={() => handlePrint()}
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground px-4 py-3 text-sm font-medium hover:bg-primary/90 transition-colors"
+              >
                 <Download className="h-4 w-4" />
                 Exportar para PDF
-              </Button>
+              </button>
             </div>
 
             {/* Right: A4 Preview */}
@@ -380,15 +164,12 @@ INSTRUÇÕES:
               <div className="w-full max-w-[210mm]">
                 <ReportPreview
                   ref={printRef}
-                  portfolio={portfolio as PortfolioName}
+                  portfolio={portfolio}
                   clientName={clientName}
                   periodLabel={periodLabel}
-                  data={filteredNav}
+                  data={filtered}
                   loading={loading}
                   comment={comment}
-                  benchmarks={filteredBenchmarks}
-                  topHoldings={holdings.slice(0, 10)}
-                  aiCommentary={aiCommentary}
                 />
               </div>
             </div>

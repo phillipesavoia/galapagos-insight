@@ -5,7 +5,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthGuard } from "@/components/AuthGuard";
 import { AdminRoute } from "@/components/AdminRoute";
-import { ClientModeProvider } from "@/contexts/ClientModeContext";
 import Chat from "./pages/Chat";
 import LiveDashboard from "./pages/LiveDashboard";
 import Dashboard from "./pages/Dashboard";
@@ -14,7 +13,6 @@ import Reports from "./pages/Reports";
 import Library from "./pages/Library";
 import NavUpload from "./pages/NavUpload";
 import AssetKnowledge from "./pages/AssetKnowledge";
-import DataHub from "./pages/DataHub";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,21 +24,18 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthGuard>
-          <ClientModeProvider>
-            <Routes>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/dashboard" element={<LiveDashboard />} />
-              <Route path="/analytics" element={<Dashboard />} />
-              <Route path="/chat" element={<Chat />} />
-              <Route path="/generator" element={<Generator />} />
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/data-hub" element={<AdminRoute><DataHub /></AdminRoute>} />
-              <Route path="/library" element={<AdminRoute><Library /></AdminRoute>} />
-              <Route path="/admin/nav-upload" element={<AdminRoute><NavUpload /></AdminRoute>} />
-              <Route path="/admin/assets" element={<AdminRoute><AssetKnowledge /></AdminRoute>} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </ClientModeProvider>
+          <Routes>
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<LiveDashboard />} />
+            <Route path="/analytics" element={<Dashboard />} />
+            <Route path="/chat" element={<Chat />} />
+            <Route path="/generator" element={<Generator />} />
+            <Route path="/reports" element={<Reports />} />
+            <Route path="/library" element={<AdminRoute><Library /></AdminRoute>} />
+            <Route path="/admin/nav-upload" element={<AdminRoute><NavUpload /></AdminRoute>} />
+            <Route path="/admin/assets" element={<AdminRoute><AssetKnowledge /></AdminRoute>} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
         </AuthGuard>
       </BrowserRouter>
     </TooltipProvider>
@@ -48,4 +43,3 @@ const App = () => (
 );
 
 export default App;
-

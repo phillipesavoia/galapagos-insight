@@ -42,24 +42,6 @@ const mockHoldings: Record<PortfolioName, Holding[]> = {
     { ticker: "IWM", name: "iShares Russell 2000 ETF", weight: "10.0%", dailyReturn: "+0.45%", contribution: "+0.045%" },
     { ticker: "CASH", name: "USD Cash", weight: "10.0%", dailyReturn: "+0.01%", contribution: "+0.001%" },
   ],
-  Aggressive: [
-    { ticker: "QQQ", name: "Invesco QQQ Trust (Nasdaq 100)", weight: "30.0%", dailyReturn: "+0.55%", contribution: "+0.165%" },
-    { ticker: "SPY", name: "SPDR S&P 500 ETF", weight: "20.0%", dailyReturn: "+0.32%", contribution: "+0.064%" },
-    { ticker: "IWM", name: "iShares Russell 2000 ETF", weight: "15.0%", dailyReturn: "+0.45%", contribution: "+0.068%" },
-    { ticker: "EEM", name: "iShares MSCI Emerging Markets ETF", weight: "15.0%", dailyReturn: "+0.30%", contribution: "+0.045%" },
-    { ticker: "ARKK", name: "ARK Innovation ETF", weight: "10.0%", dailyReturn: "+0.72%", contribution: "+0.072%" },
-    { ticker: "CASH", name: "USD Cash", weight: "10.0%", dailyReturn: "+0.01%", contribution: "+0.001%" },
-  ],
-  Elite: [
-    { ticker: "SPY", name: "SPDR S&P 500 ETF", weight: "20.0%", dailyReturn: "+0.32%", contribution: "+0.064%" },
-    { ticker: "QQQ", name: "Invesco QQQ Trust (Nasdaq 100)", weight: "15.0%", dailyReturn: "+0.55%", contribution: "+0.083%" },
-    { ticker: "GLD", name: "SPDR Gold Shares", weight: "15.0%", dailyReturn: "+0.28%", contribution: "+0.042%" },
-    { ticker: "BITO", name: "ProShares Bitcoin Strategy ETF", weight: "10.0%", dailyReturn: "+1.20%", contribution: "+0.120%" },
-    { ticker: "VNQ", name: "Vanguard Real Estate ETF", weight: "10.0%", dailyReturn: "-0.18%", contribution: "-0.018%" },
-    { ticker: "EFA", name: "iShares MSCI EAFE ETF", weight: "10.0%", dailyReturn: "+0.18%", contribution: "+0.018%" },
-    { ticker: "HYG", name: "iShares High Yield Corporate Bond ETF", weight: "10.0%", dailyReturn: "+0.09%", contribution: "+0.009%" },
-    { ticker: "CASH", name: "USD Cash", weight: "10.0%", dailyReturn: "+0.01%", contribution: "+0.001%" },
-  ],
 };
 
 interface HoldingsTableProps {
@@ -70,34 +52,34 @@ export function HoldingsTable({ portfolio }: HoldingsTableProps) {
   const holdings = mockHoldings[portfolio];
 
   return (
-    <div className="glass-card rounded-2xl overflow-hidden animate-fade-up">
-      <div className="px-6 py-5 border-b border-white/5">
+    <div className="rounded-xl border border-border bg-card overflow-hidden">
+      <div className="px-5 py-4 border-b border-border">
         <h3 className="text-sm font-semibold text-foreground">
           Composição — {portfolio}
         </h3>
-        <p className="text-[10px] text-muted-foreground mt-0.5 font-mono uppercase tracking-widest">
-          Tickers, pesos e retorno diário
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Tickers, pesos e retorno diário (dados simulados)
         </p>
       </div>
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-white/5">
-              <th className="text-left px-6 py-3 text-[10px] font-semibold text-neon-orange uppercase tracking-widest font-mono">
+            <tr className="border-b border-border bg-secondary/30">
+              <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 Ticker
               </th>
-              <th className="text-left px-6 py-3 text-[10px] font-semibold text-neon-orange uppercase tracking-widest font-mono">
+              <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 Ativo
               </th>
-              <th className="text-right px-6 py-3 text-[10px] font-semibold text-neon-orange uppercase tracking-widest font-mono">
+              <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 Peso
               </th>
-              <th className="text-right px-6 py-3 text-[10px] font-semibold text-neon-orange uppercase tracking-widest font-mono">
-                Retorno
+              <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Retorno Diário
               </th>
-              <th className="text-right px-6 py-3 text-[10px] font-semibold text-neon-orange uppercase tracking-widest font-mono">
-                Contrib.
+              <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Contribuição
               </th>
             </tr>
           </thead>
@@ -108,32 +90,32 @@ export function HoldingsTable({ portfolio }: HoldingsTableProps) {
               return (
                 <tr
                   key={h.ticker}
-                  className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors"
+                  className="border-b border-border/50 hover:bg-accent/5 transition-colors"
                 >
-                  <td className="px-6 py-3 font-mono text-xs font-semibold text-foreground">
+                  <td className="px-5 py-3 font-mono text-xs font-semibold text-foreground">
                     {h.ticker}
                   </td>
-                  <td className="px-6 py-3 text-xs text-foreground/80">{h.name}</td>
-                  <td className="px-6 py-3 text-right text-muted-foreground font-mono text-xs">
+                  <td className="px-5 py-3 text-foreground">{h.name}</td>
+                  <td className="px-5 py-3 text-right text-muted-foreground font-mono">
                     {h.weight}
                   </td>
                   <td
-                    className={`px-6 py-3 text-right font-mono text-xs ${
+                    className={`px-5 py-3 text-right font-mono ${
                       isPositive
-                        ? "text-neon-green"
+                        ? "text-primary"
                         : isNegative
-                        ? "text-neon-rose"
+                        ? "text-destructive"
                         : "text-muted-foreground"
                     }`}
                   >
                     {h.dailyReturn}
                   </td>
                   <td
-                    className={`px-6 py-3 text-right font-mono text-xs ${
+                    className={`px-5 py-3 text-right font-mono ${
                       h.contribution.startsWith("+")
-                        ? "text-neon-green"
+                        ? "text-primary"
                         : h.contribution.startsWith("-")
-                        ? "text-neon-rose"
+                        ? "text-destructive"
                         : "text-muted-foreground"
                     }`}
                   >

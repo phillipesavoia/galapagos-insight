@@ -264,13 +264,10 @@ ${fullText.substring(0, 3000)}`,
     if (currentChunk.trim().length > 50) chunks.push(currentChunk.trim());
     console.log(`Created ${chunks.length} structure-aware chunks`);
 
-    // STEP 4: Generate embeddings in small batches
+    // STEP 4: Generate embeddings
     console.log("Step 4: Generating embeddings...");
-    const batchSize = 5;
+    const batchSize = 10;
     const allEmbeddings: { chunk: string; embedding: number[]; index: number }[] = [];
-
-    // Update status to show progress
-    await supabase.from("documents").update({ status: `vectorizing 0/${chunks.length}` }).eq("id", documentId);
 
     for (let i = 0; i < chunks.length; i += batchSize) {
       const batchChunks = chunks.slice(i, i + batchSize);
@@ -297,14 +294,8 @@ ${fullText.substring(0, 3000)}`,
         })
       );
       allEmbeddings.push(...batchResults);
-
-      // Update progress in DB so UI can poll
-      const processed = Math.min(i + batchSize, chunks.length);
-      await supabase.from("documents").update({ status: `vectorizing ${processed}/${chunks.length}` }).eq("id", documentId);
-      console.log(`Embeddings progress: ${processed}/${chunks.length}`);
-
       if (i + batchSize < chunks.length) {
-        await new Promise((r) => setTimeout(r, 300));
+        await new Promise((r) => setTimeout(r, 200));
       }
     }
 

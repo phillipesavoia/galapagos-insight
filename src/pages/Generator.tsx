@@ -9,39 +9,24 @@ import html2pdf from "html2pdf.js";
 const tabs = ["Carta Mensal", "Resumo de Fundo", "Comparativo"] as const;
 type Tab = (typeof tabs)[number];
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="block text-[9px] font-semibold text-neon-orange uppercase tracking-widest mb-1.5 font-mono">{label}</label>
-      {children}
-    </div>
-  );
-}
-
-function ToggleGroup({ options, value, onChange }: { options: string[]; value: string; onChange: (v: string) => void }) {
-  return (
-    <div className="flex gap-0.5 glass-card rounded-xl p-0.5">
-      {options.map((o) => (
-        <button key={o} onClick={() => onChange(o)} className={`flex-1 px-2 py-1.5 rounded-lg text-[10px] font-mono font-medium transition-colors ${value === o ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{o}</button>
-      ))}
-    </div>
-  );
-}
-
-const MODEL_PORTFOLIOS = [
-  "Conservative",
-  "Income",
-  "Balanced",
-  "Growth",
-  "Aggressive",
-  "Tactical",
-];
-
 export default function Generator() {
   const previewRef = useRef<HTMLDivElement>(null);
-  const [fundNames] = useState<string[]>(MODEL_PORTFOLIOS);
+  const [fundNames, setFundNames] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>("Carta Mensal");
   const [clientName, setClientName] = useState("Ricardo Almeida");
+
+  useEffect(() => {
+    const fetchFunds = async () => {
+      const { data } = await supabase
+        .from("documents")
+        .select("fund_name")
+        .eq("status", "indexed")
+        .not("fund_name", "is", null);
+      const names = [...new Set(data?.map((d) => d.fund_name).filter(Boolean))] as string[];
+      setFundNames(names);
+    };
+    fetchFunds();
+  }, []);
   const [period, setPeriod] = useState("2025-02");
   const [selectedFunds, setSelectedFunds] = useState<string[]>([]);
   const [tone, setTone] = useState("Neutro");
@@ -49,11 +34,13 @@ export default function Generator() {
   const [generatedContent, setGeneratedContent] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
 
+  // Tab B state
   const [fundB, setFundB] = useState("");
   const [periodB, setPeriodB] = useState("2025-02");
   const [recipientB, setRecipientB] = useState("Cliente");
   const [generatedB, setGeneratedB] = useState("");
 
+  // Tab C state
   const [fundC1, setFundC1] = useState("");
   const [fundC2, setFundC2] = useState("");
   const [fundC3, setFundC3] = useState("");
@@ -62,6 +49,8 @@ export default function Generator() {
 
   const handleGenerate = async () => {
     setIsGenerating(true);
+
+    // Clear previous content for active tab
     const setSetter = activeTab === "Carta Mensal" ? setGeneratedContent : activeTab === "Resumo de Fundo" ? setGeneratedB : setGeneratedC;
     setSetter("");
 
@@ -69,11 +58,27 @@ export default function Generator() {
       let body: Record<string, unknown> = {};
 
       if (activeTab === "Carta Mensal") {
-        body = { type: "carta_mensal", client_name: clientName, period, funds: selectedFunds, tone, macro_context: macroContext };
+        body = {
+          type: "carta_mensal",
+          client_name: clientName,
+          period,
+          funds: selectedFunds,
+          tone,
+          macro_context: macroContext,
+        };
       } else if (activeTab === "Resumo de Fundo") {
-        body = { type: "resumo_fundo", funds: [fundB], period: periodB, recipient: recipientB };
+        body = {
+          type: "resumo_fundo",
+          funds: [fundB],
+          period: periodB,
+          recipient: recipientB,
+        };
       } else {
-        body = { type: "comparativo", funds: [fundC1, fundC2, fundC3].filter(Boolean), tone: criteria };
+        body = {
+          type: "comparativo",
+          funds: [fundC1, fundC2, fundC3].filter(Boolean),
+          tone: criteria,
+        };
       }
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -144,20 +149,37 @@ export default function Generator() {
     if (!currentContent) return;
     try {
       await navigator.clipboard.writeText(currentContent);
-      toast({ title: "Copied!", description: "Content copied to clipboard." });
+      toast({ title: "Copiado!", description: "Conteúdo copiado para a área de transferência." });
     } catch {
-      toast({ title: "Copy error", variant: "destructive" });
+      toast({ title: "Erro ao copiar", variant: "destructive" });
     }
   };
 
   const handleExportPDF = async () => {
     if (!previewRef.current || !currentContent) return;
 
+    // Create a print-friendly clone with light theme
     const clone = document.createElement("div");
-    clone.style.cssText = `font-family: 'Georgia', serif; font-size: 12px; line-height: 1.6; color: #1a1a1a; background: #ffffff; padding: 20px; max-width: 700px;`;
+    clone.style.cssText = `
+      font-family: 'Georgia', serif;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #1a1a1a;
+      background: #ffffff;
+      padding: 20px;
+      max-width: 700px;
+    `;
 
+    // Header with logo
     const header = document.createElement("div");
-    header.style.cssText = `display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #0a1f44; padding-bottom: 12px; margin-bottom: 24px;`;
+    header.style.cssText = `
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 2px solid #0a1f44;
+      padding-bottom: 12px;
+      margin-bottom: 24px;
+    `;
     const logo = document.createElement("img");
     logo.src = window.location.origin + "/galapagos-logo.png";
     logo.style.cssText = "height: 40px; width: auto;";
@@ -171,6 +193,7 @@ export default function Generator() {
     const body = document.createElement("div");
     body.innerHTML = parsedHtml;
     clone.appendChild(body);
+    // Style all child elements for print
     clone.querySelectorAll("h1, h2, h3").forEach((el) => {
       (el as HTMLElement).style.color = "#111";
       (el as HTMLElement).style.marginTop = "16px";
@@ -204,10 +227,10 @@ export default function Generator() {
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" as const },
       };
       await html2pdf().set(opt).from(clone).save();
-      toast({ title: "PDF exported successfully!" });
+      toast({ title: "PDF exportado com sucesso!" });
     } catch (err) {
       console.error("PDF export error:", err);
-      toast({ title: "PDF export error", variant: "destructive" });
+      toast({ title: "Erro ao exportar PDF", variant: "destructive" });
     } finally {
       document.body.removeChild(clone);
     }
@@ -229,7 +252,7 @@ export default function Generator() {
       return (
         <div className="space-y-4">
           {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="h-4 bg-white/[0.03] rounded-lg animate-pulse" style={{ width: `${60 + Math.random() * 40}%` }} />
+            <div key={i} className="h-4 bg-secondary rounded animate-pulse" style={{ width: `${60 + Math.random() * 40}%` }} />
           ))}
         </div>
       );
@@ -237,37 +260,37 @@ export default function Generator() {
     if (currentContent) {
       return (
         <div
-          className="prose prose-invert prose-sm max-w-none text-foreground/80 text-justify"
+          className="prose prose-invert prose-sm max-w-none text-muted-foreground text-justify"
           dangerouslySetInnerHTML={{ __html: parsedHtml }}
         />
       );
     }
     const labels: Record<Tab, string> = {
-      "Carta Mensal": 'Click "Generate" to preview the document.',
-      "Resumo de Fundo": 'Select a fund and click "Generate" to preview.',
-      "Comparativo": 'Select funds and click "Generate" to preview.',
+      "Carta Mensal": 'Clique em "Gerar Carta" para visualizar o documento.',
+      "Resumo de Fundo": 'Selecione um fundo e clique em "Gerar Resumo" para visualizar.',
+      "Comparativo": 'Selecione os fundos e clique em "Gerar Comparativo" para visualizar.',
     };
-    return <p className="text-xs text-muted-foreground/50 text-center py-20 font-mono">{labels[activeTab]}</p>;
+    return <p className="text-sm text-muted-foreground text-center py-20">{labels[activeTab]}</p>;
   };
 
   const buttonLabels: Record<Tab, string> = {
-    "Carta Mensal": "Generate",
-    "Resumo de Fundo": "Generate",
-    "Comparativo": "Generate",
+    "Carta Mensal": "Gerar Carta",
+    "Resumo de Fundo": "Gerar Resumo",
+    "Comparativo": "Gerar Comparativo",
   };
 
   return (
     <Layout>
-      <div className="p-6 animate-fade-up">
+      <div className="p-6">
         {/* Tab selector */}
-        <div className="flex gap-0.5 mb-5 glass-card rounded-xl p-0.5 w-fit">
+        <div className="flex gap-1 mb-6 bg-secondary rounded-xl p-1 w-fit">
           {tabs.map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-1.5 rounded-lg text-[10px] font-mono font-medium transition-colors uppercase tracking-wider ${
+              className={`px-4 py-2 rounded-lg text-sm transition-colors ${
                 activeTab === tab
-                  ? "bg-primary text-primary-foreground"
+                  ? "bg-primary text-primary-foreground font-medium"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -276,100 +299,122 @@ export default function Generator() {
           ))}
         </div>
 
-        <div className="flex gap-5">
+        <div className="flex gap-6">
           {/* Form */}
-          <div className="w-72 shrink-0 space-y-4">
+          <div className="w-96 shrink-0 space-y-4">
             {activeTab === "Carta Mensal" && (
               <>
-                <Field label="Client Name">
-                  <input value={clientName} onChange={(e) => setClientName(e.target.value)} className="field-input font-mono text-xs rounded-xl" />
-                </Field>
-                <Field label="Period">
-                  <input type="month" value={period} onChange={(e) => setPeriod(e.target.value)} className="field-input font-mono text-xs rounded-xl [color-scheme:dark]" />
-                </Field>
-                <Field label="Featured Funds">
-                  {selectedFunds.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mb-1.5">
-                      {selectedFunds.map((f) => (
-                        <span key={f} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-primary/10 text-primary text-[10px] font-mono font-medium">
-                          {f}
-                          <button onClick={() => setSelectedFunds((p) => p.filter((x) => x !== f))} className="hover:text-primary-foreground ml-0.5">×</button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  <select onChange={(e) => { if (e.target.value && !selectedFunds.includes(e.target.value)) setSelectedFunds((p) => [...p, e.target.value]); e.target.value = ""; }} className="field-input text-muted-foreground font-mono text-xs rounded-xl" defaultValue="">
-                    <option value="" disabled>Add fund...</option>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Nome do cliente</label>
+                  <input value={clientName} onChange={(e) => setClientName(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Período</label>
+                  <input type="month" value={period} onChange={(e) => setPeriod(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 [color-scheme:dark]" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Fundos em destaque</label>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {selectedFunds.map((f) => (
+                      <span key={f} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-primary/15 text-primary text-xs">
+                        {f}
+                        <button onClick={() => setSelectedFunds((p) => p.filter((x) => x !== f))} className="hover:text-primary-foreground">×</button>
+                      </span>
+                    ))}
+                  </div>
+                  <select onChange={(e) => { if (e.target.value && !selectedFunds.includes(e.target.value)) setSelectedFunds((p) => [...p, e.target.value]); e.target.value = ""; }} className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-sm text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50" defaultValue="">
+                    <option value="" disabled>Adicionar fundo...</option>
                     {fundNames.filter((f) => !selectedFunds.includes(f)).map((f) => (<option key={f} value={f}>{f}</option>))}
                   </select>
-                </Field>
-                <Field label="Tone">
-                  <ToggleGroup options={["Neutro", "Otimista", "Cauteloso"]} value={tone} onChange={setTone} />
-                </Field>
-                <Field label="Macro Context">
-                  <textarea value={macroContext} onChange={(e) => setMacroContext(e.target.value)} rows={2} placeholder="Ex: Fed on pause, spreads compressed..." className="field-input resize-none font-mono text-xs rounded-xl" />
-                </Field>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Tom desejado</label>
+                  <div className="flex gap-1 bg-secondary rounded-lg p-1">
+                    {["Neutro", "Otimista", "Cauteloso"].map((t) => (
+                      <button key={t} onClick={() => setTone(t)} className={`flex-1 px-3 py-2 rounded-md text-xs transition-colors ${tone === t ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}>{t}</button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Contexto macro adicional</label>
+                  <textarea value={macroContext} onChange={(e) => setMacroContext(e.target.value)} rows={3} placeholder="Ex: Fed em pausa, spreads comprimidos..." className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none" />
+                </div>
               </>
             )}
 
             {activeTab === "Resumo de Fundo" && (
               <>
-                <Field label="Fund">
-                  <select value={fundB} onChange={(e) => setFundB(e.target.value)} className="field-input font-mono text-xs rounded-xl">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Fundo</label>
+                  <select value={fundB} onChange={(e) => setFundB(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50">
                     {fundNames.map((f) => <option key={f} value={f}>{f}</option>)}
                   </select>
-                </Field>
-                <Field label="Period">
-                  <input type="month" value={periodB} onChange={(e) => setPeriodB(e.target.value)} className="field-input font-mono text-xs rounded-xl [color-scheme:dark]" />
-                </Field>
-                <Field label="Recipient">
-                  <ToggleGroup options={["Cliente", "Assessor", "Interno"]} value={recipientB} onChange={setRecipientB} />
-                </Field>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Período</label>
+                  <input type="month" value={periodB} onChange={(e) => setPeriodB(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 [color-scheme:dark]" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Destinatário</label>
+                  <div className="flex gap-1 bg-secondary rounded-lg p-1">
+                    {["Cliente", "Assessor", "Interno"].map((r) => (
+                      <button key={r} onClick={() => setRecipientB(r)} className={`flex-1 px-3 py-2 rounded-md text-xs transition-colors ${recipientB === r ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}>{r}</button>
+                    ))}
+                  </div>
+                </div>
               </>
             )}
 
             {activeTab === "Comparativo" && (
               <>
-                <Field label="Fund A">
-                  <select value={fundC1} onChange={(e) => setFundC1(e.target.value)} className="field-input font-mono text-xs rounded-xl">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Fundo A</label>
+                  <select value={fundC1} onChange={(e) => setFundC1(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50">
                     {fundNames.map((f) => <option key={f} value={f}>{f}</option>)}
                   </select>
-                </Field>
-                <Field label="Fund B">
-                  <select value={fundC2} onChange={(e) => setFundC2(e.target.value)} className="field-input font-mono text-xs rounded-xl">
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Fundo B</label>
+                  <select value={fundC2} onChange={(e) => setFundC2(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50">
                     {fundNames.map((f) => <option key={f} value={f}>{f}</option>)}
                   </select>
-                </Field>
-                <Field label="Fund C (optional)">
-                  <select value={fundC3} onChange={(e) => setFundC3(e.target.value)} className="field-input font-mono text-xs rounded-xl">
-                    <option value="">+ Add</option>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Fundo C (opcional)</label>
+                  <select value={fundC3} onChange={(e) => setFundC3(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50">
+                    <option value="">+ Adicionar</option>
                     {fundNames.map((f) => <option key={f} value={f}>{f}</option>)}
                   </select>
-                </Field>
-                <Field label="Criteria">
-                  <ToggleGroup options={["Retorno", "Risco", "Liquidez", "Correlação"]} value={criteria} onChange={setCriteria} />
-                </Field>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Critérios</label>
+                  <div className="flex gap-1 bg-secondary rounded-lg p-1">
+                    {["Retorno", "Risco", "Liquidez", "Correlação"].map((c) => (
+                      <button key={c} onClick={() => setCriteria(c)} className={`flex-1 px-2 py-2 rounded-md text-xs transition-colors ${criteria === c ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}>{c}</button>
+                    ))}
+                  </div>
+                </div>
               </>
             )}
 
-            <button onClick={handleGenerate} disabled={isGenerating} className="w-full bg-primary text-primary-foreground rounded-xl py-2.5 text-[10px] font-mono font-semibold uppercase tracking-widest hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
-              {isGenerating ? "Generating..." : buttonLabels[activeTab]} <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
+            <button onClick={handleGenerate} disabled={isGenerating} className="w-full bg-primary text-primary-foreground rounded-lg py-3 text-sm font-medium hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+              {isGenerating ? "Gerando..." : buttonLabels[activeTab]} <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
             </button>
           </div>
 
           {/* Preview */}
-          <div className="flex-1 glass-card rounded-2xl overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-3 border-b border-white/5">
-              <h3 className="text-[10px] font-mono font-semibold text-neon-orange tracking-widest uppercase">Galapagos Capital · {periodLabel}</h3>
-              <div className="flex gap-1.5">
-                <button onClick={handleCopy} disabled={!currentContent} className="flex items-center gap-1 px-2.5 py-1 rounded-lg glass-card text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40">
-                  <Copy className="h-3 w-3" strokeWidth={2} /> Copy
+          <div className="flex-1 bg-card border border-border rounded-xl overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h3 className="text-sm font-semibold text-foreground">Galapagos Capital Advisory · {periodLabel}</h3>
+              <div className="flex gap-2">
+                <button onClick={handleCopy} disabled={!currentContent} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50">
+                  <Copy className="h-3.5 w-3.5" strokeWidth={1.5} /> Copiar
                 </button>
-                <button onClick={handleExportPDF} disabled={!currentContent} className="flex items-center gap-1 px-2.5 py-1 rounded-lg glass-card text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40">
-                  <Download className="h-3 w-3" strokeWidth={2} /> PDF
+                <button onClick={handleExportPDF} disabled={!currentContent} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50">
+                  <Download className="h-3.5 w-3.5" strokeWidth={1.5} /> Exportar PDF
                 </button>
-                <button className="flex items-center gap-1 px-2.5 py-1 rounded-lg glass-card text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors">
-                  <Edit className="h-3 w-3" strokeWidth={2} /> Edit
+                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-secondary text-xs text-muted-foreground hover:text-foreground transition-colors">
+                  <Edit className="h-3.5 w-3.5" strokeWidth={1.5} /> Editar
                 </button>
               </div>
             </div>

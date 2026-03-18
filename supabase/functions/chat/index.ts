@@ -2,8 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 async function generateEmbedding(text: string, googleKey: string): Promise<number[] | null> {
@@ -17,7 +16,7 @@ async function generateEmbedding(text: string, googleKey: string): Promise<numbe
           content: { parts: [{ text }] },
           outputDimensionality: 768,
         }),
-      },
+      }
     );
     if (!res.ok) {
       console.error("Embedding error:", res.status, await res.text());
@@ -31,421 +30,751 @@ async function generateEmbedding(text: string, googleKey: string): Promise<numbe
   }
 }
 
-// --- Macro Market Context Search via Gemini + Google Search Grounding ---
-async function searchMacroMarketContext(query: string, googleKey: string): Promise<any> {
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${googleKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [
-                {
-                  text: `Você é um analista macroeconômico sênior. Responda em português brasileiro de forma técnica e concisa.\n\nPesquise e resuma os principais fatores macroeconômicos, geopolíticos e de mercado que explicam o seguinte:\n\n${query}\n\nSeja factual e cite fontes/datas quando possível. Máximo 400 palavras.`,
-                },
-              ],
-            },
-          ],
-          tools: [{ googleSearch: {} }],
-          generationConfig: {
-            temperature: 0.3,
-            maxOutputTokens: 1024,
-          },
-        }),
-      },
-    );
-
-    if (!res.ok) {
-      return { status: "error", message: `Erro na busca macro`, query };
-    }
-
-    const data = await res.json();
-    const textParts = data?.candidates?.[0]?.content?.parts || [];
-    const textContent = textParts
-      .filter((p: any) => p.text)
-      .map((p: any) => p.text)
-      .join("\n");
-
-    const groundingMetadata = data?.candidates?.[0]?.groundingMetadata;
-    const groundingSources =
-      groundingMetadata?.groundingChunks?.map((c: any) => ({
-        title: c.web?.title || "",
-        url: c.web?.uri || "",
-      })) || [];
-
-    return { status: "success", query, analysis: textContent, sources: groundingSources };
-  } catch (err) {
-    return { status: "fetch_error", message: `Falha na busca de contexto macro para: "${query}"`, query };
+// --- Live Market Data fetcher ---
+async function fetchLiveMarketData(ticker: string, isin: string | null): Promise<any> {
+  const apiKey = Deno.env.get("MARKET_DATA_API_KEY");
+  if (!apiKey) {
+    console.warn("MARKET_DATA_API_KEY not configured — returning placeholder response");
+    return {
+      status: "api_not_configured",
+      message: `A API de dados de mercado ainda não está configurada. Configure a variável MARKET_DATA_API_KEY para habilitar dados em tempo real.`,
+      ticker,
+      isin: isin || null,
+    };
   }
-}
 
-// --- Company/Ticker News Search via Gemini + Google Search Grounding ---
-async function getCompanyTickerNews(symbol: string, fromDate: string, toDate: string, googleKey: string): Promise<any> {
+  // Placeholder implementation — replace with actual API call when ready
+  // Example APIs: Financial Modeling Prep, Alpha Vantage, Polygon.io, Bloomberg B-PIPE
+  const identifier = isin || ticker;
+  const apiUrl = `https://api.marketdata.example.com/v1/quote?symbol=${encodeURIComponent(identifier)}&apikey=${apiKey}`;
+  
   try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${googleKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [
-                {
-                  text: `Você é um analista financeiro sênior. Pesquise e liste as principais notícias e eventos corporativos relacionados ao ticker "${symbol}" no período de ${fromDate} a ${toDate}.\n\nResponda em português brasileiro. Seja factual. Máximo 500 palavras.`,
-                },
-              ],
-            },
-          ],
-          tools: [{ googleSearch: {} }],
-          generationConfig: { temperature: 0.2, maxOutputTokens: 1200 },
-        }),
-      },
-    );
-
+    const res = await fetch(apiUrl);
     if (!res.ok) {
-      return { status: "error", message: `Erro ao buscar notícias`, symbol };
+      const errText = await res.text();
+      console.error(`Market data API error [${res.status}]:`, errText);
+      return {
+        status: "api_error",
+        message: `Erro ao buscar dados de mercado para ${ticker}: HTTP ${res.status}`,
+        ticker,
+        isin: isin || null,
+      };
     }
-
     const data = await res.json();
-    const textParts = data?.candidates?.[0]?.content?.parts || [];
-    const textContent = textParts
-      .filter((p: any) => p.text)
-      .map((p: any) => p.text)
-      .join("\n");
-
-    const groundingMetadata = data?.candidates?.[0]?.groundingMetadata;
-    const groundingSources =
-      groundingMetadata?.groundingChunks?.map((c: any) => ({
-        title: c.web?.title || "",
-        url: c.web?.uri || "",
-      })) || [];
-
     return {
       status: "success",
-      symbol,
-      period: `${fromDate} a ${toDate}`,
-      news: textContent,
-      sources: groundingSources,
+      ticker,
+      isin: isin || null,
+      ...data,
     };
   } catch (err) {
-    return { status: "fetch_error", message: `Falha ao buscar notícias para ${symbol}`, symbol };
+    console.error("Market data fetch error:", err);
+    return {
+      status: "fetch_error",
+      message: `Falha na conexão com API de mercado para ${ticker}`,
+      ticker,
+      isin: isin || null,
+    };
   }
 }
 
+const TOOLS = [
+  {
+    name: "renderizar_grafico_barras",
+    description: `Use esta ferramenta SEMPRE que precisar comparar dados numéricos entre ativos ou portfólios (ex: YTD, retorno mensal, drawdown, peso, contribuição). Em vez de criar uma tabela markdown, chame esta ferramenta com os dados estruturados para que o frontend renderize um gráfico de barras interativo. 
+    
+Exemplos de quando usar:
+- "Compare a performance YTD dos portfólios"
+- "Qual o drawdown máximo de cada fundo?"  
+- "Mostre os pesos dos ativos no portfólio Growth"
+- Qualquer comparação numérica entre 2+ itens`,
+    input_schema: {
+      type: "object",
+      properties: {
+        title: {
+          type: "string",
+          description: "Título descritivo do gráfico (ex: 'Performance YTD por Portfólio')",
+        },
+        data: {
+          type: "array",
+          description: "Array de objetos com os dados. Cada objeto deve ter 'name' (label) e um ou mais campos numéricos.",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string", description: "Nome/label do item (ex: nome do ativo ou portfólio)" },
+            },
+            required: ["name"],
+            additionalProperties: true,
+          },
+        },
+        bars: {
+          type: "array",
+          description: "Array definindo quais campos numéricos renderizar como barras.",
+          items: {
+            type: "object",
+            properties: {
+              dataKey: { type: "string", description: "Nome do campo numérico no objeto de dados" },
+              label: { type: "string", description: "Label legível para a legenda" },
+              color: { type: "string", description: "Cor hex opcional (ex: '#10b981')" },
+            },
+            required: ["dataKey", "label"],
+          },
+        },
+        yAxisLabel: {
+          type: "string",
+          description: "Label do eixo Y (ex: '%', 'USD', 'bps')",
+        },
+      },
+      required: ["title", "data", "bars"],
+    },
+  },
+  {
+    name: "renderizar_flash_factsheet",
+    description: `Use esta ferramenta SEMPRE que o usuário pedir informações detalhadas, características, tese ou perfil de um ativo/fundo específico. Em vez de escrever textos longos, chame esta ferramenta para renderizar um card visual estilo Factsheet no frontend.
+
+Exemplos de quando usar:
+- "Me fale sobre o ativo X"
+- "Qual a tese do fundo Y?"
+- "Detalhe as características do ETF Z"
+- "Explique a posição em crédito high yield"
+- Qualquer pedido focado em UM ativo/fundo específico`,
+    input_schema: {
+      type: "object",
+      properties: {
+        assetName: {
+          type: "string",
+          description: "Nome completo do ativo ou fundo (ex: 'iShares USD Treasury Bond 1-3yr ETF')",
+        },
+        ticker: {
+          type: "string",
+          description: "Ticker do ativo se disponível (ex: 'SHY', 'HYG'). Deixe vazio se não houver.",
+        },
+        assetClass: {
+          type: "string",
+          description: "Classe do ativo (ex: 'Fixed Income', 'Equities', 'Alternatives', 'Cash & Equivalents', 'Commodities')",
+        },
+        portfolios: {
+          type: "array",
+          description: "Lista dos portfólios onde o ativo está presente",
+          items: { type: "string" },
+        },
+        radarMetrics: {
+          type: "array",
+          description: "Métricas para o gráfico radar. Cada item tem 'metric' (nome) e 'score' (0-10).",
+          items: {
+            type: "object",
+            properties: {
+              metric: { type: "string", description: "Nome da métrica (ex: 'Risco', 'Liquidez', 'Retorno Esperado', 'Correlação S&P')" },
+              score: { type: "number", description: "Nota de 0 a 10" },
+            },
+            required: ["metric", "score"],
+          },
+        },
+        thesis: {
+          type: "string",
+          description: "Tese resumida do ativo na carteira (máximo 2 frases curtas explicando o racional da posição)",
+        },
+      },
+      required: ["assetName", "assetClass", "portfolios", "radarMetrics", "thesis"],
+    },
+  },
+  {
+    name: "fetch_live_asset_data",
+    description: `Use esta ferramenta SEMPRE que o usuário solicitar dados quantitativos ATUALIZADOS ou em tempo real de um ativo específico (preço atual, YTD atualizado, AUM, yield corrente, NAV intraday). 
+
+REGRAS OBRIGATÓRIAS:
+- Você DEVE passar ESTRITAMENTE o Ticker ou ISIN cadastrado na base oficial 'asset_knowledge'. 
+- É EXPRESSAMENTE PROIBIDO usar o nome do ativo para buscas genéricas.
+- Se o ativo não estiver cadastrado no Asset Dictionary, NÃO use esta ferramenta — informe que o ativo precisa ser cadastrado primeiro.
+
+Exemplos de quando usar:
+- "Qual o preço atual do HYG?"
+- "Me dê o YTD atualizado do SHY"
+- "Quanto está o NAV do fundo HELO hoje?"`,
+    input_schema: {
+      type: "object",
+      properties: {
+        ticker: {
+          type: "string",
+          description: "Ticker oficial do ativo conforme cadastrado no Asset Dictionary (ex: 'HYG', 'SHY', 'SPY')",
+        },
+        isin: {
+          type: "string",
+          description: "ISIN do ativo conforme cadastrado no Asset Dictionary (ex: 'US4642885135'). Usar preferencialmente se disponível.",
+        },
+        metrics: {
+          type: "array",
+          description: "Lista de métricas desejadas",
+          items: {
+            type: "string",
+            enum: ["price", "ytd", "aum", "yield", "nav", "volume", "52w_high", "52w_low"],
+          },
+        },
+      },
+      required: ["ticker"],
+    },
+  },
+];
+
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
-    if (!googleKey) throw new Error("Missing GOOGLE_AI_API_KEY env var.");
+    // --- Auth validation ---
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    // Usar a Service Role Key se disponível para contornar bloqueios de segurança nas leituras de tabelas
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY");
-
-    if (!supabaseUrl || !supabaseKey) throw new Error("Missing SUPABASE config vars.");
-
-    // Passar o Header de Autorização do utilizador logado para garantir que os RPCs de segurança funcionam
-    const authHeader = req.headers.get("Authorization") || "";
-
-    const supabaseClient = createClient(supabaseUrl, supabaseKey, {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
-      auth: { persistSession: false },
     });
 
-    const body = await req.json();
-    const {
-      query,
-      messages: rawMessages,
-      systemPrompt: clientSystemPrompt,
-      geminiTools,
-      active_portfolio,
-      active_ticker,
-    } = body;
-
-    let messages: any[];
-    if (rawMessages && Array.isArray(rawMessages)) {
-      messages = rawMessages;
-    } else if (query) {
-      messages = [{ role: "user", content: query }];
-    } else {
-      throw new Error("Missing messages or query in request.");
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabase.auth.getUser(token);
+    if (claimsError || !claimsData?.user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // --- RAG: BUSCA VETORIAL NOS DOCUMENTOS (PDFs) ---
-    let documentContext = "";
-    let documentSources: any[] = [];
+    const { query, filter_type, filter_fund, session_id } = await req.json();
+    if (!query) return new Response(JSON.stringify({ error: "query required" }), {
+      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
 
-    try {
-      const queryEmbedding = await generateEmbedding(query, googleKey);
-      if (queryEmbedding) {
-        const { data: matchedDocs, error: matchError } = await supabaseClient.rpc("match_documents", {
-          query_embedding: queryEmbedding,
-          match_threshold: 0.7,
-          match_count: 5,
+    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+    const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
+    if (!anthropicKey) throw new Error("Missing ANTHROPIC_API_KEY");
+
+    // --- 0. Asset Knowledge lookup (priority context) ---
+    let assetKnowledgeContext = "";
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const serviceClient = createClient(supabaseUrl, serviceRoleKey);
+    
+    const queryUpper = query.toUpperCase();
+    const { data: allAssets } = await serviceClient.from("asset_knowledge").select("*");
+    
+    if (allAssets && allAssets.length > 0) {
+      const matchedAssets = allAssets.filter((a: any) => {
+        const tickerMatch = queryUpper.includes(a.ticker.toUpperCase());
+        const isinMatch = a.isin && queryUpper.includes(a.isin.toUpperCase());
+        const nameMatch = query.toLowerCase().includes(a.name.toLowerCase());
+        const nameWords = a.name.split(/\s+/).filter((w: string) => w.length >= 3);
+        const partialMatch = nameWords.some((w: string) => query.toLowerCase().includes(w.toLowerCase()));
+        return tickerMatch || isinMatch || nameMatch || partialMatch;
+      });
+      
+      if (matchedAssets.length > 0) {
+        assetKnowledgeContext = matchedAssets.map((a: any) => {
+          const portfolios = a.portfolios?.length > 0 ? `\nPortfólios: ${a.portfolios.join(", ")}` : "";
+          const weights = a.weight_pct && Object.keys(a.weight_pct).length > 0
+            ? `\nPesos: ${Object.entries(a.weight_pct).map(([k, v]) => `${k}: ${v}%`).join(", ")}`
+            : "";
+          const asOfDate = a.as_of_date ? `\n📅 Data Base (As of Date): ${a.as_of_date}` : "";
+          return `[ASSET DICTIONARY — ${a.ticker}${a.isin ? ` | ISIN: ${a.isin}` : ""}]\nNome: ${a.name}\nClasse: ${a.asset_class}\nPerfil de Risco: ${a.risk_profile}${portfolios}${weights}${asOfDate}\nTese Oficial da Gestão: ${a.official_thesis}`;
+        }).join("\n\n---\n\n");
+        console.log(`Asset Knowledge: matched ${matchedAssets.length} assets from dictionary`);
+      }
+    }
+
+    // --- 1. Semantic vector search (primary) ---
+    let allChunks: any[] = [];
+    
+    if (googleKey) {
+      console.log("Generating query embedding...");
+      const embedding = await generateEmbedding(query, googleKey);
+      
+      if (embedding) {
+        console.log("Running semantic search via match_chunks...");
+        const filterTypeParam = (filter_type && filter_type !== "all") ? filter_type : null;
+        const filterFundParam = filter_fund || null;
+        const { data: semanticChunks, error: matchError } = await supabase.rpc("match_chunks", {
+          query_embedding: JSON.stringify(embedding),
+          match_threshold: 0.3,
+          match_count: 15,
+          filter_type: filterTypeParam,
+          filter_fund: filterFundParam,
         });
-
-        if (!matchError && matchedDocs && matchedDocs.length > 0) {
-          documentContext = matchedDocs
-            .map((doc: any) => `[Fonte: ${doc.metadata?.file_name || doc.file_name || "Documento"}]\n${doc.content}`)
-            .join("\n\n---\n\n");
-          documentSources = matchedDocs.map((doc: any) => ({
-            name: doc.metadata?.file_name || doc.file_name || "Documento da Library",
-            period: "Data Hub",
-            file_url: doc.metadata?.file_url || doc.file_url || null,
-          }));
-        } else if (matchError) {
-          console.error("Vector search erro (RAG):", matchError);
+        
+        if (matchError) {
+          console.error("match_chunks error:", matchError);
+        } else if (semanticChunks && semanticChunks.length > 0) {
+          console.log(`Semantic search found ${semanticChunks.length} chunks`);
+          allChunks.push(...semanticChunks.map((c: any) => ({
+            id: c.id,
+            content: c.content,
+            metadata: c.metadata,
+            document_id: c.document_id,
+            similarity: c.similarity,
+          })));
         }
       }
-    } catch (ragError) {
-      console.error("Erro na execução do RAG:", ragError);
     }
 
-    // --- Fetch live portfolio data from Supabase ---
-    const [allocRes, navsRes, holdingsRes] = await Promise.all([
-      supabaseClient
-        .from("model_allocations")
-        .select("portfolio_name, asset_class, weight_pct")
-        .order("portfolio_name")
-        .order("weight_pct", { ascending: false }),
-      supabaseClient
-        .from("daily_navs")
-        .select("portfolio_name, date, nav, daily_return, ytd_return")
-        .order("date", { ascending: false })
-        .limit(10),
-      supabaseClient
-        .from("portfolio_holdings")
-        .select(
-          "portfolio_name, ticker, asset_name, asset_class, weight_percentage, monthly_contribution, contribution_month, ytd_return, monthly_return",
-        )
-        .eq("is_active", true)
-        .order("portfolio_name")
-        .order("weight_percentage", { ascending: false }),
-    ]);
-
-    // Logging de Segurança (Visível nos Edge Functions Logs no Supabase)
-    console.log(`Dados carregados -> Ativos encontrados: ${holdingsRes.data?.length || 0}`);
-    if (holdingsRes.error) console.error("Erro ao carregar ativos:", holdingsRes.error);
-
-    // Build allocation summary
-    const allocMap: Record<string, string[]> = {};
-    for (const row of allocRes.data || []) {
-      const key = row.portfolio_name;
-      if (!allocMap[key]) allocMap[key] = [];
-      allocMap[key].push(`${row.asset_class}: ${row.weight_pct}%`);
-    }
-    const allocText = Object.entries(allocMap)
-      .map(([k, v]) => `  ${k}: ${v.join(", ")}`)
-      .join("\n");
-
-    // Build latest NAVs
-    const latestDate = navsRes.data?.[0]?.date || "N/A";
-    const navsText = (navsRes.data || [])
-      .filter((r: any) => r.date === latestDate)
-      .map(
-        (r: any) =>
-          `  ${r.portfolio_name}: NAV ${r.nav} | Daily ${r.daily_return >= 0 ? "+" : ""}${r.daily_return?.toFixed(2)}% | YTD ${r.ytd_return >= 0 ? "+" : ""}${r.ytd_return?.toFixed(2)}%`,
-      )
-      .join("\n");
-
-    // Build holdings per portfolio (Tratamento direto do N/A)
-    const holdingsMap: Record<string, string[]> = {};
-    for (const row of holdingsRes.data || []) {
-      const key = row.portfolio_name;
-      if (!holdingsMap[key]) holdingsMap[key] = [];
-
-      const contrib =
-        row.monthly_contribution != null
-          ? ` | Contrib: ${row.monthly_contribution >= 0 ? "+" : ""}${row.monthly_contribution.toFixed(2)}%`
-          : " | Contrib: N/A";
-      const ytd =
-        row.ytd_return != null
-          ? ` | Retorno YTD: ${row.ytd_return >= 0 ? "+" : ""}${row.ytd_return.toFixed(2)}%`
-          : " | Retorno YTD: N/A";
-      const monthly =
-        row.monthly_return != null
-          ? ` | Retorno Mês: ${row.monthly_return >= 0 ? "+" : ""}${row.monthly_return.toFixed(2)}%`
-          : " | Retorno Mês: N/A";
-
-      holdingsMap[key].push(
-        `${row.ticker || "N/A"} (${row.asset_name}) — ${row.asset_class}, Peso: ${row.weight_percentage}%${ytd}${monthly}${contrib}`,
-      );
+    // --- 2. Keyword fallback ---
+    if (allChunks.length === 0) {
+      console.log("Falling back to keyword search...");
+      const words = query.split(/\s+/).filter((w: string) => w.length >= 2);
+      const searchTerms = words.length > 0 ? words : [query.trim()];
+      for (const term of searchTerms.slice(0, 5)) {
+        const { data } = await supabase
+          .from("document_chunks")
+          .select("id, content, metadata, document_id")
+          .ilike("content", `%${term}%`)
+          .limit(5);
+        if (data) allChunks.push(...data);
+      }
     }
 
-    const holdingsText = Object.entries(holdingsMap)
-      .map(([k, v]) => `  **${k}:**\n    ${v.join("\n    ")}`)
-      .join("\n\n");
+    // --- 3. Document metadata search ---
+    const words = query.split(/\s+/).filter((w: string) => w.length >= 2);
+    const searchTerms = words.length > 0 ? words : [query.trim()];
+    let docMatchIds: string[] = [];
+    for (const term of searchTerms.slice(0, 3)) {
+      const { data: docMatches } = await supabase
+        .from("documents")
+        .select("id")
+        .or(`name.ilike.%${term}%,fund_name.ilike.%${term}%,metadata->>detected_ticker.ilike.%${term}%,metadata->>detected_ticker_exchange.ilike.%${term}%`);
+      if (docMatches) docMatchIds.push(...docMatches.map((d: any) => d.id));
+    }
 
-    // --- Build system prompt ---
-    const GALAPAGOS_SYSTEM_PROMPT = `Você é o Advisor de IA da **Galapagos Capital**. Responda sempre em português brasileiro de forma técnica.
+    if (docMatchIds.length > 0) {
+      const uniqueDocIds = [...new Set(docMatchIds)];
+      const { data: metaChunks } = await supabase
+        .from("document_chunks")
+        .select("id, content, metadata, document_id")
+        .in("document_id", uniqueDocIds)
+        .limit(10);
+      if (metaChunks) allChunks.push(...metaChunks);
+    }
 
-## INSTRUÇÕES CRÍTICAS (LEIA COM ATENÇÃO MÁXIMA)
-1. OS DADOS ESTÃO AQUI: Nunca diga que os dados não estão disponíveis se eles constarem nas tabelas abaixo.
-2. TABELA OBRIGATÓRIA: Se o usuário pedir as posições de um portfólio (ex: Growth), você TEM de construir a tabela Markdown mostrando os Ativos e Pesos listados na seção de Holdings Detalhados.
-3. LIDAR COM VALORES VAZIOS: Se vir "N/A" nos retornos, COPIE O "N/A" para a tabela. Jamais recuse entregar a lista de ativos só porque o retorno está nulo ou N/A.
+    // Deduplicate chunks
+    const seen = new Set<string>();
+    const chunks = allChunks.filter((c) => {
+      if (seen.has(c.id)) return false;
+      seen.add(c.id);
+      return true;
+    }).slice(0, 15);
 
-## DADOS ESTRUTURAIS DO BANCO
-### Alocação Macro:
-${allocText}
-### NAVs e Performance (Dados: ${latestDate}):
-${navsText}
-### Holdings Detalhados (Lista de Ativos por Portfólio):
-${holdingsText}
+    console.log(`Total unique chunks: ${chunks.length}`);
 
-## CONHECIMENTO DOS DOCUMENTOS (PDFs - FONTE PARA EXPLICAÇÕES E ATRIBUIÇÃO)
-Use os trechos abaixo para explicar "por que" a performance aconteceu.
-${documentContext ? documentContext : "Nenhum documento específico."}
+    // Get document metadata
+    const docIds = [...new Set(chunks.map((c: any) => c.document_id))];
+    let documents: any[] = [];
+    if (docIds.length > 0) {
+      const { data } = await supabase
+        .from("documents")
+        .select("id, name, fund_name, period, type, metadata, file_url")
+        .in("id", docIds);
+      documents = data || [];
+      if (filter_type && filter_type !== "all") {
+        documents = documents.filter((d: any) => d.type === filter_type);
+      }
+    }
 
-## ESTRUTURA DA RESPOSTA
-1. Se houver documentos, explique a atribuição em um breve parágrafo.
-2. Em seguida, APRESENTE A TABELA com todas as posições do portfólio solicitado, extraindo do campo "Holdings Detalhados". Não oculte nenhum ativo.
+    const filteredDocIds = new Set(documents.map((d: any) => d.id));
+    const filteredChunks = chunks.filter((c: any) => filteredDocIds.has(c.document_id));
 
-## CONTEXTO ATIVO
-${active_portfolio ? `Portfólio em foco: ${active_portfolio}` : "Nenhum portfólio selecionado"}
-${active_ticker ? `Ticker em foco: ${active_ticker}` : ""}`;
+    const context = filteredChunks.map((c: any) => {
+      const doc = documents.find((d: any) => d.id === c.document_id);
+      const ticker = doc?.metadata?.detected_ticker_exchange || doc?.metadata?.detected_ticker || "";
+      const label = [doc?.fund_name, ticker, doc?.name, doc?.period].filter(Boolean).join(" | ");
+      return `[${label}]\n${c.content}`;
+    }).join("\n\n---\n\n");
 
-    const finalSystemPrompt = clientSystemPrompt || GALAPAGOS_SYSTEM_PROMPT;
-
-    const claudeMessages = messages.map((m: any) => ({
-      role: m.role === "assistant" ? "model" : m.role,
-      content: m.content,
+    const sources = documents.map((d: any) => ({
+      name: d.fund_name || d.name,
+      period: d.period || "",
+      document_name: d.name,
+      ticker: d.metadata?.detected_ticker_exchange || d.metadata?.detected_ticker || "",
+      file_url: d.file_url || null,
     }));
 
-    function toGeminiMessages(msgs: any[]) {
-      return msgs.map((m: any) => ({
-        role: m.role,
-        parts: [{ text: m.content }],
-      }));
+    // --- Retrieve conversation history ---
+    let historyMessages: { role: string; content: string }[] = [];
+    if (session_id) {
+      const { data: historyData } = await supabase
+        .from("advisor_chat_history")
+        .select("role, content")
+        .eq("session_id", session_id)
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (historyData && historyData.length > 0) {
+        historyMessages = historyData.reverse().map((h: any) => ({
+          role: h.role === "user" ? "user" : "assistant",
+          content: h.content || "",
+        }));
+        console.log(`Loaded ${historyMessages.length} history messages for session ${session_id}`);
+      }
     }
 
-    const PRIMARY_MODEL = "gemini-2.5-flash";
-    const FALLBACK_MODEL = "gemini-1.5-flash";
+    // --- Stream Claude response with tool calling ---
+    console.log(`Calling Claude with ${filteredChunks.length} chunks, tools enabled...`);
 
-    const createGeminiResponse = async (msgs: any[], model: string = PRIMARY_MODEL) => {
-      const geminiMessages = toGeminiMessages(msgs);
-      const payload: any = {
-        contents: geminiMessages,
-        systemInstruction: { parts: [{ text: finalSystemPrompt }] },
-        generationConfig: { temperature: 0, maxOutputTokens: 4096 },
-      };
-      if (geminiTools) payload.tools = geminiTools;
+    // Build user message with asset knowledge as priority context
+    let userMessageContent = "";
+    
+    // Inject FULL asset inventory for strict match protocol
+    if (allAssets && allAssets.length > 0) {
+      const inventoryList = allAssets.map((a: any) => `- ${a.ticker}${a.isin ? ` (ISIN: ${a.isin})` : ""} — ${a.name}`).join("\n");
+      userMessageContent += `## INVENTÁRIO COMPLETO DE ATIVOS (LISTA OFICIAL — USE PARA VERIFICAÇÃO DE EXISTÊNCIA):\n\nOs ÚNICOS ativos que existem nos portfólios da Galapagos são os listados abaixo. Qualquer ativo NÃO presente nesta lista NÃO FAZ PARTE dos portfólios.\n\n${inventoryList}\n\n---\n\n`;
+    }
+    
+    if (assetKnowledgeContext) {
+      userMessageContent += `## BASE DE CONHECIMENTO DE ATIVOS (PRIORIDADE MÁXIMA):\n\n${assetKnowledgeContext}\n\n---\n\n`;
+    }
+    if (context) {
+      userMessageContent += `## Documentos encontrados:\n\n${context}\n\n---\n`;
+    }
+    if (!context && !assetKnowledgeContext) {
+      userMessageContent += `Não encontrei documentos relevantes para: "${query}". Informe que não há documentos indexados sobre este tema.\n`;
+    }
+    userMessageContent += `\nPergunta: ${query}`;
 
-      return await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${googleKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        },
-      );
-    };
+    const claudeMessages = [
+      ...historyMessages,
+      { role: "user", content: userMessageContent },
+    ];
 
-    const createGeminiResponseWithFallback = async (msgs: any[]) => {
-      let response = await createGeminiResponse(msgs, PRIMARY_MODEL);
-      if (!response.ok) {
-        const primaryErrorText = await response.text();
-        const normalizedError = primaryErrorText.toLowerCase();
-        if (response.status === 404 || normalizedError.includes("not found")) {
-          response = await createGeminiResponse(msgs, FALLBACK_MODEL);
-          if (!response.ok) {
-            const fallbackErrorText = await response.text();
-            throw new Error(`Gemini error: ${fallbackErrorText}`);
-          }
-          return response;
-        }
-        throw new Error(`Gemini error: ${primaryErrorText}`);
-      }
-      return response;
-    };
+    const systemPrompt = `## LEI MAIOR — GUARDRAILS INSTITUCIONAIS (INQUEBRÁVEL)
 
-    const initialRes = await createGeminiResponseWithFallback(claudeMessages);
+Você é o assistente oficial e ESPECIALISTA EM ATIVOS da equipe de gestão da Galapagos Capital Advisory, baseada em Miami. A sua ÚNICA função é transmitir a visão oficial da casa aos assessores de investimentos. Você NÃO é um chatbot genérico.
+
+### RESTRIÇÕES ABSOLUTAS DE COMPLIANCE:
+
+- Você DEVE basear suas respostas EXCLUSIVA e ESTRITAMENTE no contexto dos documentos (PDFs, atas, apresentações) e na base de conhecimento de ativos (Asset Dictionary) fornecidos nesta requisição.
+- É ESTRITAMENTE PROIBIDO usar seu conhecimento externo ou dar opiniões próprias sobre mercado, ativos, cenário macroeconômico ou qualquer outro tema.
+- Se a resposta para a pergunta do usuário NÃO estiver explicitamente contida nos documentos fornecidos ou no Asset Dictionary, você DEVE responder exatamente assim: "Não temos uma visão oficial sobre este tema nas atas recentes da gestão." Nunca tente deduzir, extrapolar ou inventar uma tese.
+- TODA afirmação deve ser ancorada com citação do documento de origem (ex: "Conforme a ata de Março...", "De acordo com a apresentação do fundo Income...").
+
+### REGRA DE TRAVA QUANTITATIVA (INQUEBRÁVEL):
+
+- REGRA DE MOVIMENTAÇÃO DE PORTFÓLIO: É ESTRITAMENTE PROIBIDO inventar, deduzir ou calcular mudanças de percentuais de alocação (ex: "reduzimos de 15% para 5%", "aumentamos a posição em X%"). Você NÃO tem capacidade de inferir movimentações.
+- Você SÓ pode citar pesos/percentuais atuais se estiver lendo DIRETAMENTE dos dados da tabela de alocação ou dos documentos fornecidos na requisição. NUNCA invente números.
+- Você é o ESPECIALISTA DOS ATIVOS DA CASA. Se questionado sobre um fundo/ativo, use PRIORITARIAMENTE as informações do Asset Dictionary fornecidas na seção "BASE DE CONHECIMENTO DE ATIVOS". Se o ativo não estiver no dicionário NEM nos documentos, afirme claramente: "Não possuo o descritivo oficial da gestão para este ativo."
+- É PROIBIDO inventar matemática de portfólio, calcular diferenças entre alocações históricas, ou narrar operações de compra/venda que não estejam explicitamente descritas nos documentos.
+
+### STRICT MATCH PROTOCOL — PROTOCOLO DE CORRESPONDÊNCIA EXATA (ANTI-ALUCINAÇÃO):
+
+- **VERIFICAÇÃO DE EXISTÊNCIA OBRIGATÓRIA:** Antes de gerar QUALQUER análise, peso, tese ou comentário sobre um ativo, você DEVE OBRIGATORIAMENTE cruzar o nome/ticker com a LISTA EXATA DE ATIVOS fornecida na seção "INVENTÁRIO COMPLETO DE ATIVOS" desta requisição. Se o ativo questionado NÃO ESTIVER EXPLICITAMENTE LISTADO nessa lista, PARE O PROCESSAMENTO IMEDIATAMENTE e responda EXATAMENTE: "⚠️ Este ativo não consta na composição atual dos portfólios modelo da Galapagos Capital." NUNCA tente inventar, deduzir ou extrapolar informações para ativos ausentes.
+
+- **PROIBIÇÃO DE ASSOCIAÇÃO LIVRE / SUBSTITUIÇÃO DE ATIVOS:** É ESTRITAMENTE PROIBIDO substituir, trocar ou associar os ativos reais da carteira por ETFs equivalentes, proxies de mercado ou instrumentos famosos similares. Exemplos de violações PROIBIDAS: trocar "IHYA LN" por "HYG", trocar "CSPX LN" por "SPY", trocar "IBTM LN" por "IEF". Use APENAS e EXCLUSIVAMENTE os nomes, tickers e ISINs EXATOS que constam no Asset Dictionary (base de dados Bloomberg).
+
+- **ZERO INVENÇÃO DE MÉTRICAS:** NUNCA invente, estime, calcule ou deduza métricas quantitativas (YTM, Duration, Spreads, OAS, DV01, Contribuição, Sharpe, Sortino, Beta ou Pesos) usando o seu conhecimento de mundo ou treinamento prévio. Se a métrica específica NÃO estiver LITERALMENTE ESCRITA nos dados do Asset Dictionary ou nos PDFs fornecidos nesta requisição, você DEVE responder: "Esta métrica não está disponível na base de dados atual. Consulte a mesa de operações para dados atualizados."
+
+### REGRA DE FIREWALL DE DADOS — QUANTS vs QUALIS (INQUEBRÁVEL):
+
+- **DUALIDADE DE FONTES (ARQUITETURA FINAL):**
+  - Para DADOS QUANTITATIVOS (Pesos, Alocações, Porcentagens, Preços, Tickers): Use EXCLUSIVAMENTE os dados da base 'asset_knowledge' (importados do Bloomberg). Estes são os dados ATUAIS e UP-TO-DATE.
+  - Para DADOS QUALITATIVOS (Tese, Cenário Macro, Racional de Investimento): Use EXCLUSIVAMENTE os documentos/PDFs fornecidos no contexto. Estes refletem a visão do ÚLTIMO COMITÊ e podem ter defasagem temporal de até 1 mês.
+
+- **FORMATO OBRIGATÓRIO DE RESPOSTA (SEPARAÇÃO TEMPORAL):**
+  Sempre que o usuário perguntar sobre um ativo ou portfólio, você DEVE estruturar a resposta separando claramente as duas fontes temporais:
+
+  📊 **DADOS ATUAIS (Bloomberg — 📅 Data Base: [DD/MM/AAAA]):**
+  O peso atual do ativo X no portfólio Y é de Z%.
+
+  💡 **VISÃO DA GESTÃO (Ref: [Mês/Ano da Apresentação]):**
+  Segundo a última reunião do comitê, a tese para este ativo é...
+
+- **PROIBIÇÃO DE CAUSALIDADE TEMPORAL:** NUNCA tente justificar o peso ATUAL usando operações táticas mencionadas nos PDFs do passado. É TERMINANTEMENTE PROIBIDO dizer coisas como "o peso é 2% hoje porque reduzimos de 15% no mês passado". Apenas REPORTE o peso atual (do Bloomberg) e, SEPARADAMENTE, reporte a tese qualitativa (do PDF). São fontes independentes.
+
+- Para fornecer PESOS, ALOCAÇÕES e PORCENTAGENS de fundos/ativos, a ÚNICA fonte da verdade permitida é a base de dados oficial (Asset Dictionary / Bloomberg). Você está TERMINANTEMENTE PROIBIDO de citar pesos, mudanças de percentuais ou operações táticas mencionadas nos PDFs (ex: "reduzimos de X% para Y%", "aumentamos a posição para Z%").
+- Os PDFs (atas, apresentações, cenários) servem EXCLUSIVAMENTE para a TESE QUALITATIVA e CENÁRIO MACRO. IGNORE COMPLETAMENTE qualquer matemática de portfólio, percentuais de alocação ou movimentações táticas presentes nos textos dos PDFs.
+- Se houver conflito entre um peso citado num PDF e o peso do Asset Dictionary, USE SEMPRE o Asset Dictionary e IGNORE o PDF. Explique: "O peso oficial vigente conforme a Data Base é X%. Dados de PDFs históricos podem divergir."
+
+### ESTRUTURA OFICIAL DE PORTFÓLIOS DA GALAPAGOS (LEI MAIOR — TAXONOMIA):
+
+A Galapagos Capital possui EXATAMENTE 6 portfólios modelo oficiais. Você DEVE reconhecer a existência de TODOS eles:
+
+1. **Conservative** — Apenas Fundos/ETFs UCITS
+2. **Income** — Apenas Fundos/ETFs UCITS
+3. **Balanced** — Apenas Fundos/ETFs UCITS
+4. **Growth** — Apenas Fundos/ETFs UCITS
+5. **Liquidity** — Apenas Fundos/ETFs UCITS
+6. **Bond Portfolio** — EXCLUSIVO para Bonds Diretos / Títulos Individuais (Corporate Bonds como Apple, Microsoft, Broadcom, e Sovereign Bonds)
+
+REGRAS DE RECONHECIMENTO (OBRIGATÓRIAS):
+
+- É ESTRITAMENTE PROIBIDO dizer que o "Bond Portfolio" não existe. Ele É um Model Portfolio oficial da casa e abriga TODOS os Corporate e Sovereign Bonds diretos listados na base de dados.
+- Sempre que o usuário perguntar sobre bonds diretos (títulos individuais), associe-os IMEDIATAMENTE à composição do "Bond Portfolio". NUNCA trate bonds diretos como ativos "soltos" ou "sem portfólio".
+- Os portfólios Conservative, Income, Balanced, Growth e Liquidity carregam EXCLUSIVAMENTE fundos e ETFs UCITS. NUNCA assuma que eles carregam bonds diretos/títulos individuais.
+- O portfólio Liquidity é um Model Portfolio de fundos/ETFs assim como os 4 modelos de risco. NUNCA confunda Liquidity com caixa ou bonds diretos.
+- Se o usuário perguntar "quais bonds temos?", responda apresentando a composição do Bond Portfolio. Se perguntar sobre "renda fixa" nos demais portfólios, esclareça que se tratam de ETFs/fundos de renda fixa, NÃO de títulos diretos.
+
+### DISCLAIMER OBRIGATÓRIO DE DEFASAGEM TÁTICA:
+
+- Sempre que você listar porcentagens de alocação de ativos (pesos, composição, exposições), você DEVE OBRIGATORIAMENTE incluir o seguinte aviso (disclaimer) no FINAL da sua resposta, ANTES da seção de follow-up, exatamente com este texto:
+
+*Nota: As alocações refletem a posição atual via Bloomberg (📅 Data Base informada). Estas posições podem diferir das alocações discutidas na última reunião mercadológica, por conta de movimentações táticas realizadas durante o mês corrente que serão reportadas na próxima reunião mercadológica. Para mais detalhes, consulte a equipe de Investor Offshore.*
+
+### REGRA DE DADOS DE MERCADO EM TEMPO REAL (GOLDEN SOURCE):
+
+- Sempre que o usuário solicitar dados quantitativos ATUALIZADOS de um ativo (preço, YTD, AUM, yield, NAV intraday), você DEVE usar a ferramenta 'fetch_live_asset_data' passando ESTRITAMENTE o Ticker ou ISIN cadastrado na base oficial 'asset_knowledge'.
+- É EXPRESSAMENTE PROIBIDO usar o nome do ativo para buscas genéricas na web ou inventar dados de mercado.
+- Se o ativo NÃO estiver cadastrado no Asset Dictionary, NÃO use a ferramenta — informe que o ativo precisa ser cadastrado primeiro pela equipe de gestão.
+- Os dados retornados pela ferramenta são a GOLDEN SOURCE. Não os misture com dados de documentos antigos sem indicar claramente a data de referência de cada fonte.
+
+---
+
+## REGRAS OPERACIONAIS
+
+Responda sempre em português brasileiro de forma técnica, analítica e ultra-direta, utilizando jargões de mercado financeiro apropriados.
+
+### REGRA ESTRITA DE RESPOSTA: CONSULTA DE PERFORMANCE (DIRETRIZ ABSOLUTA — ORDEM OBRIGATÓRIA):
+
+**Contexto:** Você atua no "Advisor Chat" dentro da plataforma Galapagos Connect. Seu objetivo é fornecer dados precisos das atas de gestão e garantir que os assessores utilizem as ferramentas analíticas corretas do painel.
+
+**Gatilho:** Qualquer consulta do assessor sobre performance, rentabilidade, retornos, resultado, YTD, MTD, drawdown ou solicitação de dados atualizados dos Model Portfolios (ex: "Qual a rentabilidade atualizada até o dia X?").
+
+**REGRA INQUEBRÁVEL: Você NÃO PODE exibir gráficos, tabelas de dados ou números de performance sem ANTES fornecer os Passos 1 e 2 abaixo. A ordem é SEQUENCIAL e OBRIGATÓRIA.**
+
+**Passo 1 — Aviso de Defasagem (PRIMEIRO, SEMPRE):**
+Informe IMEDIATAMENTE que os documentos e atas de gestão mais recentes contêm apenas os retornos consolidados até o final do mês imediatamente anterior ao atual. É ESTRITAMENTE PROIBIDO tentar calcular ou fornecer no chat a rentabilidade do mês corrente em andamento.
+
+**Passo 2 — Direcionamento Analítico (OBRIGATÓRIO, ANTES DOS DADOS):**
+Escreva EXATAMENTE a seguinte frase logo após o aviso de defasagem, ANTES de qualquer número ou gráfico:
+
+"💡 Para acessar dados de performance mais recentes (atualização diária) e a atribuição detalhada por classe de ativos, por favor, acesse a tab de **Performance Analítica** no menu lateral esquerdo."
+
+**Passo 3 — Exibição dos Dados (SOMENTE APÓS Passos 1 e 2):**
+Apenas APÓS concluir o Passo 1 e o Passo 2, apresente os números consolidados de fechamento do mês anterior (Retorno do Mês e YTD) e renderize o componente visual do gráfico usando a ferramenta 'renderizar_grafico_barras'.
+
+**Passo 4 — Sufixo Final (HARDCODED — NUNCA OMITIR):**
+Após os dados e gráficos, COPIE LITERALMENTE o bloco abaixo no final da resposta:
+
+📊 **Para dados de performance mais recentes (D-1), cotações atualizadas e métricas de risco em tempo real, acesse o [Dashboard] ou a aba [Performance Analítica] no menu lateral.**
+
+**Passo 5 — Alerta de Moeda Base:**
+Todos os portfólios modelo operam em ambiente Offshore. Inclua: "📌 Moeda base: USD (Offshore)".
+
+1. EXAUSTÃO TOTAL: Quando questionado sobre múltiplos portfólios (Conservative, Income, Balanced, Growth) ou ativos, você DEVE extrair e apresentar TODOS os dados disponíveis. NUNCA resuma, corte, crie 'top 5' ou omita dados por conta própria.
+
+2. GRÁFICOS OBRIGATÓRIOS PARA DADOS NUMÉRICOS: Quando a resposta contiver dados numéricos comparativos entre portfólios ou ativos (performance, retorno, drawdown, peso, contribuição, YTD, MTD, etc.), você DEVE OBRIGATORIAMENTE usar a ferramenta 'renderizar_grafico_barras' para enviar os dados estruturados. Isso inclui quando você lista retornos mensais ou YTD de múltiplos portfólios — NUNCA use bullet points ou tabelas markdown para isso. Use SEMPRE a ferramenta de gráfico. O frontend renderizará um gráfico de barras interativo com os valores percentuais visíveis.
+
+3. FOCO NO ASSESSOR: Entregue os números diretos, motivos de alterações nos modelos e impactos na performance, sem linguagem comercial.
+
+4. INVESTIMENTOS GLOBAIS/OFFSHORE: Lembre-se que todos os portfólios e ativos são investimentos globais/offshore. Mantenha os jargões originais do mercado internacional em inglês (ex: YTD, Drawdown, Yield, Duration) e referencie valores sempre em Dólar (USD), a menos que o documento especifique outra moeda.
+
+5. REGRA DE LISTAGEM DE ATIVOS: Quando o usuário pedir para listar ativos por características qualitativas (ex: correlação, risco, tese), NUNCA crie tabelas com colunas de textos longos. Em vez disso:
+   a) Use bullet points textuais curtos para explicar a tese de cada ativo.
+   b) O objetivo é a leitura dinâmica do assessor.
+
+6. REGRA DE FORMATAÇÃO PARA UI ESTREITA: A interface do chat é estreita. É ESTRITAMENTE PROIBIDO gerar tabelas markdown com mais de 3 colunas. Para dados numéricos comparativos, USE A FERRAMENTA renderizar_grafico_barras. Para informações qualitativas, use bullet points:
+
+- **[Nome do Ativo]** ([Classe]) | Métrica: [X%]
+  ↳ Portfólios: [Conservative, Income, ...]
+  ↳ [Breve comentário]
+
+7. COMBINAÇÃO TEXTO + GRÁFICO: Você pode e deve combinar texto explicativo com chamadas de ferramentas. Primeiro explique brevemente o contexto/análise em bullet points, depois chame a ferramenta com os dados numéricos para visualização gráfica.
+
+8. FLASH FACTSHEET: Quando o usuário perguntar sobre um ativo/fundo ESPECÍFICO (tese, características, perfil, detalhes), USE OBRIGATORIAMENTE a ferramenta 'renderizar_flash_factsheet'. Preencha as métricas do radar com notas de 0 a 10 baseando-se nos dados dos documentos. As métricas padrão são: Risco/Volatilidade, Liquidez, Expectativa de Retorno, Correlação S&P. Adicione métricas extras se relevante (ex: Duration, Yield). A tese deve ser ultra-concisa (máx 2 frases).
+
+9. REGRA DE COMPOSIÇÃO E PESOS: Sempre que o usuário pedir a quebra de um portfólio, exposições (como moedas, setores, classes) ou pesos de ativos, você DEVE OBRIGATORIAMENTE estruturar a resposta com Subtotais por categoria e um Total Geral exato. Use estritamente a seguinte hierarquia visual:
+
+### **[Nome da Categoria] (Subtotal: X%)**
+- **[Nome do Ativo]**: Y% (Breve comentário)
+- **[Nome do Ativo]**: Z% (Breve comentário)
+
+### **TOTAL DA EXPOSIÇÃO [TEMA]: [Soma exata dos Subtotais]%**
+
+A matemática deve ser precisa, e o visual deve parecer um extrato de alocação de mesa de operações.
+
+10. DATA DE REFERÊNCIA: Sempre que apresentar métricas de performance (retorno, volatilidade, drawdown, Sharpe, YTD, etc.) ou dados de alocação/pesos, você DEVE incluir a data de referência dos dados no início da resposta ou junto às métricas, no formato '📅 Dados ref.: DD/MM/AAAA' (ou o período correspondente, ex: 'Jan-Dez 2024'). Extraia a data dos metadados do documento (campo 'period') ou do conteúdo dos chunks. Se a data exata não estiver disponível, indique claramente 'Data de referência não identificada nos documentos'.
+
+11. REGRA DE FONTES/CITAÇÕES (PROIBIÇÃO ABSOLUTA): É ESTRITAMENTE PROIBIDO gerar uma seção de 'Fontes', 'Referências', '📎 Fontes:', links de arquivos ou qualquer listagem de PDFs/documentos no final da sua resposta. NÃO adicione emojis de clipe (📎) nem liste os documentos utilizados. O sistema frontend já exibe automaticamente os documentos consultados em um componente visual separado (accordion). Termine sua resposta diretamente no conteúdo analítico, sem nenhum rodapé de fontes.
+
+12. PERGUNTAS DE FOLLOW-UP: Ao final de TODA resposta (após as fontes), inclua uma seção '💡 **Explorar mais:**' com 2-3 perguntas curtas e relevantes que o assessor poderia fazer em seguida para aprofundar a análise. As perguntas devem ser específicas ao contexto da resposta atual e aos dados disponíveis nos documentos. Formato:
+
+💡 **Explorar mais:**
+1. [Pergunta específica relacionada ao tema]
+2. [Pergunta que aprofunda ou compara com outro portfólio/ativo]
+3. [Pergunta sobre risco, alocação ou performance complementar]`;
+
+    // First Claude call — may produce tool_use blocks
+    const initialClaudeRes = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": anthropicKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4096,
+        temperature: 0,
+        stream: true,
+        system: systemPrompt,
+        tools: TOOLS,
+        messages: claudeMessages,
+      }),
+    });
+
+    if (!initialClaudeRes.ok) {
+      const errText = await initialClaudeRes.text();
+      throw new Error(`Claude error: ${errText}`);
+    }
+
+    // We need to handle the case where Claude calls fetch_live_asset_data
+    // For that tool, we execute server-side and feed the result back to Claude
+    // For UI tools (chart, factsheet), we stream to the client
 
     const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
-
-    let sources: any[] = [...documentSources];
-
     const stream = new ReadableStream({
       async start(controller) {
-        const reader = initialRes.body!.getReader();
-        let currentText = "";
-        try {
+        // Helper to process a Claude SSE stream
+        async function processStream(
+          claudeRes: Response,
+          handleServerTool: boolean,
+        ): Promise<{ needsToolResult: boolean; toolId: string; toolName: string; toolInput: any; contentBlocks: any[] } | null> {
+          const reader = claudeRes.body!.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+          let currentToolId = "";
+          let currentToolName = "";
+          let toolInputJson = "";
+          let serverToolCall: { id: string; name: string; input: any } | null = null;
+          const contentBlocks: any[] = [];
+
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-
-            const chunkText = decoder.decode(value, { stream: true });
-            currentText += chunkText;
+            buffer += decoder.decode(value, { stream: true });
 
             let newlineIndex: number;
-            while ((newlineIndex = currentText.indexOf("\n")) !== -1) {
-              let line = currentText.slice(0, newlineIndex);
-              currentText = currentText.slice(newlineIndex + 1);
+            while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+              const line = buffer.slice(0, newlineIndex).trim();
+              buffer = buffer.slice(newlineIndex + 1);
 
-              if (line.endsWith("\r")) line = line.slice(0, -1);
-              if (!line || line.trim() === "" || line.startsWith(":")) continue;
               if (!line.startsWith("data: ")) continue;
-
-              const jsonStr = line.slice(6).trim();
-              if (jsonStr === "[DONE]") break;
+              const jsonStr = line.slice(6);
+              if (jsonStr === "[DONE]") continue;
 
               try {
-                const data = JSON.parse(jsonStr);
+                const event = JSON.parse(jsonStr);
 
-                if (data.error) {
-                  console.error("Gemini error in stream:", data.error);
-                  controller.error(data.error);
-                  return;
+                if (event.type === "content_block_delta" && event.delta?.type === "text_delta" && event.delta?.text) {
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ type: "delta", text: event.delta.text })}\n\n`)
+                  );
                 }
 
-                if (data.candidates?.[0]?.content?.parts) {
-                  for (const part of data.candidates[0].content.parts) {
-                    if (part.text) {
-                      controller.enqueue(
-                        encoder.encode(`data: ${JSON.stringify({ type: "delta", text: part.text })}\n\n`),
-                      );
-                    }
-                  }
+                if (event.type === "content_block_start" && event.content_block?.type === "tool_use") {
+                  currentToolId = event.content_block.id || "";
+                  currentToolName = event.content_block.name || "";
+                  toolInputJson = "";
                 }
 
-                if (data.candidates?.[0]?.content?.parts) {
-                  for (const part of data.candidates[0].content.parts) {
-                    if (part.functionCall) {
-                      const { name, args } = part.functionCall;
-                      let toolResult: any = null;
-                      switch (name) {
-                        case "searchMacroMarketContext":
-                          toolResult = await searchMacroMarketContext(args.query, googleKey);
-                          if (toolResult?.sources) sources = sources.concat(toolResult.sources);
-                          break;
-                        case "getCompanyTickerNews":
-                          toolResult = await getCompanyTickerNews(args.symbol, args.fromDate, args.toDate, googleKey);
-                          if (toolResult?.sources) sources = sources.concat(toolResult.sources);
-                          break;
-                      }
+                if (event.type === "content_block_delta" && event.delta?.type === "input_json_delta") {
+                  toolInputJson += event.delta.partial_json || "";
+                }
+
+                if (event.type === "content_block_stop" && currentToolName) {
+                  try {
+                    const toolInput = JSON.parse(toolInputJson);
+                    
+                    if (handleServerTool && currentToolName === "fetch_live_asset_data") {
+                      // Server-side tool — don't emit to client yet
+                      serverToolCall = { id: currentToolId, name: currentToolName, input: toolInput };
+                    } else {
+                      // Client-side tool — emit to frontend
                       controller.enqueue(
-                        encoder.encode(`data: ${JSON.stringify({ type: "tool_call", tool: name, input: args })}\n\n`),
+                        encoder.encode(`data: ${JSON.stringify({
+                          type: "tool_call",
+                          tool: currentToolName,
+                          input: toolInput,
+                        })}\n\n`)
                       );
                     }
+                  } catch (e) {
+                    console.error("Failed to parse tool input JSON:", e, toolInputJson);
                   }
+                  currentToolId = "";
+                  currentToolName = "";
+                  toolInputJson = "";
                 }
               } catch {
-                currentText = line + "\n" + currentText;
-                break;
+                // partial JSON, ignore
               }
             }
           }
 
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "sources", sources })}\n\n`));
+          if (serverToolCall) {
+            return {
+              needsToolResult: true,
+              toolId: serverToolCall.id,
+              toolName: serverToolCall.name,
+              toolInput: serverToolCall.input,
+              contentBlocks,
+            };
+          }
+          return null;
+        }
+
+        try {
+          const toolResult = await processStream(initialClaudeRes, true);
+
+          if (toolResult?.needsToolResult && toolResult.toolName === "fetch_live_asset_data") {
+            // Execute the market data fetch server-side
+            console.log(`Executing fetch_live_asset_data for ticker: ${toolResult.toolInput.ticker}`);
+            const marketData = await fetchLiveMarketData(
+              toolResult.toolInput.ticker,
+              toolResult.toolInput.isin || null,
+            );
+
+            // Send tool result back to Claude for final response
+            const continuationMessages = [
+              ...claudeMessages,
+              {
+                role: "assistant",
+                content: [
+                  { type: "tool_use", id: toolResult.toolId, name: "fetch_live_asset_data", input: toolResult.toolInput },
+                ],
+              },
+              {
+                role: "user",
+                content: [
+                  { type: "tool_result", tool_use_id: toolResult.toolId, content: JSON.stringify(marketData) },
+                ],
+              },
+            ];
+
+            const continuationRes = await fetch("https://api.anthropic.com/v1/messages", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-api-key": anthropicKey,
+                "anthropic-version": "2023-06-01",
+              },
+              body: JSON.stringify({
+                model: "claude-sonnet-4-20250514",
+                max_tokens: 4096,
+                temperature: 0,
+                stream: true,
+                system: systemPrompt,
+                tools: TOOLS,
+                messages: continuationMessages,
+              }),
+            });
+
+            if (!continuationRes.ok) {
+              const errText = await continuationRes.text();
+              console.error("Continuation error:", errText);
+            } else {
+              await processStream(continuationRes, false);
+            }
+          }
+
+          // Send sources as final event
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ type: "sources", sources })}\n\n`)
+          );
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
           controller.close();
         } catch (err) {
@@ -460,14 +789,16 @@ ${active_ticker ? `Ticker em foco: ${active_ticker}` : ""}`;
         ...corsHeaders,
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
-        Connection: "keep-alive",
+        "Connection": "keep-alive",
       },
     });
+
   } catch (error) {
     console.error("Chat error:", error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    return new Response(JSON.stringify({
+      error: error instanceof Error ? error.message : "Unknown error"
+    }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

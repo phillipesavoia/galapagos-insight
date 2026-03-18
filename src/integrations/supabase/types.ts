@@ -122,33 +122,6 @@ export type Database = {
         }
         Relationships: []
       }
-      benchmark_prices: {
-        Row: {
-          created_at: string
-          date: string
-          id: string
-          name: string
-          price: number
-          ticker: string
-        }
-        Insert: {
-          created_at?: string
-          date: string
-          id?: string
-          name: string
-          price: number
-          ticker: string
-        }
-        Update: {
-          created_at?: string
-          date?: string
-          id?: string
-          name?: string
-          price?: number
-          ticker?: string
-        }
-        Relationships: []
-      }
       daily_holdings: {
         Row: {
           created_at: string | null
@@ -289,78 +262,6 @@ export type Database = {
           status?: string | null
           type?: string | null
           uploaded_at?: string | null
-        }
-        Relationships: []
-      }
-      model_allocations: {
-        Row: {
-          asset_class: string
-          color: string | null
-          created_at: string
-          id: string
-          portfolio_name: string
-          updated_at: string
-          weight_pct: number
-        }
-        Insert: {
-          asset_class: string
-          color?: string | null
-          created_at?: string
-          id?: string
-          portfolio_name: string
-          updated_at?: string
-          weight_pct?: number
-        }
-        Update: {
-          asset_class?: string
-          color?: string | null
-          created_at?: string
-          id?: string
-          portfolio_name?: string
-          updated_at?: string
-          weight_pct?: number
-        }
-        Relationships: []
-      }
-      portfolio_holdings: {
-        Row: {
-          asset_class: string
-          asset_name: string
-          contribution_month: string | null
-          created_at: string
-          id: string
-          is_active: boolean
-          monthly_contribution: number | null
-          portfolio_name: string
-          ticker: string | null
-          updated_at: string
-          weight_percentage: number
-        }
-        Insert: {
-          asset_class: string
-          asset_name: string
-          contribution_month?: string | null
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          monthly_contribution?: number | null
-          portfolio_name: string
-          ticker?: string | null
-          updated_at?: string
-          weight_percentage?: number
-        }
-        Update: {
-          asset_class?: string
-          asset_name?: string
-          contribution_month?: string | null
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          monthly_contribution?: number | null
-          portfolio_name?: string
-          ticker?: string | null
-          updated_at?: string
-          weight_percentage?: number
         }
         Relationships: []
       }

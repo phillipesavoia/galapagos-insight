@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PortfolioTab } from "@/components/dashboard/PortfolioTab";
 import { supabase } from "@/integrations/supabase/client";
 
-const portfolios = ["Conservative", "Income", "Balanced", "Growth", "Aggressive", "Elite"] as const;
+const portfolios = ["Conservative", "Income", "Balanced", "Growth"] as const;
 export type PortfolioName = (typeof portfolios)[number];
 
 export interface NavDataPoint {
@@ -52,23 +52,23 @@ export default function Dashboard() {
   return (
     <Layout>
       <div className="flex-1 flex flex-col min-h-0 bg-background">
-        <div className="px-8 pt-8 pb-5">
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">
-            Performance
+        <div className="px-6 pt-6 pb-4 border-b border-border">
+          <h1 className="text-xl font-semibold text-foreground tracking-tight">
+            Performance Analítica
           </h1>
-          <p className="text-xs text-muted-foreground mt-1 font-mono uppercase tracking-widest">
-            NAV evolution & portfolio composition
+          <p className="text-sm text-muted-foreground mt-1">
+            Evolução de NAV e composição dos modelos de portfólio
           </p>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-8 py-4 scrollbar-thin">
+        <div className="flex-1 overflow-y-auto px-6 py-4">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="glass-card border-white/5 rounded-xl p-0.5">
+            <TabsList className="bg-secondary/50 border border-border">
               {portfolios.map((p) => (
                 <TabsTrigger
                   key={p}
                   value={p}
-                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs font-mono rounded-lg px-4"
+                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-sm"
                 >
                   {p}
                 </TabsTrigger>
@@ -76,7 +76,7 @@ export default function Dashboard() {
             </TabsList>
 
             {portfolios.map((p) => (
-              <TabsContent key={p} value={p} className="mt-6">
+              <TabsContent key={p} value={p} className="mt-5">
                 <PortfolioTab portfolio={p} navData={navData} loading={loading} period={period} onPeriodChange={setPeriod} />
               </TabsContent>
             ))}
