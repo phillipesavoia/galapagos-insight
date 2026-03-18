@@ -1388,7 +1388,6 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
         throw new Error(`Gemini error: ${fallbackErr}`);
       }
     }
-    }
 
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
