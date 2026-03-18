@@ -2,7 +2,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 async function generateEmbedding(text: string, googleKey: string): Promise<number[] | null> {
@@ -16,7 +17,7 @@ async function generateEmbedding(text: string, googleKey: string): Promise<numbe
           content: { parts: [{ text }] },
           outputDimensionality: 768,
         }),
-      }
+      },
     );
     if (!res.ok) {
       console.error("Embedding error:", res.status, await res.text());
@@ -47,7 +48,7 @@ async function fetchLiveMarketData(ticker: string, isin: string | null): Promise
   // Example APIs: Financial Modeling Prep, Alpha Vantage, Polygon.io, Bloomberg B-PIPE
   const identifier = isin || ticker;
   const apiUrl = `https://api.marketdata.example.com/v1/quote?symbol=${encodeURIComponent(identifier)}&apikey=${apiKey}`;
-  
+
   try {
     const res = await fetch(apiUrl);
     if (!res.ok) {
@@ -104,7 +105,7 @@ async function searchMacroMarketContext(query: string, googleKey: string): Promi
             maxOutputTokens: 1024,
           },
         }),
-      }
+      },
     );
 
     if (!res.ok) {
@@ -127,10 +128,11 @@ async function searchMacroMarketContext(query: string, googleKey: string): Promi
     // Extract grounding metadata (sources)
     const groundingMetadata = data?.candidates?.[0]?.groundingMetadata;
     const searchSuggestions = groundingMetadata?.searchEntryPoint?.renderedContent || null;
-    const groundingSources = groundingMetadata?.groundingChunks?.map((c: any) => ({
-      title: c.web?.title || "",
-      url: c.web?.uri || "",
-    })) || [];
+    const groundingSources =
+      groundingMetadata?.groundingChunks?.map((c: any) => ({
+        title: c.web?.title || "",
+        url: c.web?.uri || "",
+      })) || [];
 
     return {
       status: "success",
@@ -187,7 +189,7 @@ Responda em português brasileiro. Seja factual. Máximo 500 palavras.`,
             maxOutputTokens: 1200,
           },
         }),
-      }
+      },
     );
 
     if (!res.ok) {
@@ -198,13 +200,17 @@ Responda em português brasileiro. Seja factual. Máximo 500 palavras.`,
 
     const data = await res.json();
     const textParts = data?.candidates?.[0]?.content?.parts || [];
-    const textContent = textParts.filter((p: any) => p.text).map((p: any) => p.text).join("\n");
+    const textContent = textParts
+      .filter((p: any) => p.text)
+      .map((p: any) => p.text)
+      .join("\n");
 
     const groundingMetadata = data?.candidates?.[0]?.groundingMetadata;
-    const groundingSources = groundingMetadata?.groundingChunks?.map((c: any) => ({
-      title: c.web?.title || "",
-      url: c.web?.uri || "",
-    })) || [];
+    const groundingSources =
+      groundingMetadata?.groundingChunks?.map((c: any) => ({
+        title: c.web?.title || "",
+        url: c.web?.uri || "",
+      })) || [];
 
     return {
       status: "success",
@@ -239,7 +245,8 @@ async function askPerplexityResearcher(researchPrompt: string): Promise<any> {
         messages: [
           {
             role: "system",
-            content: "Você é um analista financeiro sênior especializado em mercados globais. Responda em português brasileiro de forma técnica e factual. Cite fontes e datas quando possível. Estruture a resposta em seções claras: Drivers Macro, Fatores Geopolíticos, Dinâmica Setorial, e Conclusão. Máximo 600 palavras.",
+            content:
+              "Você é um analista financeiro sênior especializado em mercados globais. Responda em português brasileiro de forma técnica e factual. Cite fontes e datas quando possível. Estruture a resposta em seções claras: Drivers Macro, Fatores Geopolíticos, Dinâmica Setorial, e Conclusão. Máximo 600 palavras.",
           },
           { role: "user", content: researchPrompt },
         ],
@@ -350,7 +357,8 @@ Exemplos de quando usar:
         },
         data: {
           type: "array",
-          description: "Array de objetos com os dados. Cada objeto deve ter 'name' (label) e um ou mais campos numéricos.",
+          description:
+            "Array de objetos com os dados. Cada objeto deve ter 'name' (label) e um ou mais campos numéricos.",
           items: {
             type: "object",
             properties: {
@@ -405,7 +413,8 @@ Exemplos de quando usar:
         },
         assetClass: {
           type: "string",
-          description: "Classe do ativo (ex: 'Fixed Income', 'Equities', 'Alternatives', 'Cash & Equivalents', 'Commodities')",
+          description:
+            "Classe do ativo (ex: 'Fixed Income', 'Equities', 'Alternatives', 'Cash & Equivalents', 'Commodities')",
         },
         portfolios: {
           type: "array",
@@ -418,7 +427,10 @@ Exemplos de quando usar:
           items: {
             type: "object",
             properties: {
-              metric: { type: "string", description: "Nome da métrica (ex: 'Risco', 'Liquidez', 'Retorno Esperado', 'Correlação S&P')" },
+              metric: {
+                type: "string",
+                description: "Nome da métrica (ex: 'Risco', 'Liquidez', 'Retorno Esperado', 'Correlação S&P')",
+              },
               score: { type: "number", description: "Nota de 0 a 10" },
             },
             required: ["metric", "score"],
@@ -454,7 +466,8 @@ Exemplos de quando usar:
         },
         isin: {
           type: "string",
-          description: "ISIN do ativo conforme cadastrado no Asset Dictionary (ex: 'US4642885135'). Usar preferencialmente se disponível.",
+          description:
+            "ISIN do ativo conforme cadastrado no Asset Dictionary (ex: 'US4642885135'). Usar preferencialmente se disponível.",
         },
         metrics: {
           type: "array",
@@ -483,7 +496,8 @@ Exemplos:
       properties: {
         query: {
           type: "string",
-          description: "A pergunta exata a ser pesquisada. Exemplo: 'Principais motivos macroeconômicos para a queda do ETF KWEB em fevereiro de 2026'",
+          description:
+            "A pergunta exata a ser pesquisada. Exemplo: 'Principais motivos macroeconômicos para a queda do ETF KWEB em fevereiro de 2026'",
         },
       },
       required: ["query"],
@@ -532,7 +546,8 @@ Aciona o modelo Perplexity (sonar) para sintetizar motivos complexos de mercado 
       properties: {
         research_prompt: {
           type: "string",
-          description: "A pergunta detalhada para o analista de IA. Ex: 'Quais os drivers e eventos geopolíticos que impactaram o KWEB em fevereiro de 2026?'",
+          description:
+            "A pergunta detalhada para o analista de IA. Ex: 'Quais os drivers e eventos geopolíticos que impactaram o KWEB em fevereiro de 2026?'",
         },
       },
       required: ["research_prompt"],
@@ -652,14 +667,19 @@ Exemplos de quando usar:
         },
         columns: {
           type: "array",
-          description: "Definição das colunas. Cada item tem 'key' (campo no dado), 'label' (header), 'align' (left/right/center) e 'format' (percent/number/text).",
+          description:
+            "Definição das colunas. Cada item tem 'key' (campo no dado), 'label' (header), 'align' (left/right/center) e 'format' (percent/number/text).",
           items: {
             type: "object",
             properties: {
               key: { type: "string", description: "Campo no objeto de dados (ex: 'ticker', 'contribution')" },
               label: { type: "string", description: "Label do header (ex: 'Ticker', 'Contribuição')" },
               align: { type: "string", description: "'left', 'right' ou 'center'", enum: ["left", "right", "center"] },
-              format: { type: "string", description: "'percent', 'number' ou 'text'", enum: ["percent", "number", "text"] },
+              format: {
+                type: "string",
+                description: "'percent', 'number' ou 'text'",
+                enum: ["percent", "number", "text"],
+              },
             },
             required: ["key", "label"],
           },
@@ -695,7 +715,8 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -709,14 +730,17 @@ Deno.serve(async (req) => {
     const { data: claimsData, error: claimsError } = await supabase.auth.getUser(token);
     if (claimsError || !claimsData?.user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const { query, filter_type, filter_fund, session_id, active_portfolio, active_ticker } = await req.json();
-    if (!query) return new Response(JSON.stringify({ error: "query required" }), {
-      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    if (!query)
+      return new Response(JSON.stringify({ error: "query required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
 
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
     const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
@@ -726,7 +750,7 @@ Deno.serve(async (req) => {
     let assetKnowledgeContext = "";
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const serviceClient = createClient(supabaseUrl, serviceRoleKey);
-    
+
     const queryUpper = query.toUpperCase();
     const { data: allAssets } = await serviceClient.from("asset_knowledge").select("*");
 
@@ -763,23 +787,32 @@ Deno.serve(async (req) => {
 
     if (recentNavs && recentNavs.length > 0) {
       // Group by date, show last 5 dates
-      const dateMap: Record<string, Record<string, { nav: number; daily_return: number | null; ytd_return: number | null }>> = {};
+      const dateMap: Record<
+        string,
+        Record<string, { nav: number; daily_return: number | null; ytd_return: number | null }>
+      > = {};
       recentNavs.forEach((r: any) => {
         if (!dateMap[r.date]) dateMap[r.date] = {};
-        dateMap[r.date][r.portfolio_name] = { nav: Number(r.nav), daily_return: r.daily_return ? Number(r.daily_return) : null, ytd_return: r.ytd_return ? Number(r.ytd_return) : null };
+        dateMap[r.date][r.portfolio_name] = {
+          nav: Number(r.nav),
+          daily_return: r.daily_return ? Number(r.daily_return) : null,
+          ytd_return: r.ytd_return ? Number(r.ytd_return) : null,
+        };
       });
       const dates = Object.keys(dateMap).sort().reverse().slice(0, 5);
-      navsContext = dates.map((d) => {
-        const portfolios = Object.entries(dateMap[d])
-          .map(([name, data]) => {
-            let line = `  - ${name}: NAV ${data.nav.toFixed(2)}`;
-            if (data.daily_return != null) line += ` | Daily: ${data.daily_return.toFixed(2)}%`;
-            if (data.ytd_return != null) line += ` | YTD: ${data.ytd_return.toFixed(2)}%`;
-            return line;
-          })
-          .join("\n");
-        return `**${d}:**\n${portfolios}`;
-      }).join("\n\n");
+      navsContext = dates
+        .map((d) => {
+          const portfolios = Object.entries(dateMap[d])
+            .map(([name, data]) => {
+              let line = `  - ${name}: NAV ${data.nav.toFixed(2)}`;
+              if (data.daily_return != null) line += ` | Daily: ${data.daily_return.toFixed(2)}%`;
+              if (data.ytd_return != null) line += ` | YTD: ${data.ytd_return.toFixed(2)}%`;
+              return line;
+            })
+            .join("\n");
+          return `**${d}:**\n${portfolios}`;
+        })
+        .join("\n\n");
       console.log(`Daily NAVs: loaded ${recentNavs.length} rows, showing last ${dates.length} dates`);
     }
 
@@ -787,7 +820,9 @@ Deno.serve(async (req) => {
     let holdingsContext = "";
     const { data: holdingsData } = await serviceClient
       .from("portfolio_holdings")
-      .select("portfolio_name, asset_name, ticker, asset_class, weight_percentage, monthly_contribution, contribution_month")
+      .select(
+        "portfolio_name, asset_name, ticker, asset_class, weight_percentage, monthly_contribution, contribution_month",
+      )
       .eq("is_active", true)
       .order("portfolio_name")
       .order("asset_class")
@@ -801,21 +836,25 @@ Deno.serve(async (req) => {
       });
       holdingsContext = Object.entries(hGrouped)
         .map(([name, assets]) => {
-          const lines = assets.map((a: any) => {
-            let line = `  - ${a.asset_name} (${a.ticker || "N/A"}) | Classe: ${a.asset_class} | Peso: ${Number(a.weight_percentage).toFixed(2)}%`;
-            if (a.monthly_contribution != null) {
-              const c = Number(a.monthly_contribution);
-              line += ` | Contribuição Mensal: ${c >= 0 ? "+" : ""}${c.toFixed(2)}%`;
-              if (a.contribution_month) line += ` (Ref: ${a.contribution_month})`;
-            }
-            return line;
-          }).join("\n");
+          const lines = assets
+            .map((a: any) => {
+              let line = `  - ${a.asset_name} (${a.ticker || "N/A"}) | Classe: ${a.asset_class} | Peso: ${Number(a.weight_percentage).toFixed(2)}%`;
+              if (a.monthly_contribution != null) {
+                const c = Number(a.monthly_contribution);
+                line += ` | Contribuição Mensal: ${c >= 0 ? "+" : ""}${c.toFixed(2)}%`;
+                if (a.contribution_month) line += ` (Ref: ${a.contribution_month})`;
+              }
+              return line;
+            })
+            .join("\n");
           return `**${name}:**\n${lines}`;
         })
         .join("\n\n");
-      console.log(`Portfolio Holdings: loaded ${holdingsData.length} holdings for ${Object.keys(hGrouped).length} portfolios`);
+      console.log(
+        `Portfolio Holdings: loaded ${holdingsData.length} holdings for ${Object.keys(hGrouped).length} portfolios`,
+      );
     }
-    
+
     if (allAssets && allAssets.length > 0) {
       const matchedAssets = allAssets.filter((a: any) => {
         const tickerMatch = queryUpper.includes(a.ticker.toUpperCase());
@@ -825,30 +864,35 @@ Deno.serve(async (req) => {
         const partialMatch = nameWords.some((w: string) => query.toLowerCase().includes(w.toLowerCase()));
         return tickerMatch || isinMatch || nameMatch || partialMatch;
       });
-      
+
       if (matchedAssets.length > 0) {
-        assetKnowledgeContext = matchedAssets.map((a: any) => {
-          const portfolios = a.portfolios?.length > 0 ? `\nPortfólios: ${a.portfolios.join(", ")}` : "";
-          const weights = a.weight_pct && Object.keys(a.weight_pct).length > 0
-            ? `\nPesos: ${Object.entries(a.weight_pct).map(([k, v]) => `${k}: ${v}%`).join(", ")}`
-            : "";
-          const asOfDate = a.as_of_date ? `\n📅 Data Base (As of Date): ${a.as_of_date}` : "";
-          return `[ASSET DICTIONARY — ${a.ticker}${a.isin ? ` | ISIN: ${a.isin}` : ""}]\nNome: ${a.name}\nClasse: ${a.asset_class}\nPerfil de Risco: ${a.risk_profile}${portfolios}${weights}${asOfDate}\nTese Oficial da Gestão: ${a.official_thesis}`;
-        }).join("\n\n---\n\n");
+        assetKnowledgeContext = matchedAssets
+          .map((a: any) => {
+            const portfolios = a.portfolios?.length > 0 ? `\nPortfólios: ${a.portfolios.join(", ")}` : "";
+            const weights =
+              a.weight_pct && Object.keys(a.weight_pct).length > 0
+                ? `\nPesos: ${Object.entries(a.weight_pct)
+                    .map(([k, v]) => `${k}: ${v}%`)
+                    .join(", ")}`
+                : "";
+            const asOfDate = a.as_of_date ? `\n📅 Data Base (As of Date): ${a.as_of_date}` : "";
+            return `[ASSET DICTIONARY — ${a.ticker}${a.isin ? ` | ISIN: ${a.isin}` : ""}]\nNome: ${a.name}\nClasse: ${a.asset_class}\nPerfil de Risco: ${a.risk_profile}${portfolios}${weights}${asOfDate}\nTese Oficial da Gestão: ${a.official_thesis}`;
+          })
+          .join("\n\n---\n\n");
         console.log(`Asset Knowledge: matched ${matchedAssets.length} assets from dictionary`);
       }
     }
 
     // --- 1. Semantic vector search (primary) ---
     let allChunks: any[] = [];
-    
+
     if (googleKey) {
       console.log("Generating query embedding...");
       const embedding = await generateEmbedding(query, googleKey);
-      
+
       if (embedding) {
         console.log("Running semantic search via match_chunks...");
-        const filterTypeParam = (filter_type && filter_type !== "all") ? filter_type : null;
+        const filterTypeParam = filter_type && filter_type !== "all" ? filter_type : null;
         const filterFundParam = filter_fund || null;
         const { data: semanticChunks, error: matchError } = await supabase.rpc("match_chunks", {
           query_embedding: JSON.stringify(embedding),
@@ -857,18 +901,20 @@ Deno.serve(async (req) => {
           filter_type: filterTypeParam,
           filter_fund: filterFundParam,
         });
-        
+
         if (matchError) {
           console.error("match_chunks error:", matchError);
         } else if (semanticChunks && semanticChunks.length > 0) {
           console.log(`Semantic search found ${semanticChunks.length} chunks`);
-          allChunks.push(...semanticChunks.map((c: any) => ({
-            id: c.id,
-            content: c.content,
-            metadata: c.metadata,
-            document_id: c.document_id,
-            similarity: c.similarity,
-          })));
+          allChunks.push(
+            ...semanticChunks.map((c: any) => ({
+              id: c.id,
+              content: c.content,
+              metadata: c.metadata,
+              document_id: c.document_id,
+              similarity: c.similarity,
+            })),
+          );
         }
       }
     }
@@ -896,7 +942,9 @@ Deno.serve(async (req) => {
       const { data: docMatches } = await supabase
         .from("documents")
         .select("id")
-        .or(`name.ilike.%${term}%,fund_name.ilike.%${term}%,metadata->>detected_ticker.ilike.%${term}%,metadata->>detected_ticker_exchange.ilike.%${term}%`);
+        .or(
+          `name.ilike.%${term}%,fund_name.ilike.%${term}%,metadata->>detected_ticker.ilike.%${term}%,metadata->>detected_ticker_exchange.ilike.%${term}%`,
+        );
       if (docMatches) docMatchIds.push(...docMatches.map((d: any) => d.id));
     }
 
@@ -912,11 +960,13 @@ Deno.serve(async (req) => {
 
     // Deduplicate chunks
     const seen = new Set<string>();
-    const chunks = allChunks.filter((c) => {
-      if (seen.has(c.id)) return false;
-      seen.add(c.id);
-      return true;
-    }).slice(0, 15);
+    const chunks = allChunks
+      .filter((c) => {
+        if (seen.has(c.id)) return false;
+        seen.add(c.id);
+        return true;
+      })
+      .slice(0, 15);
 
     console.log(`Total unique chunks: ${chunks.length}`);
 
@@ -937,12 +987,14 @@ Deno.serve(async (req) => {
     const filteredDocIds = new Set(documents.map((d: any) => d.id));
     const filteredChunks = chunks.filter((c: any) => filteredDocIds.has(c.document_id));
 
-    const context = filteredChunks.map((c: any) => {
-      const doc = documents.find((d: any) => d.id === c.document_id);
-      const ticker = doc?.metadata?.detected_ticker_exchange || doc?.metadata?.detected_ticker || "";
-      const label = [doc?.fund_name, ticker, doc?.name, doc?.period].filter(Boolean).join(" | ");
-      return `[${label}]\n${c.content}`;
-    }).join("\n\n---\n\n");
+    const context = filteredChunks
+      .map((c: any) => {
+        const doc = documents.find((d: any) => d.id === c.document_id);
+        const ticker = doc?.metadata?.detected_ticker_exchange || doc?.metadata?.detected_ticker || "";
+        const label = [doc?.fund_name, ticker, doc?.name, doc?.period].filter(Boolean).join(" | ");
+        return `[${label}]\n${c.content}`;
+      })
+      .join("\n\n---\n\n");
 
     const sources = documents.map((d: any) => ({
       name: d.fund_name || d.name,
@@ -976,13 +1028,15 @@ Deno.serve(async (req) => {
 
     // Build user message with asset knowledge as priority context
     let userMessageContent = "";
-    
+
     // Inject FULL asset inventory for strict match protocol
     if (allAssets && allAssets.length > 0) {
-      const inventoryList = allAssets.map((a: any) => `- ${a.ticker}${a.isin ? ` (ISIN: ${a.isin})` : ""} — ${a.name}`).join("\n");
+      const inventoryList = allAssets
+        .map((a: any) => `- ${a.ticker}${a.isin ? ` (ISIN: ${a.isin})` : ""} — ${a.name}`)
+        .join("\n");
       userMessageContent += `## INVENTÁRIO COMPLETO DE ATIVOS (LISTA OFICIAL — USE PARA VERIFICAÇÃO DE EXISTÊNCIA):\n\nOs ÚNICOS ativos que existem nos portfólios da Galapagos são os listados abaixo. Qualquer ativo NÃO presente nesta lista NÃO FAZ PARTE dos portfólios.\n\n${inventoryList}\n\n---\n\n`;
     }
-    
+
     if (assetKnowledgeContext) {
       userMessageContent += `## BASE DE CONHECIMENTO DE ATIVOS (PRIORIDADE MÁXIMA):\n\n${assetKnowledgeContext}\n\n---\n\n`;
     }
@@ -1009,10 +1063,7 @@ Deno.serve(async (req) => {
     }
     userMessageContent += `\nPergunta: ${query}`;
 
-    const claudeMessages = [
-      ...historyMessages,
-      { role: "user", content: userMessageContent },
-    ];
+    const claudeMessages = [...historyMessages, { role: "user", content: userMessageContent }];
 
     const systemPrompt = `## LEI MAIOR — GUARDRAILS INSTITUCIONAIS (INQUEBRÁVEL)
 
@@ -1301,17 +1352,19 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
 3. [Pergunta sobre risco, alocação ou performance complementar]`;
 
     // Convert tools to Gemini function declarations
-    const geminiTools = [{
-      functionDeclarations: TOOLS.map(t => ({
-        name: t.name,
-        description: t.description,
-        parameters: t.input_schema,
-      })),
-    }];
+    const geminiTools = [
+      {
+        functionDeclarations: TOOLS.map((t) => ({
+          name: t.name,
+          description: t.description,
+          parameters: t.input_schema,
+        })),
+      },
+    ];
 
     // Convert messages to Gemini format
     function toGeminiMessages(msgs: any[]) {
-      return msgs.map(m => {
+      return msgs.map((m) => {
         if (m.role === "user") {
           if (typeof m.content === "string") {
             return { role: "user", parts: [{ text: m.content }] };
@@ -1351,8 +1404,8 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
       });
     }
 
-    const PRIMARY_MODEL = 'gemini-2.5-flash-preview';
-    const FALLBACK_MODEL = 'gemini-1.5-flash';
+    const PRIMARY_MODEL = "gemini-2.5-flash-preview";
+    const FALLBACK_MODEL = "gemini-2.0-flash";
 
     const createGeminiResponse = async (messages: any[], model: string = PRIMARY_MODEL) => {
       const geminiMessages = toGeminiMessages(messages);
@@ -1370,7 +1423,7 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
               maxOutputTokens: 4096,
             },
           }),
-        }
+        },
       );
     };
 
@@ -1379,7 +1432,7 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
     // Fallback: if primary model returns 404, retry with fallback
     if (!initialRes.ok) {
       const errText = await initialRes.text();
-      if (initialRes.status === 404 || errText.includes('not found')) {
+      if (initialRes.status === 404 || errText.includes("not found")) {
         console.warn(`Primary model ${PRIMARY_MODEL} not found, falling back to ${FALLBACK_MODEL}`);
         initialRes = await createGeminiResponse(claudeMessages, FALLBACK_MODEL);
       }
@@ -1431,7 +1484,7 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
                   for (const part of parts) {
                     if (part.text) {
                       controller.enqueue(
-                        encoder.encode(`data: ${JSON.stringify({ type: "delta", text: part.text })}\n\n`)
+                        encoder.encode(`data: ${JSON.stringify({ type: "delta", text: part.text })}\n\n`),
                       );
                     }
                     if (part.functionCall) {
@@ -1442,11 +1495,13 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
                         serverToolCall = { name: toolName, input: toolInput };
                       } else {
                         controller.enqueue(
-                          encoder.encode(`data: ${JSON.stringify({
-                            type: "tool_call",
-                            tool: toolName,
-                            input: toolInput,
-                          })}\n\n`)
+                          encoder.encode(
+                            `data: ${JSON.stringify({
+                              type: "tool_call",
+                              tool: toolName,
+                              input: toolInput,
+                            })}\n\n`,
+                          ),
                         );
                       }
                     }
@@ -1510,16 +1565,18 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
 
             // Emit tool_pending event
             const toolLabels: Record<string, string> = {
-              "fetch_live_asset_data": "Buscando dados de mercado...",
-              "search_macro_market_context": "Pesquisando contexto macroeconômico...",
-              "get_company_ticker_news": "Buscando notícias do ativo...",
-              "ask_perplexity_researcher": "Analisando cenário de mercado na web...",
-              "tavily_web_search": "Pesquisando na web...",
-              "finnhub_ticker_news": "Buscando notícias financeiras...",
+              fetch_live_asset_data: "Buscando dados de mercado...",
+              search_macro_market_context: "Pesquisando contexto macroeconômico...",
+              get_company_ticker_news: "Buscando notícias do ativo...",
+              ask_perplexity_researcher: "Analisando cenário de mercado na web...",
+              tavily_web_search: "Pesquisando na web...",
+              finnhub_ticker_news: "Buscando notícias financeiras...",
             };
             const pendingLabel = toolLabels[toolResult.toolName] || "Processando ferramenta...";
             controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ type: "tool_pending", tool: toolResult.toolName, label: pendingLabel })}\n\n`)
+              encoder.encode(
+                `data: ${JSON.stringify({ type: "tool_pending", tool: toolResult.toolName, label: pendingLabel })}\n\n`,
+              ),
             );
 
             const toolResultData = await executeServerTool(toolResult.toolName, toolResult.toolInput);
@@ -1528,9 +1585,7 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
               ...currentMessages,
               {
                 role: "assistant",
-                content: [
-                  { type: "tool_use", name: toolResult.toolName, input: toolResult.toolInput },
-                ],
+                content: [{ type: "tool_use", name: toolResult.toolName, input: toolResult.toolInput }],
               },
               {
                 role: "user",
@@ -1550,9 +1605,7 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
           }
 
           // Send sources as final event
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ type: "sources", sources })}\n\n`)
-          );
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "sources", sources })}\n\n`));
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
           controller.close();
         } catch (err) {
@@ -1567,16 +1620,19 @@ A matemática deve ser precisa, e o visual deve parecer um extrato de alocação
         ...corsHeaders,
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
-        "Connection": "keep-alive",
+        Connection: "keep-alive",
       },
     });
-
   } catch (error) {
     console.error("Chat error:", error);
-    return new Response(JSON.stringify({
-      error: error instanceof Error ? error.message : "Unknown error"
-    }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        error: error instanceof Error ? error.message : "Unknown error",
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
 });
