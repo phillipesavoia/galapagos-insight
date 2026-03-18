@@ -355,9 +355,10 @@ Exemplos de quando usar:
             type: "object",
             properties: {
               name: { type: "string", description: "Nome/label do item (ex: nome do ativo ou portfólio)" },
+              value: { type: "number", description: "Valor numérico principal" },
+              value2: { type: "number", description: "Segundo valor numérico opcional" },
             },
             required: ["name"],
-            additionalProperties: true,
           },
         },
         bars: {
