@@ -355,9 +355,10 @@ Exemplos de quando usar:
             type: "object",
             properties: {
               name: { type: "string", description: "Nome/label do item (ex: nome do ativo ou portfólio)" },
+              value: { type: "number", description: "Valor numérico principal" },
+              value2: { type: "number", description: "Segundo valor numérico opcional" },
             },
             required: ["name"],
-            additionalProperties: true,
           },
         },
         bars: {
@@ -668,13 +669,17 @@ Exemplos de quando usar:
           description: "Array de objetos com os dados de cada linha.",
           items: {
             type: "object",
-            additionalProperties: true,
+            properties: {
+              label: { type: "string", description: "Identificador da linha" },
+            },
           },
         },
         footerRow: {
           type: "object",
           description: "Linha de rodapé opcional (ex: totais). Mesmo formato das rows.",
-          additionalProperties: true,
+          properties: {
+            label: { type: "string", description: "Label do rodapé (ex: 'Total')" },
+          },
         },
       },
       required: ["title", "columns", "rows"],
