@@ -14,13 +14,28 @@ interface InlineBarChartProps {
 }
 
 const DEFAULT_COLORS = [
-  "#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6",
-  "#ec4899", "#14b8a6", "#f97316",
+  "#4ade80", "#3b82f6", "#f97316", "#fb7185", "#8b5cf6",
+  "#14b8a6", "#f59e0b", "#ec4899",
 ];
 
 function formatLabel(value: number, suffix: string) {
   if (value == null) return "";
   return `${value >= 0 ? "+" : ""}${Number(value).toFixed(2)}${suffix}`;
+}
+
+function CustomTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-xl px-3 py-2 text-[11px] font-mono border border-white/10 backdrop-blur-md"
+      style={{ backgroundColor: "#050b18" }}>
+      <p className="text-muted-foreground mb-1">{label}</p>
+      {payload.map((p: any, i: number) => (
+        <p key={i} style={{ color: p.color }} className="font-semibold">
+          {p.name}: {p.value}{p.unit || ""}
+        </p>
+      ))}
+    </div>
+  );
 }
 
 export function InlineBarChart({ title, data, bars, yAxisLabel }: InlineBarChartProps) {
@@ -30,38 +45,35 @@ export function InlineBarChart({ title, data, bars, yAxisLabel }: InlineBarChart
   const suffix = yAxisLabel || "";
 
   return (
-    <div className="my-3 p-4 rounded-xl bg-gray-50 border border-gray-200">
-      <h4 className="text-xs font-semibold text-gray-700 mb-3 uppercase tracking-wide">{title}</h4>
+    <div className="my-3 p-4 rounded-2xl glass-card border border-white/5">
+      <h4 className="text-[10px] font-semibold text-neon-orange mb-3 uppercase tracking-widest font-mono">{title}</h4>
       <ResponsiveContainer width="100%" height={Math.max(200, data.length * 40 + 60)}>
         <BarChart
           data={data}
           layout="vertical"
           margin={{ top: 5, right: 60, left: 10, bottom: 5 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
+          <CartesianGrid
+            horizontal={false}
+            vertical={true}
+            strokeDasharray="3 3"
+            stroke="rgba(255,255,255,0.05)"
+          />
           <XAxis
             type="number"
-            tick={{ fontSize: 11, fill: "#6b7280" }}
+            tick={{ fontSize: 10, fill: "#475569", fontFamily: "JetBrains Mono, monospace" }}
             tickFormatter={(v) => `${v}${suffix}`}
           />
           <YAxis
             type="category"
             dataKey="name"
-            tick={{ fontSize: 11, fill: "#374151", fontWeight: 500 }}
+            tick={{ fontSize: 10, fill: "#94a3b8", fontFamily: "JetBrains Mono, monospace", fontWeight: 500 }}
             width={120}
           />
-          <Tooltip
-            contentStyle={{
-              fontSize: 12,
-              borderRadius: 8,
-              border: "1px solid #e5e7eb",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-            }}
-            formatter={(value: number, name: string) => [`${value}${suffix}`, name]}
-          />
+          <Tooltip content={<CustomTooltip />} />
           {bars.length > 1 && (
             <Legend
-              wrapperStyle={{ fontSize: 11 }}
+              wrapperStyle={{ fontSize: 10, fontFamily: "JetBrains Mono, monospace" }}
               iconType="circle"
             />
           )}
@@ -77,7 +89,7 @@ export function InlineBarChart({ title, data, bars, yAxisLabel }: InlineBarChart
               <LabelList
                 dataKey={bar.dataKey}
                 position="right"
-                style={{ fontSize: 11, fontWeight: 600, fill: "#374151" }}
+                style={{ fontSize: 10, fontWeight: 600, fill: "#94a3b8", fontFamily: "JetBrains Mono, monospace" }}
                 formatter={(v: number) => formatLabel(v, suffix)}
               />
               {isSingleBar && data.map((_, i) => (
