@@ -51,9 +51,10 @@ export function InlineBarChart({ title, data, bars, yAxisLabel }: InlineBarChart
           <XAxis
             type="number"
             tick={{ fontSize: 10, fill: "#64748b", fontFamily: "monospace" }}
-            tickFormatter={(v) => `${v}${suffix}`}
+            tickFormatter={(v) => `${v}`}
             axisLine={{ stroke: "rgba(255,255,255,0.1)" }}
             tickLine={false}
+            label={suffix ? { value: suffix, position: "insideBottomRight", offset: -4, style: { fontSize: 10, fill: "#64748b" } } : undefined}
           />
           <YAxis
             type="category"
