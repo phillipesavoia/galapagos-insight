@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, ChevronDown, ChevronRight, X, Plus, History, ThumbsUp, ThumbsDown, RefreshCw, Copy, PanelLeftClose, PanelLeft, SquarePen } from "lucide-react";
+import { Send, ChevronDown, ChevronRight, ThumbsUp, ThumbsDown, RefreshCw, Copy, PanelLeftClose, PanelLeft, SquarePen, History } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Layout } from "@/components/Layout";
@@ -117,7 +117,6 @@ export default function Chat() {
     }
   }, [messages, isLoading]);
 
-  // Load sessions and auto-restore last session on first mount
   useEffect(() => {
     const loadSessions = async () => {
       const { data } = await supabase
@@ -141,7 +140,6 @@ export default function Chat() {
         }
         setSessions(unique.slice(0, 20));
 
-        // Auto-load the most recent session on first mount
         if (!initialLoadDone && unique.length > 0) {
           setInitialLoadDone(true);
           const lastSid = unique[0].session_id;
@@ -244,7 +242,6 @@ export default function Chat() {
         throw new Error(`HTTP ${resp.status}`);
       }
 
-      // Create initial assistant message
       setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "", sources: [], toolCalls: [] }]);
 
       const reader = resp.body.getReader();
@@ -350,74 +347,68 @@ export default function Chat() {
 
   return (
     <Layout>
-      <div className="flex h-screen bg-white">
-        {/* History Sidebar */}
+      <div className="flex h-screen bg-background text-foreground">
         {showHistory && (
-          <div className="w-64 border-r border-gray-200 bg-white flex flex-col shrink-0">
-            {/* New Chat - Gemini style */}
+          <div className="w-64 shrink-0 border-r border-border bg-card flex flex-col">
             <div className="px-4 pt-5 pb-2">
               <button
                 onClick={handleNewChat}
-                className="flex items-center gap-3 text-sm text-gray-700 hover:bg-gray-100 rounded-full px-4 py-2.5 transition-colors w-full"
+                className="flex w-full items-center gap-3 rounded-full px-4 py-2.5 text-sm text-foreground transition-colors hover:bg-accent"
               >
-                <SquarePen className="h-4 w-4 text-gray-500" strokeWidth={1.5} />
+                <SquarePen className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
                 <span>New chat</span>
               </button>
             </div>
 
-            {/* Section label */}
             <div className="px-4 pt-4 pb-2">
-              <h3 className="text-xs font-medium text-gray-500">Chats</h3>
+              <h3 className="text-xs font-medium text-muted-foreground">Chats</h3>
             </div>
 
-            {/* Session list */}
             <div className="flex-1 overflow-y-auto scrollbar-thin px-2 pb-2 space-y-0.5">
               {sessions.map((s) => (
                 <button
                   key={s.session_id}
                   onClick={() => handleSelectSession(s.session_id)}
-                  className={`w-full text-left px-3 py-2 rounded-full text-[13px] transition-colors truncate ${
+                  className={`w-full truncate rounded-full px-3 py-2 text-left text-[13px] transition-colors ${
                     s.session_id === sessionId
-                      ? "bg-blue-50 text-blue-700 font-medium"
-                      : "text-gray-700 hover:bg-gray-100"
+                      ? "bg-secondary text-foreground font-medium"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
                   }`}
                 >
                   {s.preview || "Conversa sem título"}
                 </button>
               ))}
               {sessions.length === 0 && (
-                <p className="text-xs text-gray-400 px-3 py-4 text-center">Nenhuma conversa anterior.</p>
+                <p className="px-3 py-4 text-center text-xs text-muted-foreground">Nenhuma conversa anterior.</p>
               )}
             </div>
           </div>
         )}
 
-        {/* Main Chat Area */}
-        <div className="flex-1 flex flex-col min-w-0">
-          {/* Fixed header */}
-          <div className="h-10 border-b border-gray-200 bg-white flex items-center justify-between px-4 shrink-0">
+        <div className="flex-1 flex min-w-0 flex-col">
+          <div className="h-10 shrink-0 border-b border-border bg-background flex items-center justify-between px-4">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowHistory((prev) => !prev)}
-                className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 title={showHistory ? "Esconder histórico" : "Mostrar histórico"}
               >
                 {showHistory ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeft className="h-4 w-4" />}
               </button>
               <img src="/galapagos-logo.png" alt="Galapagos" className="h-5 w-5 object-contain" />
-              <span className="text-xs font-semibold text-gray-700 tracking-wide">Galapagos RIA</span>
-              <span className="text-[10px] text-gray-400 font-medium tracking-widest uppercase">Offshore</span>
+              <span className="text-xs font-semibold tracking-wide text-foreground">Galapagos RIA</span>
+              <span className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground">Offshore</span>
             </div>
-            <span className="text-[10px] text-gray-400">Advisor Chat</span>
+            <span className="text-[10px] text-muted-foreground">Advisor Chat</span>
           </div>
 
           {isEmpty ? (
-            <div className="flex-1 flex items-center justify-center p-8 bg-white">
+            <div className="flex-1 flex items-center justify-center p-8 bg-background">
               <div className="max-w-xl w-full text-center">
-                <h1 className="text-2xl font-semibold tracking-tight text-gray-900 mb-2">
+                <h1 className="mb-2 text-2xl font-semibold tracking-tight text-foreground">
                   Olá. O que você quer saber sobre os nossos fundos?
                 </h1>
-                <p className="text-sm text-gray-500 mb-8">
+                <p className="mb-8 text-sm text-muted-foreground">
                   Pesquiso na base de documentos indexados para responder.
                 </p>
                 <div className="grid grid-cols-2 gap-3">
@@ -425,7 +416,7 @@ export default function Chat() {
                     <button
                       key={s}
                       onClick={() => handleSend(s)}
-                      className="text-left p-4 rounded-xl border border-gray-200 bg-white text-sm text-gray-600 hover:border-emerald-300 hover:text-gray-900 transition-colors shadow-sm"
+                      className="rounded-xl border border-border bg-card p-4 text-left text-sm text-muted-foreground shadow-sm transition-colors hover:border-primary/40 hover:text-foreground"
                     >
                       {s}
                     </button>
@@ -434,14 +425,14 @@ export default function Chat() {
               </div>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-6 space-y-6 bg-white" ref={messagesEndRef}>
+            <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-6 space-y-6 bg-background" ref={messagesEndRef}>
               {messages.map((msg) => (
                 <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div
                     className={`max-w-4xl w-full text-[13px] leading-[1.7] ${
                       msg.role === "user"
-                        ? "bg-gray-100 text-gray-900 rounded-2xl px-4 py-3"
-                        : "text-gray-900"
+                        ? "rounded-2xl border border-border bg-secondary px-4 py-3 text-foreground"
+                        : "text-foreground"
                     }`}
                   >
                     {msg.role === "assistant" ? (
@@ -452,13 +443,13 @@ export default function Chat() {
 
                           return (
                             <>
-                              <div className="prose prose-sm max-w-none text-foreground [&_p]:my-2 [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-1 [&_strong]:text-foreground [&_strong]:font-semibold [&_h1]:text-[15px] [&_h2]:text-[14px] [&_h3]:text-[13px] [&_h1]:font-bold [&_h2]:font-bold [&_h3]:font-semibold [&_h1]:mt-4 [&_h2]:mt-4 [&_h3]:mt-3 [&_h1]:mb-2 [&_h2]:mb-2 [&_h3]:mb-1 [&_ul]:pl-5 [&_ol]:pl-5 [&_li]:text-muted-foreground [&_hr]:my-3 [&_hr]:border-border">
+                              <div className="prose prose-sm max-w-none text-foreground [&_p]:my-2 [&_p]:text-foreground [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-1 [&_li]:text-foreground [&_strong]:font-semibold [&_strong]:text-foreground [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:text-[15px] [&_h1]:font-bold [&_h1]:text-foreground [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:text-[14px] [&_h2]:font-bold [&_h2]:text-foreground [&_h3]:mt-3 [&_h3]:mb-1 [&_h3]:text-[13px] [&_h3]:font-semibold [&_h3]:text-foreground [&_ul]:pl-5 [&_ol]:pl-5 [&_hr]:my-3 [&_hr]:border-border [&_code]:text-foreground">
                                 <ReactMarkdown
                                   remarkPlugins={[remarkGfm]}
                                   components={{
                                     table: ({ children }) => (
                                       <div className="my-4 overflow-x-auto rounded-xl border border-border bg-card">
-                                        <table className="w-full min-w-max border-collapse text-xs">
+                                        <table className="w-full min-w-max border-collapse text-xs text-foreground">
                                           {children}
                                         </table>
                                       </div>
@@ -469,12 +460,12 @@ export default function Chat() {
                                       </thead>
                                     ),
                                     th: ({ children }) => (
-                                      <th className="px-3 py-2 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.24em] whitespace-nowrap">
+                                      <th className="px-3 py-2 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.24em] text-primary whitespace-nowrap">
                                         {children}
                                       </th>
                                     ),
                                     tbody: ({ children }) => (
-                                      <tbody className="divide-y divide-border/70">
+                                      <tbody className="divide-y divide-border/70 bg-card text-foreground">
                                         {children}
                                       </tbody>
                                     ),
@@ -514,7 +505,7 @@ export default function Chat() {
                                       key={i}
                                       onClick={() => handleSend(q)}
                                       disabled={isLoading}
-                                      className="px-2.5 py-1 rounded-full text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 transition-colors disabled:opacity-50 truncate max-w-xs"
+                                      className="max-w-xs truncate rounded-full border border-border bg-secondary px-2.5 py-1 text-[11px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
                                     >
                                       {q}
                                     </button>
@@ -524,7 +515,7 @@ export default function Chat() {
                             </>
                           );
                         })()}
-                        {/* Render tool call components (Generative UI) */}
+
                         {msg.toolCalls && msg.toolCalls.length > 0 && (
                           <div className="mt-2">
                             {msg.toolCalls.map((tc, i) => renderToolCall(tc, i))}
@@ -534,13 +525,14 @@ export default function Chat() {
                     ) : (
                       <p className="whitespace-pre-wrap">{msg.content}</p>
                     )}
+
                     {msg.role === "assistant" && msg.sources && msg.sources.length > 0 && (
-                      <div className="mt-4 pt-3 border-t border-gray-100">
+                      <div className="mt-4 pt-3 border-t border-border">
                         <button
                           onClick={() =>
                             setExpandedSources((prev) => ({ ...prev, [msg.id]: !prev[msg.id] }))
                           }
-                          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+                          className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
                         >
                           {expandedSources[msg.id] ? (
                             <ChevronDown className="h-3 w-3" />
@@ -558,14 +550,14 @@ export default function Chat() {
                                   href={src.file_url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex items-center px-2.5 py-1 rounded-md bg-emerald-50 text-xs text-emerald-700 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 transition-colors cursor-pointer"
+                                  className="inline-flex items-center rounded-md border border-border bg-secondary px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-accent cursor-pointer"
                                 >
                                   {src.name} · {src.period}
                                 </a>
                               ) : (
                                 <span
                                   key={i}
-                                  className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-100 text-xs text-gray-600 border border-gray-200"
+                                  className="inline-flex items-center rounded-md border border-border bg-card px-2.5 py-1 text-xs text-muted-foreground"
                                 >
                                   {src.name} · {src.period}
                                 </span>
@@ -575,18 +567,19 @@ export default function Chat() {
                         )}
                       </div>
                     )}
+
                     {msg.role === "assistant" && (msg.content || (msg.toolCalls && msg.toolCalls.length > 0)) && (
                       <div className="flex items-center gap-1 mt-3 pt-2">
                         <button
                           onClick={() => {/* TODO: feedback */}}
-                          className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                           title="Útil"
                         >
                           <ThumbsUp className="h-3.5 w-3.5" strokeWidth={1.5} />
                         </button>
                         <button
                           onClick={() => {/* TODO: feedback */}}
-                          className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                           title="Não útil"
                         >
                           <ThumbsDown className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -596,14 +589,14 @@ export default function Chat() {
                             const lastUserMsg = messages.slice(0, messages.indexOf(msg)).reverse().find(m => m.role === "user");
                             if (lastUserMsg) handleSend(lastUserMsg.content);
                           }}
-                          className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                           title="Regenerar"
                         >
                           <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.5} />
                         </button>
                         <button
                           onClick={() => navigator.clipboard.writeText(msg.content)}
-                          className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                           title="Copiar"
                         >
                           <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -615,22 +608,21 @@ export default function Chat() {
               ))}
               {isLoading && (
                 <div className="flex justify-start animate-fade-in">
-                  <div className="bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3 flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-emerald-400 animate-[pulse_1s_ease-in-out_infinite]" />
-                    <span className="h-2 w-2 rounded-full bg-emerald-400 animate-[pulse_1s_ease-in-out_0.2s_infinite]" />
-                    <span className="h-2 w-2 rounded-full bg-emerald-400 animate-[pulse_1s_ease-in-out_0.4s_infinite]" />
+                  <div className="rounded-2xl border border-border bg-card px-4 py-3 flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-primary animate-[pulse_1s_ease-in-out_infinite]" />
+                    <span className="h-2 w-2 rounded-full bg-primary animate-[pulse_1s_ease-in-out_0.2s_infinite]" />
+                    <span className="h-2 w-2 rounded-full bg-primary animate-[pulse_1s_ease-in-out_0.4s_infinite]" />
                   </div>
                 </div>
               )}
             </div>
           )}
 
-          {/* Input */}
-          <div className="border-t border-gray-200 p-4 bg-white">
+          <div className="border-t border-border p-4 bg-background">
             <div className="flex items-end gap-2">
               <button
                 onClick={() => setShowHistory(!showHistory)}
-                className={`h-11 w-11 rounded-xl flex items-center justify-center transition-colors shrink-0 ${showHistory ? 'text-emerald-600 bg-emerald-50 border border-emerald-200' : 'text-gray-400 bg-gray-50 border border-gray-200 hover:text-gray-700 hover:bg-gray-100'}`}
+                className={`h-11 w-11 rounded-xl flex items-center justify-center transition-colors shrink-0 ${showHistory ? 'text-foreground bg-secondary border border-border' : 'text-muted-foreground bg-card border border-border hover:text-foreground hover:bg-accent'}`}
                 title="Histórico de conversas"
               >
                 <History className="h-4 w-4" strokeWidth={1.5} />
@@ -646,18 +638,17 @@ export default function Chat() {
                 }}
                 placeholder="Pergunte sobre fundos, teses ou performance..."
                 rows={1}
-                className="flex-1 resize-none bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                className="flex-1 resize-none rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
               <button
                 onClick={() => handleSend()}
-                className="h-11 w-11 rounded-xl bg-emerald-500 text-white flex items-center justify-center hover:bg-emerald-600 transition-colors shrink-0"
+                className="h-11 w-11 rounded-xl bg-primary text-primary-foreground flex items-center justify-center transition-colors hover:opacity-90 shrink-0"
               >
                 <Send className="h-4 w-4" strokeWidth={1.5} />
               </button>
             </div>
           </div>
         </div>
-
       </div>
     </Layout>
   );
