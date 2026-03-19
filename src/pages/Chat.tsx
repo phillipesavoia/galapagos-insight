@@ -196,6 +196,16 @@ export default function Chat() {
     setShowHistory(false);
   };
 
+  const handleClearAllChats = async () => {
+    if (!confirm("Tem certeza que deseja apagar todo o histórico de conversas?")) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from("advisor_chat_history").delete().eq("user_id", user.id);
+    setSessions([]);
+    setMessages([]);
+    setSessionId(generateSessionId());
+  };
+
   const handleSelectSession = (sid: string) => {
     setSessionId(sid as `${string}-${string}-${string}-${string}-${string}`);
     setMessages([]);
