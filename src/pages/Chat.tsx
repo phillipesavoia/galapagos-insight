@@ -392,6 +392,18 @@ export default function Chat() {
                 <p className="px-3 py-4 text-center text-xs text-muted-foreground">Nenhuma conversa anterior.</p>
               )}
             </div>
+
+            {sessions.length > 0 && (
+              <div className="px-4 py-3 border-t border-border">
+                <button
+                  onClick={handleClearAllChats}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-destructive hover:bg-destructive/10 transition-colors"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>Apagar histórico</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
 
