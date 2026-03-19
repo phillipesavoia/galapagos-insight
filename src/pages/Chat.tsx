@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, ChevronDown, ChevronRight, ThumbsUp, ThumbsDown, RefreshCw, Copy, PanelLeftClose, PanelLeft, SquarePen, History } from "lucide-react";
+import { Send, ChevronDown, ChevronRight, ThumbsUp, ThumbsDown, RefreshCw, Copy, PanelLeftClose, PanelLeft, SquarePen, History, Trash2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Layout } from "@/components/Layout";
@@ -196,6 +196,16 @@ export default function Chat() {
     setShowHistory(false);
   };
 
+  const handleClearAllChats = async () => {
+    if (!confirm("Tem certeza que deseja apagar todo o histórico de conversas?")) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from("advisor_chat_history").delete().eq("user_id", user.id);
+    setSessions([]);
+    setMessages([]);
+    setSessionId(generateSessionId());
+  };
+
   const handleSelectSession = (sid: string) => {
     setSessionId(sid as `${string}-${string}-${string}-${string}-${string}`);
     setMessages([]);
@@ -382,6 +392,18 @@ export default function Chat() {
                 <p className="px-3 py-4 text-center text-xs text-muted-foreground">Nenhuma conversa anterior.</p>
               )}
             </div>
+
+            {sessions.length > 0 && (
+              <div className="px-4 py-3 border-t border-border">
+                <button
+                  onClick={handleClearAllChats}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-destructive hover:bg-destructive/10 transition-colors"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>Apagar histórico</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
 
