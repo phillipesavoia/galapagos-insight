@@ -256,29 +256,84 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const serviceClient = createClient(supabaseUrl, serviceRoleKey);
     
+    const queryLower = query.toLowerCase();
     const queryUpper = query.toUpperCase();
     const { data: allAssets } = await serviceClient.from("asset_knowledge").select("*");
     
     if (allAssets && allAssets.length > 0) {
-      const matchedAssets = allAssets.filter((a: any) => {
-        const tickerMatch = queryUpper.includes(a.ticker.toUpperCase());
-        const isinMatch = a.isin && queryUpper.includes(a.isin.toUpperCase());
-        const nameMatch = query.toLowerCase().includes(a.name.toLowerCase());
-        const nameWords = a.name.split(/\s+/).filter((w: string) => w.length >= 3);
-        const partialMatch = nameWords.some((w: string) => query.toLowerCase().includes(w.toLowerCase()));
-        return tickerMatch || isinMatch || nameMatch || partialMatch;
-      });
+      // Detect portfolio names mentioned in query
+      const portfolioNames = ["conservative", "income", "balanced", "growth", "liquidity", "bond", "bonds"];
+      const mentionedPortfolios = portfolioNames.filter(p => queryLower.includes(p));
+      
+      // Detect asset class mentions
+      const assetClassKeywords: Record<string, string[]> = {
+        "Fixed Income": ["fixed income", "renda fixa", "bonds", "bond", "títulos", "titulos", "crédito", "credito"],
+        "Equities": ["equities", "equity", "ações", "acoes", "renda variável", "renda variavel", "stocks"],
+        "Alternatives": ["alternatives", "alternativos", "hedge", "real estate"],
+        "Commodities": ["commodities", "commodity", "ouro", "gold"],
+        "Cash & Equivalents": ["cash", "caixa", "money market", "liquidez"],
+      };
+      const mentionedClasses: string[] = [];
+      for (const [cls, keywords] of Object.entries(assetClassKeywords)) {
+        if (keywords.some(k => queryLower.includes(k))) {
+          mentionedClasses.push(cls);
+        }
+      }
+      
+      // Detect broad composition/allocation queries
+      const isCompositionQuery = /compos|aloca|peso|holding|portf[oó]lio|model|exposição|exposicao|quebra|breakdown|listagem|listar ativos|todos os ativos|ativos do/i.test(query);
+      
+      // Build matched assets set
+      let matchedAssets: any[];
+      
+      if (mentionedPortfolios.length > 0 || mentionedClasses.length > 0 || isCompositionQuery) {
+        // Broad query: include ALL assets for mentioned portfolios/classes
+        matchedAssets = allAssets.filter((a: any) => {
+          // If specific portfolios mentioned, include assets in those portfolios
+          if (mentionedPortfolios.length > 0) {
+            const assetPortfolios = (a.portfolios || []).map((p: string) => p.toLowerCase());
+            const weightPortfolios = a.weight_pct ? Object.keys(a.weight_pct).map(k => k.toLowerCase()) : [];
+            const allPortfolios = [...new Set([...assetPortfolios, ...weightPortfolios])];
+            const portfolioMatch = mentionedPortfolios.some(mp => 
+              allPortfolios.some(ap => ap.includes(mp) || mp.includes(ap))
+            );
+            if (portfolioMatch) return true;
+          }
+          
+          // If specific asset classes mentioned, include assets in those classes
+          if (mentionedClasses.length > 0) {
+            if (mentionedClasses.some(mc => a.asset_class.toLowerCase().includes(mc.toLowerCase()))) return true;
+          }
+          
+          // If generic composition query with no specific filter, include all
+          if (isCompositionQuery && mentionedPortfolios.length === 0 && mentionedClasses.length === 0) return true;
+          
+          return false;
+        });
+        console.log(`Asset Knowledge: broad query detected (portfolios: [${mentionedPortfolios}], classes: [${mentionedClasses}], composition: ${isCompositionQuery}) — matched ${matchedAssets.length} assets`);
+      } else {
+        // Narrow query: match by ticker/name/ISIN
+        matchedAssets = allAssets.filter((a: any) => {
+          const tickerMatch = queryUpper.includes(a.ticker.toUpperCase());
+          const isinMatch = a.isin && queryUpper.includes(a.isin.toUpperCase());
+          const nameMatch = queryLower.includes(a.name.toLowerCase());
+          const nameWords = a.name.split(/\s+/).filter((w: string) => w.length >= 3);
+          const partialMatch = nameWords.some((w: string) => queryLower.includes(w.toLowerCase()));
+          return tickerMatch || isinMatch || nameMatch || partialMatch;
+        });
+        console.log(`Asset Knowledge: narrow query — matched ${matchedAssets.length} assets`);
+      }
       
       if (matchedAssets.length > 0) {
+        // Format with portfolio-specific weights clearly
         assetKnowledgeContext = matchedAssets.map((a: any) => {
           const portfolios = a.portfolios?.length > 0 ? `\nPortfólios: ${a.portfolios.join(", ")}` : "";
           const weights = a.weight_pct && Object.keys(a.weight_pct).length > 0
-            ? `\nPesos: ${Object.entries(a.weight_pct).map(([k, v]) => `${k}: ${v}%`).join(", ")}`
+            ? `\nPesos por Portfólio: ${Object.entries(a.weight_pct).map(([k, v]) => `${k}: ${v}%`).join(", ")}`
             : "";
           const asOfDate = a.as_of_date ? `\n📅 Data Base (As of Date): ${a.as_of_date}` : "";
           return `[ASSET DICTIONARY — ${a.ticker}${a.isin ? ` | ISIN: ${a.isin}` : ""}]\nNome: ${a.name}\nClasse: ${a.asset_class}\nPerfil de Risco: ${a.risk_profile}${portfolios}${weights}${asOfDate}\nTese Oficial da Gestão: ${a.official_thesis}`;
         }).join("\n\n---\n\n");
-        console.log(`Asset Knowledge: matched ${matchedAssets.length} assets from dictionary`);
       }
     }
 
