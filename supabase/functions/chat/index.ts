@@ -588,6 +588,10 @@ por "HYG").
 
 PESOS E PERCENTUAIS: Cite apenas valores explicitamente presentes nos
 dados fornecidos. Nunca calcule variações históricas de alocação.
+Ao usar renderizar_grafico_barras, COPIE os valores numéricos EXATAMENTE
+como aparecem no Asset Dictionary (campo "Pesos por Portfólio").
+Exemplo: se o dado diz "Growth: 4.50%", passe 4.50 no gráfico — NUNCA
+arredonde, estime ou altere o valor. Se não há valor explícito, omita o item.
 
 DADOS DE MERCADO EM TEMPO REAL: Use a tool fetch_live_asset_data
 para preço atual, YTD intraday ou NAV em tempo real.
