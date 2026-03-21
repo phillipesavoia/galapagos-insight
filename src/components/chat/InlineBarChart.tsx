@@ -135,17 +135,17 @@ export function InlineBarChart({ title, data, bars, yAxisLabel }: InlineBarChart
         </div>
 
         {/* Legend panel */}
-        <div className="shrink-0 w-40 rounded-xl border border-white/10 bg-white/[0.03] p-3 flex flex-col gap-1.5 self-start">
+        <div className="shrink-0 w-56 rounded-xl border border-white/10 bg-white/[0.03] p-3 flex flex-col gap-1.5 self-start max-h-[400px] overflow-y-auto">
           <span className="text-[9px] font-semibold uppercase tracking-widest text-slate-500 mb-1">Legenda</span>
           {legendItems.map((item, i) => (
-            <div key={i} className="flex items-center gap-2">
+            <div key={i} className="flex items-start gap-2">
               <span
-                className="inline-block h-2.5 w-2.5 rounded-sm shrink-0"
+                className="inline-block h-2.5 w-2.5 rounded-sm shrink-0 mt-0.5"
                 style={{ backgroundColor: item.color }}
               />
-              <span className="text-[11px] text-slate-300 truncate">{item.name}</span>
+              <span className="text-[11px] text-slate-300 break-words leading-tight flex-1 min-w-0">{item.name}</span>
               {item.value != null && (
-                <span className="ml-auto text-[10px] font-mono text-slate-400">
+                <span className="shrink-0 text-[10px] font-mono text-slate-400 whitespace-nowrap">
                   {formatLabel(item.value, suffix)}
                 </span>
               )}
