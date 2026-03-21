@@ -13,6 +13,7 @@ import Reports from "./pages/Reports";
 import Library from "./pages/Library";
 import NavUpload from "./pages/NavUpload";
 import AssetKnowledge from "./pages/AssetKnowledge";
+import DocumentAudit from "./pages/DocumentAudit";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
