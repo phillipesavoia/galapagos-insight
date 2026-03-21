@@ -207,6 +207,19 @@ export default function Chat() {
     setSessionId(generateSessionId());
   };
 
+  const handleDeleteSession = async (sid: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setMenuOpenSession(null);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from("advisor_chat_history").delete().eq("session_id", sid).eq("user_id", user.id);
+    setSessions((prev) => prev.filter((s) => s.session_id !== sid));
+    if (sessionId === sid) {
+      setMessages([]);
+      setSessionId(generateSessionId());
+    }
+  };
+
   const handleSelectSession = (sid: string) => {
     setSessionId(sid as `${string}-${string}-${string}-${string}-${string}`);
     setMessages([]);
