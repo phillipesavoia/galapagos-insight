@@ -98,6 +98,7 @@ function generateSessionId() {
 }
 
 export default function Chat() {
+  const [menuOpenSession, setMenuOpenSession] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState(() => generateSessionId());
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
