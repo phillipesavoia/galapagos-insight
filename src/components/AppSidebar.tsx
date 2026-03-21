@@ -1,4 +1,4 @@
-import { MessageSquare, FileText, FolderOpen, BarChart3, Upload, LogOut, ClipboardList, BookOpen, TrendingUp } from "lucide-react";
+import { MessageSquare, FileText, FolderOpen, BarChart3, Upload, LogOut, ClipboardList, BookOpen, TrendingUp, ClipboardCheck } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -15,6 +15,7 @@ const adminNavItems = [
   { title: "Base de Documentos", label: "Base de Documentos", url: "/library", icon: FolderOpen },
   { title: "Asset Dictionary", label: "Asset Dictionary", url: "/admin/assets", icon: BookOpen },
   { title: "Upload NAV", label: "Upload NAV", url: "/admin/nav-upload", icon: Upload },
+  { title: "Auditoria de Docs", label: "Auditoria de Docs", url: "/admin/audit", icon: ClipboardCheck },
 ];
 
 export function AppSidebar() {
