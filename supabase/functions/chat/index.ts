@@ -82,6 +82,11 @@ const TOOLS = [
   {
     name: "renderizar_grafico_barras",
     description: `Use esta ferramenta SEMPRE que precisar comparar dados numéricos entre ativos ou portfólios (ex: YTD, retorno mensal, drawdown, peso, contribuição). Em vez de criar uma tabela markdown, chame esta ferramenta com os dados estruturados para que o frontend renderize um gráfico de barras interativo. 
+
+REGRA CRÍTICA DE DADOS: Os valores numéricos passados no campo "data" DEVEM ser COPIADOS EXATAMENTE dos dados fornecidos no contexto (Asset Dictionary weight_pct, documentos, etc). 
+- Para pesos/alocações: use EXATAMENTE os valores do campo "Pesos por Portfólio" do Asset Dictionary. NÃO arredonde, NÃO estime, NÃO invente valores.
+- Se o Asset Dictionary diz "Growth: 7.5%", passe 7.5 — NÃO 7, NÃO 8, NÃO qualquer outro número.
+- Se não houver valor explícito nas fontes para um dado, NÃO inclua esse item no gráfico.
     
 Exemplos de quando usar:
 - "Compare a performance YTD dos portfólios"
@@ -583,6 +588,10 @@ por "HYG").
 
 PESOS E PERCENTUAIS: Cite apenas valores explicitamente presentes nos
 dados fornecidos. Nunca calcule variações históricas de alocação.
+Ao usar renderizar_grafico_barras, COPIE os valores numéricos EXATAMENTE
+como aparecem no Asset Dictionary (campo "Pesos por Portfólio").
+Exemplo: se o dado diz "Growth: 4.50%", passe 4.50 no gráfico — NUNCA
+arredonde, estime ou altere o valor. Se não há valor explícito, omita o item.
 
 DADOS DE MERCADO EM TEMPO REAL: Use a tool fetch_live_asset_data
 para preço atual, YTD intraday ou NAV em tempo real.
