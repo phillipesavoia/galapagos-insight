@@ -390,17 +390,44 @@ export default function Chat() {
 
             <div className="flex-1 overflow-y-auto scrollbar-thin px-2 pb-2 space-y-0.5">
               {sessions.map((s) => (
-                <button
+                <div
                   key={s.session_id}
-                  onClick={() => handleSelectSession(s.session_id)}
-                  className={`w-full truncate rounded-full px-3 py-2 text-left text-[13px] transition-colors ${
+                  className={`group relative flex items-center rounded-full transition-colors ${
                     s.session_id === sessionId
                       ? "bg-secondary text-foreground font-medium"
                       : "text-muted-foreground hover:bg-accent hover:text-foreground"
                   }`}
                 >
-                  {s.preview || "Conversa sem título"}
-                </button>
+                  <button
+                    onClick={() => handleSelectSession(s.session_id)}
+                    className="flex-1 min-w-0 truncate px-3 py-2 text-left text-[13px]"
+                  >
+                    {s.preview || "Conversa sem título"}
+                  </button>
+                  <div className="relative shrink-0 pr-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMenuOpenSession(menuOpenSession === s.session_id ? null : s.session_id);
+                      }}
+                      className="rounded-md p-1 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-secondary transition-all"
+                      title="Opções"
+                    >
+                      <MoreHorizontal className="h-3.5 w-3.5" />
+                    </button>
+                    {menuOpenSession === s.session_id && (
+                      <div className="absolute right-0 top-full z-50 mt-1 w-36 rounded-lg border border-border bg-card shadow-lg py-1">
+                        <button
+                          onClick={(e) => handleDeleteSession(s.session_id, e)}
+                          className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10 transition-colors"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          Excluir chat
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
               ))}
               {sessions.length === 0 && (
                 <p className="px-3 py-4 text-center text-xs text-muted-foreground">Nenhuma conversa anterior.</p>
