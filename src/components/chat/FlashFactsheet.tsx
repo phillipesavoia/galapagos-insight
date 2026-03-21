@@ -10,6 +10,7 @@ interface FlashFactsheetProps {
   ticker?: string;
   assetClass: string;
   portfolios: string[];
+  weightsByPortfolio?: Record<string, number>;
   radarMetrics: RadarMetric[];
   thesis: string;
 }
@@ -40,10 +41,12 @@ export function FlashFactsheet({
   ticker,
   assetClass,
   portfolios,
+  weightsByPortfolio,
   radarMetrics,
   thesis,
 }: FlashFactsheetProps) {
   const icon = CLASS_ICONS[assetClass] || "📊";
+  const hasWeights = weightsByPortfolio && Object.keys(weightsByPortfolio).length > 0;
 
   return (
     <div className="my-3 rounded-xl border border-gray-200 bg-gradient-to-br from-white to-gray-50 overflow-hidden shadow-sm">
@@ -67,21 +70,24 @@ export function FlashFactsheet({
         </div>
       </div>
 
-      {/* Portfolio Badges */}
+      {/* Portfolio Badges with Weights */}
       <div className="px-5 py-2.5 flex flex-wrap gap-1.5 border-b border-gray-100">
-        {portfolios.map((p) => (
-          <span
-            key={p}
-            className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold border ${
-              PORTFOLIO_COLORS[p] || "bg-gray-100 text-gray-600 border-gray-200"
-            }`}
-          >
-            {p}
-          </span>
-        ))}
+        {portfolios.map((p) => {
+          const weight = hasWeights ? weightsByPortfolio[p] : undefined;
+          return (
+            <span
+              key={p}
+              className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold border ${
+                PORTFOLIO_COLORS[p] || "bg-gray-100 text-gray-600 border-gray-200"
+              }`}
+            >
+              {p}{weight != null ? ` · ${weight}%` : ""}
+            </span>
+          );
+        })}
       </div>
 
-      {/* Metric Bars */}
+      {/* Metric Bars - only if there are real metrics */}
       {radarMetrics.length > 0 && (
         <div className="px-5 py-3 space-y-2.5 border-b border-gray-100">
           {radarMetrics.map((m) => {

@@ -361,6 +361,7 @@ export default function Chat() {
           ticker={tc.input.ticker}
           assetClass={tc.input.assetClass || ""}
           portfolios={tc.input.portfolios || []}
+          weightsByPortfolio={tc.input.weightsByPortfolio}
           radarMetrics={tc.input.radarMetrics || []}
           thesis={tc.input.thesis || ""}
         />

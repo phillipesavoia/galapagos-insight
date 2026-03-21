@@ -137,39 +137,49 @@ Exemplos de quando usar:
     name: "renderizar_flash_factsheet",
     description: `Use esta ferramenta SEMPRE que o usuário pedir informações detalhadas, características, tese ou perfil de um ativo/fundo específico. Em vez de escrever textos longos, chame esta ferramenta para renderizar um card visual estilo Factsheet no frontend.
 
+REGRAS OBRIGATÓRIAS DE DADOS:
+- assetName, ticker, assetClass: COPIE EXATAMENTE do Asset Dictionary. NÃO traduza, NÃO altere.
+- portfolios: Use APENAS os portfólios listados no campo "Portfólios" do Asset Dictionary.
+- weightsByPortfolio: COPIE os valores EXATOS do campo "Pesos por Portfólio" do Asset Dictionary. Se o ativo tem peso 22% no Conservative, passe {"Conservative": 22}. NÃO invente pesos.
+- radarMetrics: Use APENAS métricas que você consegue EXTRAIR dos documentos indexados (factsheets). Se o factsheet menciona duration, yield, etc., extraia. Se NÃO há dado explícito no documento, passe array vazio []. NUNCA invente scores.
+- thesis: Use a "Tese Oficial da Gestão" do Asset Dictionary. Se vazia, extraia dos documentos.
+
 Exemplos de quando usar:
 - "Me fale sobre o ativo X"
 - "Qual a tese do fundo Y?"
-- "Detalhe as características do ETF Z"
-- "Explique a posição em crédito high yield"
-- Qualquer pedido focado em UM ativo/fundo específico`,
+- "Detalhe as características do ETF Z"`,
     input_schema: {
       type: "object",
       properties: {
         assetName: {
           type: "string",
-          description: "Nome completo do ativo ou fundo (ex: 'iShares USD Treasury Bond 1-3yr ETF')",
+          description: "Nome EXATO do ativo conforme o Asset Dictionary",
         },
         ticker: {
           type: "string",
-          description: "Ticker do ativo se disponível (ex: 'SHY', 'HYG'). Deixe vazio se não houver.",
+          description: "Ticker EXATO do ativo conforme o Asset Dictionary (ex: 'DTLA LN EQUITY')",
         },
         assetClass: {
           type: "string",
-          description: "Classe do ativo (ex: 'Fixed Income', 'Equities', 'Alternatives', 'Cash & Equivalents', 'Commodities')",
+          description: "Classe EXATA do ativo conforme o Asset Dictionary",
         },
         portfolios: {
           type: "array",
-          description: "Lista dos portfólios onde o ativo está presente",
+          description: "Lista EXATA dos portfólios do Asset Dictionary",
           items: { type: "string" },
+        },
+        weightsByPortfolio: {
+          type: "object",
+          description: "Objeto com pesos EXATOS por portfólio copiados do Asset Dictionary. Ex: {\"Conservative\": 22, \"Income\": 16.5}",
+          additionalProperties: { type: "number" },
         },
         radarMetrics: {
           type: "array",
-          description: "Métricas para o gráfico radar. Cada item tem 'metric' (nome) e 'score' (0-10).",
+          description: "Métricas EXTRAÍDAS dos documentos indexados. Se não há dados explícitos, passe array vazio [].",
           items: {
             type: "object",
             properties: {
-              metric: { type: "string", description: "Nome da métrica (ex: 'Risco', 'Liquidez', 'Retorno Esperado', 'Correlação S&P')" },
+              metric: { type: "string" },
               score: { type: "number", description: "Nota de 0 a 10" },
             },
             required: ["metric", "score"],
@@ -177,10 +187,10 @@ Exemplos de quando usar:
         },
         thesis: {
           type: "string",
-          description: "Tese resumida do ativo na carteira (máximo 2 frases curtas explicando o racional da posição)",
+          description: "Tese Oficial da Gestão do Asset Dictionary ou extraída dos documentos",
         },
       },
-      required: ["assetName", "assetClass", "portfolios", "radarMetrics", "thesis"],
+      required: ["assetName", "assetClass", "portfolios", "thesis"],
     },
   },
   {
