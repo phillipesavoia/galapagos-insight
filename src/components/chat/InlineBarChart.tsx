@@ -20,7 +20,9 @@ const DEFAULT_COLORS = [
 
 function formatLabel(value: number, suffix: string) {
   if (value == null) return "";
-  return `${value >= 0 ? "+" : ""}${Number(value).toFixed(2)}${suffix}`;
+  // For weight/allocation data (no sign needed), only add +/- for return-like metrics
+  const num = Number(value);
+  return `${num.toFixed(2)}${suffix}`;
 }
 
 export function InlineBarChart({ title, data, bars, yAxisLabel }: InlineBarChartProps) {
