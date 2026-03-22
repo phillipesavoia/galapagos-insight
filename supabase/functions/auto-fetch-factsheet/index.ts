@@ -314,8 +314,18 @@ Deno.serve(async (req) => {
 
     // For ETFs: find and download PDF
     let fetchResult: { pdfUrl: string; period: string } | null = null;
-    if (assetType === "us_etf") fetchResult = await fetchUSETFFactsheet(ticker, isin, name);
-    if (assetType === "ucits_etf" || assetType === "offshore_fund") fetchResult = await fetchUCITSFactsheet(ticker, isin, name);
+    const exchangeSuffix = ticker.toUpperCase().includes(" LN") ? "LN"
+      : ticker.toUpperCase().includes(" ID") ? "ID"
+      : ticker.toUpperCase().includes(" US") ? "US"
+      : ticker.toUpperCase().includes(" GR") ? "GR"
+      : ticker.toUpperCase().includes(" SW") ? "SW"
+      : ticker.toUpperCase().includes(" NA") ? "NA"
+      : ticker.toUpperCase().includes(" IM") ? "IM"
+      : ticker.toUpperCase().includes(" FP") ? "FP"
+      : "US";
+    if (assetType === "us_etf" || assetType === "ucits_etf" || assetType === "offshore_fund") {
+      fetchResult = await fetchETFFactsheet(ticker, isin, name, exchangeSuffix);
+    }
 
     if (!fetchResult) {
       return new Response(JSON.stringify({ status: "not_found", reason: "Could not locate factsheet URL", ticker, type: assetType }), {
