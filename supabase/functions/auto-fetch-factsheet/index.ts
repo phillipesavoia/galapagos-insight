@@ -526,20 +526,46 @@ Deno.serve(async (req) => {
     // Check if a recent factsheet already exists (indexed within last 25 days)
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 25);
-    const lookupValue = (assetType === "bond" && isin) ? isin : name;
-    const lookupColumn = (assetType === "bond" && isin) ? "fund_name" : "fund_name";
+    // Use ISIN as primary key for bonds and ETFs when available
+    const dedupeIdentifier = isin || name;
+    
     const { data: existing } = await supabase
       .from("documents")
-      .select("id, uploaded_at")
-      .eq("fund_name", lookupValue)
+      .select("id, uploaded_at, status")
+      .eq("fund_name", dedupeIdentifier)
       .eq("type", "factsheet")
       .in("status", ["indexed", "processing"])
       .limit(1);
 
     if (existing && existing.length > 0) {
-      return new Response(JSON.stringify({ status: "skipped", reason: "Recent factsheet already indexed", document_id: existing[0].id }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ 
+          status: "skipped", 
+          reason: "Recent factsheet already indexed", 
+          document_id: existing[0].id 
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Also check by name to catch duplicates from parallel requests
+    const { data: existingByName } = await supabase
+      .from("documents")
+      .select("id, status")
+      .ilike("fund_name", dedupeIdentifier)
+      .eq("type", "factsheet")
+      .in("status", ["indexed", "processing"])
+      .limit(1);
+
+    if (existingByName && existingByName.length > 0) {
+      return new Response(
+        JSON.stringify({ 
+          status: "skipped", 
+          reason: "Duplicate request detected", 
+          document_id: existingByName[0].id 
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // For bonds: create structured text document instead of PDF
