@@ -311,18 +311,22 @@ Deno.serve(async (req) => {
     if (assetType === "bond") {
       const bondDoc = await fetchBondDocument(ticker, isin, name);
       if (!bondDoc) {
-        return new Response(JSON.stringify({ status: "error", reason: "Could not build bond document" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({ status: "error", reason: "Could not build bond document" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
 
-      // Insert document record
+      const safeBondName = name.replace(/[^a-zA-Z0-9\s]/g, "").trim();
+      const bondIdentifier = isin || name;
+      const docName = `${isin ? isin + " — " : ""}${safeBondName} Bond Data`;
+
       const { data: doc, error: insertErr } = await supabase
         .from("documents")
         .insert({
-          name: `${isin ? isin : name} — ${name} Bond Data`,
+          name: docName,
           type: "factsheet",
-          fund_name: isin || name,
+          fund_name: bondIdentifier,
           period: bondDoc.period,
           status: "processing",
           owner_id: null,
@@ -330,30 +334,100 @@ Deno.serve(async (req) => {
         .select()
         .single();
 
-      if (insertErr || !doc) throw new Error("Failed to insert document record");
+      if (insertErr || !doc) throw new Error("Failed to insert bond document: " + insertErr?.message);
 
-      // Create a text blob as a fake PDF upload
-      const textEncoder = new TextEncoder();
-      const textBytes = textEncoder.encode(bondDoc.content);
-      const blob = new Blob([textBytes], { type: "text/plain" });
-      const formData = new FormData();
-      formData.append("file", blob, `${name.replace(/[^a-zA-Z0-9]/g, "_")}_bond_data.txt`);
-      formData.append("document_id", doc.id);
-      formData.append("name", `${isin ? isin : name} — ${name} Bond Data`);
-      formData.append("type", "factsheet");
-      formData.append("fund_name", isin || name);
-      formData.append("period", bondDoc.period);
+      const indexBondAsync = async () => {
+        try {
+          const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
+          if (!googleKey) throw new Error("Missing GOOGLE_AI_API_KEY");
 
-      const ingestUrl = `${supabaseUrl}/functions/v1/ingest-document`;
-      fetch(ingestUrl, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey },
-        body: formData,
-      }).catch(console.error);
+          const text = bondDoc.content;
+          const paragraphs = text.split(/\n\n+/);
+          const chunks: string[] = [];
+          let current = "";
 
-      return new Response(JSON.stringify({ status: "processing", document_id: doc.id, type: "bond_structured", name }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+          for (const para of paragraphs) {
+            if (current.length + para.length > 1500 && current.length > 0) {
+              chunks.push(current.trim());
+              current = para;
+            } else {
+              current += (current ? "\n\n" : "") + para;
+            }
+          }
+          if (current.trim().length > 20) chunks.push(current.trim());
+
+          if (chunks.length === 0) {
+            await supabase.from("documents").update({ status: "error" }).eq("id", doc.id);
+            return;
+          }
+
+          const embeddedChunks: { chunk: string; embedding: number[]; index: number }[] = [];
+
+          for (let i = 0; i < chunks.length; i++) {
+            const embRes = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${googleKey}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  content: { parts: [{ text: chunks[i] }] },
+                  outputDimensionality: 768,
+                }),
+              }
+            );
+            if (!embRes.ok) continue;
+            const embData = await embRes.json();
+            embeddedChunks.push({
+              chunk: chunks[i],
+              embedding: embData.embedding.values,
+              index: i,
+            });
+          }
+
+          const chunkRecords = embeddedChunks.map(({ chunk, embedding, index }) => ({
+            document_id: doc.id,
+            content: chunk,
+            embedding: `[${embedding.join(",")}]`,
+            chunk_index: index,
+            metadata: {
+              fund_name: bondIdentifier,
+              isin: isin || null,
+              period: bondDoc.period,
+              document_type: "factsheet",
+              document_name: docName,
+            },
+          }));
+
+          if (chunkRecords.length > 0) {
+            await supabase.from("document_chunks").insert(chunkRecords);
+          }
+
+          await supabase.from("documents").update({
+            status: "indexed",
+            chunk_count: chunkRecords.length,
+            language: "en-US",
+          }).eq("id", doc.id);
+
+          console.log(`Bond indexed: ${bondIdentifier} — ${chunkRecords.length} chunks`);
+
+        } catch (err) {
+          console.error("Bond indexing error:", err);
+          await supabase.from("documents").update({ status: "error" }).eq("id", doc.id);
+        }
+      };
+
+      indexBondAsync().catch(console.error);
+
+      return new Response(
+        JSON.stringify({ 
+          status: "processing", 
+          document_id: doc.id, 
+          type: "bond_structured", 
+          name,
+          isin: isin || null,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // For ETFs: find and download PDF
