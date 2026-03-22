@@ -291,13 +291,14 @@ Deno.serve(async (req) => {
     // Check if a recent factsheet already exists (indexed within last 25 days)
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 25);
+    const lookupValue = (assetType === "bond" && isin) ? isin : name;
+    const lookupColumn = (assetType === "bond" && isin) ? "fund_name" : "fund_name";
     const { data: existing } = await supabase
       .from("documents")
       .select("id, uploaded_at")
-      .ilike("fund_name", `%${name.substring(0, 12)}%`)
+      .eq("fund_name", lookupValue)
       .eq("type", "factsheet")
-      .eq("status", "indexed")
-      .gte("uploaded_at", cutoff.toISOString())
+      .in("status", ["indexed", "processing"])
       .limit(1);
 
     if (existing && existing.length > 0) {
