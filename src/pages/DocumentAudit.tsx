@@ -11,7 +11,7 @@ import { useDocuments } from "@/hooks/useDocuments";
 import { UploadModal } from "@/components/library/UploadModal";
 import {
   FileText, CheckCircle, AlertTriangle, XCircle, Pencil, Copy,
-  Search, Loader2, Upload, Plus, X, ArrowRight,
+  Search, Loader2, Upload, Plus, X, ArrowRight, Zap,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
