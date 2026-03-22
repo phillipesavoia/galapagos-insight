@@ -125,8 +125,10 @@ function detectAssetType(ticker: string, name: string): string {
 const assetTypeBadge: Record<string, { label: string; className: string }> = {
   us_etf: { label: "US ETF", className: "bg-blue-500/15 text-blue-400" },
   ucits_etf: { label: "UCITS", className: "bg-purple-500/15 text-purple-400" },
+  offshore_fund: { label: "Offshore", className: "bg-teal-500/15 text-teal-400" },
   bond: { label: "Bond", className: "bg-rose-500/15 text-rose-400" },
   amc: { label: "AMC", className: "bg-primary/10 text-primary" },
+  index: { label: "Índice", className: "bg-yellow-500/15 text-yellow-600" },
   manual: { label: "Alternativo", className: "bg-muted text-muted-foreground" },
 };
 
