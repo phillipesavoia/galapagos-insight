@@ -40,8 +40,8 @@ Deno.serve(async (req) => {
     }
 
     // Service role client ONLY for storage (private bucket requires elevated access)
-    const dbKey = Deno.env.get("DB_SERVICE_ROLE_KEY");
-    if (!dbKey) throw new Error("Missing DB_SERVICE_ROLE_KEY");
+    const dbKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!dbKey) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
     const storageClient = createClient(supabaseUrl, dbKey);
 
     supabase = userClient;
