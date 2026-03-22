@@ -48,35 +48,38 @@ function getCoverage(asset: Asset, documents: Doc[]): CoverageResult {
     if (doc.status !== 'indexed') return false;
 
     const assetName = asset.name.toLowerCase().trim();
+    const assetIsin = (asset.isin || '').toUpperCase().trim();
     const assetTicker = asset.ticker.toUpperCase()
-      .replace(/ LN EQUITY$/i, '').replace(/ US EQUITY$/i, '')
-      .replace(/ CORP$/i, '').replace(/ GOVT$/i, '')
-      .replace(/ LN$/i, '').replace(/ US$/i, '').trim();
+      .replace(/\s+LN\s+EQUITY$/i, '').replace(/\s+US\s+EQUITY$/i, '')
+      .replace(/\s+ID\s+EQUITY$/i, '').replace(/\s+LX\s+EQUITY$/i, '')
+      .replace(/\s+CORP$/i, '').replace(/\s+GOVT$/i, '')
+      .replace(/\s+LN$/i, '').replace(/\s+US$/i, '').replace(/\s+ID$/i, '')
+      .trim();
 
-    const fundName = (doc.fund_name || '').toLowerCase().trim();
+    const fundName = (doc.fund_name || '').toUpperCase().trim();
     const docName = (doc.name || '').toLowerCase().trim();
     const meta = (doc.metadata || {}) as Record<string, unknown>;
     const metaTicker = ((meta.detected_ticker as string) || '').toUpperCase().trim();
     const metaTickerEx = ((meta.detected_ticker_exchange as string) || '').toUpperCase().trim();
     const metaIsin = ((meta.detected_isin as string) || '').toUpperCase().trim();
-    const assetIsin = (asset.isin || '').toUpperCase().trim();
+    const docIsin = ((meta.isin as string) || '').toUpperCase().trim();
 
-    // ISIN match — most reliable
+    // ISIN exact match — most reliable (covers auto-fetched docs that use ISIN as fund_name)
+    if (assetIsin && fundName && assetIsin === fundName) return true;
     if (assetIsin && metaIsin && assetIsin === metaIsin) return true;
+    if (assetIsin && docIsin && assetIsin === docIsin) return true;
 
-    // Exact ticker match
+    // Ticker exact match
     if (assetTicker && metaTicker && metaTicker === assetTicker) return true;
     if (assetTicker && metaTickerEx && metaTickerEx.startsWith(assetTicker)) return true;
 
-    // Fund name must match substantially — not just a prefix
-    if (fundName && assetName) {
-      const shorter = fundName.length < assetName.length ? fundName : assetName;
-      const longer = fundName.length >= assetName.length ? fundName : assetName;
-      if (shorter.length >= 10 && longer.includes(shorter)) return true;
-    }
-
-    // Doc name contains ticker
+    // Clean ticker in doc name
     if (assetTicker.length >= 3 && docName.includes(assetTicker.toLowerCase())) return true;
+
+    // Fund name substring match (minimum 10 chars to avoid false positives)
+    const fundNameLower = fundName.toLowerCase();
+    if (fundNameLower.length >= 10 && assetName.includes(fundNameLower)) return true;
+    if (assetName.length >= 10 && fundNameLower.includes(assetName)) return true;
 
     return false;
   });
