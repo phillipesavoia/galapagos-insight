@@ -98,8 +98,24 @@ async function fetchETFStructuredData(
     .replace(/\s+LN\s+EQUITY$/i, "")
     .replace(/\s+US\s+EQUITY$/i, "")
     .replace(/\s+ID\s+EQUITY$/i, "")
+    .replace(/\s+GR\s+EQUITY$/i, "")
+    .replace(/\s+SW\s+EQUITY$/i, "")
+    .replace(/\s+NA\s+EQUITY$/i, "")
+    .replace(/\s+IM\s+EQUITY$/i, "")
+    .replace(/\s+FP\s+EQUITY$/i, "")
+    .replace(/\s+LX\s+EQUITY$/i, "")
+    .replace(/\s+EQUITY$/i, "")
+    .replace(/\s+CORP$/i, "")
+    .replace(/\s+GOVT$/i, "")
     .replace(/\s+LN$/i, "")
     .replace(/\s+US$/i, "")
+    .replace(/\s+ID$/i, "")
+    .replace(/\s+GR$/i, "")
+    .replace(/\s+SW$/i, "")
+    .replace(/\s+NA$/i, "")
+    .replace(/\s+IM$/i, "")
+    .replace(/\s+FP$/i, "")
+    .replace(/\s+LX$/i, "")
     .trim();
 
   let etfData: Record<string, string> = {
@@ -217,8 +233,19 @@ async function fetchETFFactsheet(
     .replace(/\s+NA\s+EQUITY$/i, "")
     .replace(/\s+IM\s+EQUITY$/i, "")
     .replace(/\s+FP\s+EQUITY$/i, "")
+    .replace(/\s+LX\s+EQUITY$/i, "")
+    .replace(/\s+EQUITY$/i, "")
+    .replace(/\s+CORP$/i, "")
+    .replace(/\s+GOVT$/i, "")
     .replace(/\s+LN$/i, "")
     .replace(/\s+US$/i, "")
+    .replace(/\s+ID$/i, "")
+    .replace(/\s+GR$/i, "")
+    .replace(/\s+SW$/i, "")
+    .replace(/\s+NA$/i, "")
+    .replace(/\s+IM$/i, "")
+    .replace(/\s+FP$/i, "")
+    .replace(/\s+LX$/i, "")
     .trim();
 
   console.log("DEBUG cleanTicker:", cleanTicker, "| isin:", isin, "| exchangeSuffix:", exchangeSuffix, "| name:", name);
@@ -544,14 +571,17 @@ Deno.serve(async (req) => {
 
     // For ETFs: find and download PDF
     let fetchResult: { pdfUrl: string; period: string } | null = null;
-    const exchangeSuffix = ticker.toUpperCase().includes(" LN") ? "LN"
-      : ticker.toUpperCase().includes(" ID") ? "ID"
-      : ticker.toUpperCase().includes(" US") ? "US"
-      : ticker.toUpperCase().includes(" GR") ? "GR"
-      : ticker.toUpperCase().includes(" SW") ? "SW"
-      : ticker.toUpperCase().includes(" NA") ? "NA"
-      : ticker.toUpperCase().includes(" IM") ? "IM"
-      : ticker.toUpperCase().includes(" FP") ? "FP"
+    const tickerUpper = ticker.toUpperCase();
+    const exchangeSuffix = 
+      tickerUpper.includes(" LN") ? "LN"
+      : tickerUpper.includes(" ID") ? "ID"
+      : tickerUpper.includes(" LX") ? "LX"
+      : tickerUpper.includes(" GR") ? "GR"
+      : tickerUpper.includes(" SW") ? "SW"
+      : tickerUpper.includes(" NA") ? "NA"
+      : tickerUpper.includes(" IM") ? "IM"
+      : tickerUpper.includes(" FP") ? "FP"
+      : tickerUpper.includes(" US") ? "US"
       : "US";
     if (assetType === "us_etf" || assetType === "ucits_etf" || assetType === "offshore_fund") {
       fetchResult = await fetchETFFactsheet(ticker, isin, name, exchangeSuffix);
