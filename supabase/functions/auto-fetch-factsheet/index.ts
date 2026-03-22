@@ -735,6 +735,74 @@ Deno.serve(async (req) => {
         if (!uploadRes.ok) {
           const errText = await uploadRes.text();
           console.error("Reducto parse failed:", uploadRes.status, errText);
+          
+          // Fallback: use structured data from JustETF/Morningstar
+          console.log("Falling back to structured ETF data...");
+          const structuredData = await fetchETFStructuredData(ticker, isin, name, exchangeSuffix);
+          if (structuredData) {
+            const paragraphs = structuredData.content.split(/\n\n+/);
+            const chunks: string[] = [];
+            let current = "";
+            for (const para of paragraphs) {
+              if (current.length + para.length > 1500 && current.length > 0) {
+                chunks.push(current.trim());
+                current = para;
+              } else {
+                current += (current ? "\n\n" : "") + para;
+              }
+            }
+            if (current.trim().length > 20) chunks.push(current.trim());
+
+            const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
+            if (googleKey && chunks.length > 0) {
+              const embeddedChunks: { chunk: string; embedding: number[]; index: number }[] = [];
+              for (let i = 0; i < chunks.length; i++) {
+                const embRes = await fetch(
+                  `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${googleKey}`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      content: { parts: [{ text: chunks[i] }] },
+                      outputDimensionality: 768,
+                    }),
+                  }
+                );
+                if (!embRes.ok) continue;
+                const embData = await embRes.json();
+                embeddedChunks.push({ chunk: chunks[i], embedding: embData.embedding.values, index: i });
+              }
+
+              const chunkRecords = embeddedChunks.map(({ chunk, embedding, index }) => ({
+                document_id: doc.id,
+                content: chunk,
+                embedding: `[${embedding.join(",")}]`,
+                chunk_index: index,
+                metadata: {
+                  fund_name: isin || name,
+                  isin: isin || null,
+                  period: structuredData.period,
+                  document_type: "factsheet",
+                  document_name: doc.name,
+                },
+              }));
+
+              if (chunkRecords.length > 0) {
+                await supabase.from("document_chunks").insert(chunkRecords);
+              }
+
+              await supabase.from("documents").update({
+                status: "indexed",
+                chunk_count: chunkRecords.length,
+                language: "en-US",
+                file_url: fetchResult.pdfUrl,
+              }).eq("id", doc.id);
+
+              console.log(`ETF fallback indexed: ${isin || name} — ${chunkRecords.length} chunks`);
+              return;
+            }
+          }
+          
           await supabase.from("documents").update({ status: "error" }).eq("id", doc.id);
           return;
         }
