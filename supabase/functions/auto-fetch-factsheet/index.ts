@@ -109,6 +109,8 @@ async function fetchETFFactsheet(
     .replace(/\s+US$/i, "")
     .trim();
 
+  console.log("DEBUG cleanTicker:", cleanTicker, "| isin:", isin, "| exchangeSuffix:", exchangeSuffix, "| name:", name);
+
   // Step 1: Search JustETF by ticker symbol — works without ISIN
   try {
     const searchUrl = `https://www.justetf.com/api/etfs?search=${encodeURIComponent(cleanTicker)}&locale=en&assetClass=exchangeTradedFund`;
