@@ -219,26 +219,26 @@ async function fetchBondDocument(ticker: string, isin: string | null, name: stri
   }
 
   // Build a structured text document (used as factsheet substitute)
-  const content = `BOND FACT SHEET — ${bondData.name}
-Generated: ${new Date().toLocaleDateString("pt-BR")}
+  const content = `BOND FACT SHEET
 
-IDENTIFICATION
---------------
+ISIN: ${isin || "N/A"}
 Name: ${bondData.name}
 Ticker: ${ticker}
-ISIN: ${bondData.isin}
 Security Type: ${bondData.securityType || "Corporate Bond"}
 Market Sector: ${bondData.marketSector || "Corporate"}
+Exchange: ${bondData.exchCode || "N/A"}
+Generated: ${new Date().toLocaleDateString("pt-BR")}
 
 PORTFOLIO
 ---------
-This bond is part of the Galapagos Capital Bond Portfolio.
-It is a direct bond holding (not a fund or ETF).
+This bond is a direct bond holding in the Galapagos Capital Bond Portfolio.
+ISIN identifier: ${isin || "N/A"}
 
 SOURCE
 ------
 Data sourced from OpenFIGI public API.
-For full terms, covenants and pricing, refer to Bloomberg Terminal or the issuer's Investor Relations page.
+For full terms, covenants, coupon, maturity and pricing, 
+refer to Bloomberg Terminal or the issuer Investor Relations page.
 `;
 
   return { content, period: new Date().toISOString().slice(0, 7) };
