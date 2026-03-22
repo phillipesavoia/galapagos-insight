@@ -109,6 +109,8 @@ export default function DocumentAudit() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadingAsset, setUploadingAsset] = useState<string | null>(null);
   const [inlineUploading, setInlineUploading] = useState(false);
+  const [fetchingAssets, setFetchingAssets] = useState<Record<string, "loading" | "success" | "not_found" | "manual" | "skipped" | "error">>({});
+  const [fetchAllLoading, setFetchAllLoading] = useState(false);
   const { toast } = useToast();
   const { uploadDocument } = useDocuments();
   const rightColRef = useRef<HTMLDivElement>(null);
