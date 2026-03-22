@@ -917,6 +917,19 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Final safety check — if fetchResult is still null here, nothing worked
+    if (!fetchResult) {
+      return new Response(
+        JSON.stringify({ 
+          status: "not_found", 
+          reason: "All fetch methods failed for this asset",
+          ticker,
+          type: assetType,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const safeName = name.replace(/[^a-zA-Z0-9\s]/g, "").trim();
 
     // Insert document record
