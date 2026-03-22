@@ -519,7 +519,7 @@ export default function DocumentAudit() {
                         <p className="text-sm font-medium text-foreground truncate">{doc.name}</p>
                         <div className="flex items-center gap-2 mt-2 flex-wrap">
                           {doc.fund_name && (
-                            <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs">{doc.fund_name}</span>
+                            <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs">{getDisplayFundName(doc, assets)}</span>
                           )}
                           {doc.period && (
                             <span className="px-2 py-0.5 rounded-md bg-secondary text-xs text-muted-foreground">{doc.period}</span>
