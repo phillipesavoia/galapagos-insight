@@ -132,6 +132,18 @@ const assetTypeBadge: Record<string, { label: string; className: string }> = {
   manual: { label: "Alternativo", className: "bg-muted text-muted-foreground" },
 };
 
+function getDisplayFundName(doc: Doc, assets: Asset[]): string {
+  const fn = doc.fund_name || "";
+  // Check if fund_name looks like an ISIN (e.g. IE00B14X4T88)
+  if (/^[A-Z]{2}[A-Z0-9]{10}$/.test(fn)) {
+    const matched = assets.find(a => 
+      (a.isin || "").toUpperCase() === fn.toUpperCase()
+    );
+    if (matched) return matched.name;
+  }
+  return fn;
+}
+
 export default function DocumentAudit() {
   const [documents, setDocuments] = useState<Doc[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
