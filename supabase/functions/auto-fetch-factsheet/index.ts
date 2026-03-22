@@ -86,6 +86,102 @@ async function findFactsheetFromProvider(isin: string, providerName: string): Pr
   return null;
 }
 
+// --- Yahoo Finance ETF data fetcher (US ETFs) ---
+async function fetchYahooETFData(
+  ticker: string,
+  isin: string | null,
+  name: string
+): Promise<{ content: string; period: string } | null> {
+  const period = new Date().toISOString().slice(0, 7);
+  const cleanTicker = ticker
+    .replace(/\s+US\s+EQUITY$/i, "")
+    .replace(/\s+US$/i, "")
+    .trim();
+
+  try {
+    // Yahoo Finance quote summary
+    const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${cleanTicker}?modules=assetProfile,summaryDetail,fundProfile,topHoldings,fundPerformance,defaultKeyStatistics`;
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "application/json",
+        "Accept-Language": "en-US,en;q=0.9",
+      },
+    });
+
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const result = data?.quoteSummary?.result?.[0];
+    if (!result) return null;
+
+    const summary = result.summaryDetail || {};
+    const profile = result.fundProfile || {};
+    const keyStats = result.defaultKeyStatistics || {};
+    const holdings = result.topHoldings || {};
+    const perf = result.fundPerformance || {};
+
+    // Format top holdings
+    const topHoldings = (holdings.holdings || []).slice(0, 10)
+      .map((h: any) => `  - ${h.holdingName || h.symbol}: ${h.holdingPercent ? (h.holdingPercent * 100).toFixed(2) + "%" : "N/A"}`)
+      .join("\n");
+
+    // Format performance
+    const perfData = perf.trailingReturns || {};
+    const ytd = perfData.ytd ? (perfData.ytd * 100).toFixed(2) + "%" : "N/A";
+    const oneYear = perfData.oneYear ? (perfData.oneYear * 100).toFixed(2) + "%" : "N/A";
+    const threeYear = perfData.threeYear ? (perfData.threeYear * 100).toFixed(2) + "%" : "N/A";
+    const fiveYear = perfData.fiveYear ? (perfData.fiveYear * 100).toFixed(2) + "%" : "N/A";
+
+    const content = `ETF FACT SHEET — ${name}
+
+Ticker: ${cleanTicker}
+ISIN: ${isin || "N/A"}
+Generated: ${new Date().toLocaleDateString("pt-BR")}
+
+FUND OVERVIEW
+-------------
+Name: ${name}
+Category: ${profile.categoryName || "N/A"}
+Family: ${profile.family || "N/A"}
+Legal Type: ${profile.legalType || "ETF"}
+Currency: ${summary.currency || "USD"}
+Exchange: US Listed
+
+FUND METRICS
+------------
+Total Assets (AUM): ${summary.totalAssets ? "$" + (summary.totalAssets / 1e9).toFixed(2) + "B" : "N/A"}
+Expense Ratio (TER): ${summary.annualReportExpenseRatio ? (summary.annualReportExpenseRatio * 100).toFixed(2) + "%" : keyStats.annualHoldingsTurnover ? "N/A" : "N/A"}
+52-Week High: ${summary.fiftyTwoWeekHigh?.raw ? "$" + summary.fiftyTwoWeekHigh.raw.toFixed(2) : "N/A"}
+52-Week Low: ${summary.fiftyTwoWeekLow?.raw ? "$" + summary.fiftyTwoWeekLow.raw.toFixed(2) : "N/A"}
+50-Day Average: ${summary.fiftyDayAverage?.raw ? "$" + summary.fiftyDayAverage.raw.toFixed(2) : "N/A"}
+200-Day Average: ${summary.twoHundredDayAverage?.raw ? "$" + summary.twoHundredDayAverage.raw.toFixed(2) : "N/A"}
+Beta (3Y): ${keyStats.beta3Year?.raw?.toFixed(2) || "N/A"}
+
+PERFORMANCE
+-----------
+YTD Return: ${ytd}
+1-Year Return: ${oneYear}
+3-Year Return: ${threeYear}
+5-Year Return: ${fiveYear}
+
+${topHoldings ? `TOP HOLDINGS\n------------\n${topHoldings}` : ""}
+
+PORTFOLIO
+---------
+This ETF is held within the Galapagos Capital model portfolios.
+This is a US-listed ETF.
+
+Source: Yahoo Finance public data.
+`;
+
+    return { content: content.replace(/\n{3,}/g, "\n\n").trim(), period };
+  } catch (err) {
+    console.error("Yahoo Finance fetch error:", err);
+    return null;
+  }
+}
+
 // --- Structured ETF data fallback (similar to bonds) ---
 async function fetchETFStructuredData(
   ticker: string,
@@ -587,7 +683,108 @@ Deno.serve(async (req) => {
       fetchResult = await fetchETFFactsheet(ticker, isin, name, exchangeSuffix);
     }
 
-    // If PDF not found or download fails, fall back to structured data
+    // If PDF not found, try Yahoo Finance for US ETFs first
+    if (!fetchResult && assetType === "us_etf") {
+      const yahooData = await fetchYahooETFData(ticker, isin, name);
+      if (yahooData) {
+        const safeETFName = name.replace(/[^a-zA-Z0-9\s]/g, "").trim();
+        const etfIdentifier = isin || name;
+        const docName = `${isin ? isin + " — " : ""}${safeETFName} ETF Data`;
+
+        const { data: doc, error: insertErr } = await supabase
+          .from("documents")
+          .insert({
+            name: docName,
+            type: "factsheet",
+            fund_name: etfIdentifier,
+            period: yahooData.period,
+            status: "processing",
+            owner_id: null,
+          })
+          .select()
+          .single();
+
+        if (!insertErr && doc) {
+          const indexAsync = async () => {
+            try {
+              const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
+              if (!googleKey) throw new Error("Missing GOOGLE_AI_API_KEY");
+
+              const paragraphs = yahooData.content.split(/\n\n+/);
+              const chunks: string[] = [];
+              let current = "";
+
+              for (const para of paragraphs) {
+                if (current.length + para.length > 1500 && current.length > 0) {
+                  chunks.push(current.trim());
+                  current = para;
+                } else {
+                  current += (current ? "\n\n" : "") + para;
+                }
+              }
+              if (current.trim().length > 20) chunks.push(current.trim());
+
+              const embeddedChunks: { chunk: string; embedding: number[]; index: number }[] = [];
+
+              for (let i = 0; i < chunks.length; i++) {
+                const embRes = await fetch(
+                  `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${googleKey}`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      content: { parts: [{ text: chunks[i] }] },
+                      outputDimensionality: 768,
+                    }),
+                  }
+                );
+                if (!embRes.ok) continue;
+                const embData = await embRes.json();
+                embeddedChunks.push({ chunk: chunks[i], embedding: embData.embedding.values, index: i });
+              }
+
+              const chunkRecords = embeddedChunks.map(({ chunk, embedding, index }) => ({
+                document_id: doc.id,
+                content: chunk,
+                embedding: `[${embedding.join(",")}]`,
+                chunk_index: index,
+                metadata: {
+                  fund_name: etfIdentifier,
+                  isin: isin || null,
+                  period: yahooData.period,
+                  document_type: "factsheet",
+                  document_name: docName,
+                },
+              }));
+
+              if (chunkRecords.length > 0) {
+                await supabase.from("document_chunks").insert(chunkRecords);
+              }
+
+              await supabase.from("documents").update({
+                status: "indexed",
+                chunk_count: chunkRecords.length,
+                language: "en-US",
+              }).eq("id", doc.id);
+
+              console.log(`Yahoo ETF indexed: ${etfIdentifier} — ${chunkRecords.length} chunks`);
+            } catch (err) {
+              console.error("Yahoo ETF indexing error:", err);
+              await supabase.from("documents").update({ status: "error" }).eq("id", doc.id);
+            }
+          };
+
+          indexAsync().catch(console.error);
+
+          return new Response(
+            JSON.stringify({ status: "processing", document_id: doc.id, type: "us_etf_yahoo", name, isin: isin || null }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+    }
+
+    // Final fallback: generic structured data for UCITS/offshore
     if (!fetchResult) {
       const structuredData = await fetchETFStructuredData(ticker, isin, name, exchangeSuffix);
       if (!structuredData) {
