@@ -112,7 +112,7 @@ const assetTypeBadge: Record<string, { label: string; className: string }> = {
   manual: { label: "Alternativo", className: "bg-muted text-muted-foreground" },
 };
 
-
+export default function DocumentAudit() {
   const [documents, setDocuments] = useState<Doc[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
