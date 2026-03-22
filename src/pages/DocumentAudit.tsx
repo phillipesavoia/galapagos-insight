@@ -44,39 +44,55 @@ interface CoverageResult {
 }
 
 function getCoverage(asset: Asset, documents: Doc[]): CoverageResult {
-  const nameLower = asset.name.toLowerCase();
-  const tickerUpper = asset.ticker.toUpperCase();
+  const matches = documents.filter(doc => {
+    if (doc.status !== 'indexed') return false;
 
-  const matches = documents.filter((doc) => {
-    const fundLower = (doc.fund_name || "").toLowerCase();
-    const docNameLower = (doc.name || "").toLowerCase();
+    const assetName = asset.name.toLowerCase().trim();
+    const assetTicker = asset.ticker.toUpperCase()
+      .replace(/ LN EQUITY$/i, '').replace(/ US EQUITY$/i, '')
+      .replace(/ CORP$/i, '').replace(/ GOVT$/i, '')
+      .replace(/ LN$/i, '').replace(/ US$/i, '').trim();
+
+    const fundName = (doc.fund_name || '').toLowerCase().trim();
+    const docName = (doc.name || '').toLowerCase().trim();
     const meta = (doc.metadata || {}) as Record<string, unknown>;
-    const metaTicker = ((meta.detected_ticker as string) || "").toUpperCase();
-    const metaTickerEx = ((meta.detected_ticker_exchange as string) || "").toUpperCase();
+    const metaTicker = ((meta.detected_ticker as string) || '').toUpperCase().trim();
+    const metaTickerEx = ((meta.detected_ticker_exchange as string) || '').toUpperCase().trim();
+    const metaIsin = ((meta.detected_isin as string) || '').toUpperCase().trim();
+    const assetIsin = (asset.isin || '').toUpperCase().trim();
 
-    return (
-      (fundLower.length >= 8 && nameLower.includes(fundLower.substring(0, 8))) ||
-      (nameLower.length >= 8 && fundLower.includes(nameLower.substring(0, 8))) ||
-      docNameLower.includes(tickerUpper.toLowerCase()) ||
-      metaTicker === tickerUpper ||
-      metaTickerEx.includes(tickerUpper)
-    );
+    // ISIN match — most reliable
+    if (assetIsin && metaIsin && assetIsin === metaIsin) return true;
+
+    // Exact ticker match
+    if (assetTicker && metaTicker && metaTicker === assetTicker) return true;
+    if (assetTicker && metaTickerEx && metaTickerEx.startsWith(assetTicker)) return true;
+
+    // Fund name must match substantially — not just a prefix
+    if (fundName && assetName) {
+      const shorter = fundName.length < assetName.length ? fundName : assetName;
+      const longer = fundName.length >= assetName.length ? fundName : assetName;
+      if (shorter.length >= 10 && longer.includes(shorter)) return true;
+    }
+
+    // Doc name contains ticker
+    if (assetTicker.length >= 3 && docName.includes(assetTicker.toLowerCase())) return true;
+
+    return false;
   });
 
   if (matches.length === 0) return { status: "none", lastUpdated: null, docName: null };
 
-  const indexedMatches = matches.filter((d) => d.status === "indexed");
-  if (indexedMatches.length > 0) {
-    const sorted = indexedMatches.sort(
-      (a, b) => new Date(b.uploaded_at || 0).getTime() - new Date(a.uploaded_at || 0).getTime()
-    );
-    return { status: "covered", lastUpdated: sorted[0].uploaded_at, docName: sorted[0].fund_name || sorted[0].name };
-  }
-
-  const sorted = matches.sort(
+  const latest = [...matches].sort(
     (a, b) => new Date(b.uploaded_at || 0).getTime() - new Date(a.uploaded_at || 0).getTime()
-  );
-  return { status: "partial", lastUpdated: sorted[0].uploaded_at, docName: sorted[0].fund_name || sorted[0].name };
+  )[0];
+  const allIndexed = matches.every(d => d.status === "indexed");
+
+  return {
+    status: allIndexed ? "covered" : "partial",
+    lastUpdated: latest.uploaded_at,
+    docName: latest.fund_name || latest.name,
+  };
 }
 
 const typeLabels: Record<string, string> = {
