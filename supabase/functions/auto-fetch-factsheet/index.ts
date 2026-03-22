@@ -376,15 +376,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const pdfBytes = await downloadPDF(fetchResult.pdfUrl);
-    if (!pdfBytes) {
-      return new Response(JSON.stringify({ status: "error", reason: "PDF download failed", url: fetchResult.pdfUrl }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const safeName = name.replace(/[^a-zA-Z0-9\s]/g, "").trim();
 
     // Insert document record
-    const safeName = name.replace(/[^a-zA-Z0-9\s]/g, "").trim();
     const { data: doc, error: insertErr } = await supabase
       .from("documents")
       .insert({
@@ -400,22 +394,135 @@ Deno.serve(async (req) => {
 
     if (insertErr || !doc) throw new Error("Failed to insert document: " + insertErr?.message);
 
-    // Fire ingest-document (async — do not await)
-    const blob = new Blob([pdfBytes], { type: "application/pdf" });
-    const formData = new FormData();
-    formData.append("file", blob, `${safeName.replace(/\s/g, "_")}_factsheet.pdf`);
-    formData.append("document_id", doc.id);
-    formData.append("name", `${safeName} — Factsheet ${fetchResult.period}`);
-    formData.append("type", "factsheet");
-    formData.append("fund_name", name);
-    formData.append("period", fetchResult.period);
+    // Use Reducto URL parsing — pass the PDF URL directly instead of downloading
+    const reductoKey = Deno.env.get("REDUCTO_API_KEY");
+    if (!reductoKey) throw new Error("Missing REDUCTO_API_KEY");
 
-    const ingestUrl = `${supabaseUrl}/functions/v1/ingest-document`;
-    fetch(ingestUrl, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey },
-      body: formData,
-    }).catch(console.error);
+    // Fire Reducto parse by URL (async — do not await response)
+    const reductoParseAsync = async () => {
+      try {
+        // Upload URL to Reducto
+        const uploadRes = await fetch("https://platform.reducto.ai/parse", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${reductoKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            document_url: fetchResult.pdfUrl,
+            options: { table_output_format: "markdown" },
+          }),
+        });
+
+        if (!uploadRes.ok) {
+          const errText = await uploadRes.text();
+          console.error("Reducto parse failed:", uploadRes.status, errText);
+          await supabase.from("documents").update({ status: "error" }).eq("id", doc.id);
+          return;
+        }
+
+        const parseData = await uploadRes.json();
+        const result = parseData.result ?? parseData;
+
+        let fullText = "";
+        if (Array.isArray(result.chunks)) {
+          fullText = result.chunks
+            .map((chunk: any) => {
+              if (typeof chunk.content === "string") return chunk.content;
+              if (chunk.content?.markdown) return chunk.content.markdown;
+              if (chunk.content?.text) return chunk.content.text;
+              return "";
+            })
+            .filter((t: string) => t.length > 0)
+            .join("\n\n");
+        } else if (typeof result.text === "string") {
+          fullText = result.text;
+        }
+
+        if (!fullText || fullText.length < 20) {
+          await supabase.from("documents").update({ status: "error" }).eq("id", doc.id);
+          return;
+        }
+
+        // Generate embeddings and store chunks using Google Gemini
+        const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
+        if (!googleKey) {
+          await supabase.from("documents").update({ status: "error" }).eq("id", doc.id);
+          return;
+        }
+
+        // Chunk text
+        const maxChunkChars = 2000;
+        const chunks: string[] = [];
+        const paragraphs = fullText.split(/\n\n+/);
+        let currentChunk = "";
+
+        for (const para of paragraphs) {
+          if (currentChunk.length + para.length > maxChunkChars && currentChunk.length > 0) {
+            chunks.push(currentChunk.trim());
+            currentChunk = para;
+          } else {
+            currentChunk += (currentChunk ? "\n\n" : "") + para;
+          }
+        }
+        if (currentChunk.trim().length > 50) chunks.push(currentChunk.trim());
+
+        // Generate embeddings in batches
+        const batchSize = 10;
+        const allEmbeddings: { chunk: string; embedding: number[]; index: number }[] = [];
+
+        for (let i = 0; i < chunks.length; i += batchSize) {
+          const batch = chunks.slice(i, i + batchSize);
+          const results = await Promise.all(batch.map(async (chunk, bi) => {
+            const embRes = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${googleKey}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  content: { parts: [{ text: chunk }] },
+                  outputDimensionality: 768,
+                }),
+              }
+            );
+            if (!embRes.ok) return null;
+            const embData = await embRes.json();
+            return { chunk, embedding: embData.embedding.values as number[], index: i + bi };
+          }));
+          allEmbeddings.push(...results.filter(Boolean) as any[]);
+          if (i + batchSize < chunks.length) await new Promise(r => setTimeout(r, 200));
+        }
+
+        // Store chunks
+        const chunkRecords = allEmbeddings.map(({ chunk, embedding, index }) => ({
+          document_id: doc.id,
+          content: chunk,
+          embedding: `[${embedding.join(",")}]`,
+          chunk_index: index,
+          metadata: { fund_name: name, period: fetchResult.period, document_type: "factsheet", document_name: `${safeName} — Factsheet ${fetchResult.period}` },
+        }));
+
+        for (let i = 0; i < chunkRecords.length; i += 50) {
+          await supabase.from("document_chunks").insert(chunkRecords.slice(i, i + 50));
+        }
+
+        // Update document status
+        await supabase.from("documents").update({
+          status: "indexed",
+          chunk_count: chunks.length,
+          file_url: fetchResult.pdfUrl,
+        }).eq("id", doc.id);
+
+        console.log(`Successfully indexed ${chunks.length} chunks for ${name}`);
+
+      } catch (err) {
+        console.error("Async indexing error:", err);
+        await supabase.from("documents").update({ status: "error" }).eq("id", doc.id);
+      }
+    };
+
+    // Fire async — do not await
+    reductoParseAsync().catch(console.error);
 
     return new Response(JSON.stringify({
       status: "processing",
@@ -426,7 +533,6 @@ Deno.serve(async (req) => {
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-
   } catch (error) {
     console.error("auto-fetch-factsheet error:", error);
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
