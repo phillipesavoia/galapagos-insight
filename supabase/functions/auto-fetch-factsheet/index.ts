@@ -315,7 +315,7 @@ Deno.serve(async (req) => {
     // For ETFs: find and download PDF
     let fetchResult: { pdfUrl: string; period: string } | null = null;
     if (assetType === "us_etf") fetchResult = await fetchUSETFFactsheet(ticker, isin, name);
-    if (assetType === "ucits_etf") fetchResult = await fetchUCITSFactsheet(ticker, isin, name);
+    if (assetType === "ucits_etf" || assetType === "offshore_fund") fetchResult = await fetchUCITSFactsheet(ticker, isin, name);
 
     if (!fetchResult) {
       return new Response(JSON.stringify({ status: "not_found", reason: "Could not locate factsheet URL", ticker, type: assetType }), {
