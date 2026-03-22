@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Layout } from "@/components/Layout";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { useDocuments } from "@/hooks/useDocuments";
+import { UploadModal } from "@/components/library/UploadModal";
 import {
   FileText, CheckCircle, AlertTriangle, XCircle, Pencil, Copy,
-  Search, Loader2, BarChart3, Presentation, ClipboardList
+  Search, Loader2, Upload, Plus, X, ArrowRight,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -35,54 +37,46 @@ interface Asset {
   isin: string | null;
 }
 
-function isCovered(asset: Asset, documents: Doc[]): "covered" | "partial" | "none" {
-  const nameLower = asset.name.toLowerCase();
-  const tickerUpper = asset.ticker.toUpperCase();
-  let hasPartial = false;
-
-  for (const doc of documents) {
-    const fundLower = (doc.fund_name || "").toLowerCase();
-    const docNameLower = (doc.name || "").toLowerCase();
-    const meta = (doc.metadata || {}) as Record<string, unknown>;
-    const metaTicker = ((meta.detected_ticker as string) || "").toUpperCase();
-    const metaTickerEx = ((meta.detected_ticker_exchange as string) || "").toUpperCase();
-
-    const matches =
-      (fundLower.length >= 8 && nameLower.includes(fundLower.substring(0, 8))) ||
-      (nameLower.length >= 8 && fundLower.includes(nameLower.substring(0, 8))) ||
-      docNameLower.includes(tickerUpper.toLowerCase()) ||
-      metaTicker === tickerUpper ||
-      metaTickerEx.includes(tickerUpper);
-
-    if (matches) {
-      if (doc.status === "indexed") return "covered";
-      hasPartial = true;
-    }
-  }
-  return hasPartial ? "partial" : "none";
+interface CoverageResult {
+  status: "covered" | "partial" | "none";
+  lastUpdated: string | null;
+  docName: string | null;
 }
 
-function getMatchedDoc(asset: Asset, documents: Doc[]): Doc | null {
+function getCoverage(asset: Asset, documents: Doc[]): CoverageResult {
   const nameLower = asset.name.toLowerCase();
   const tickerUpper = asset.ticker.toUpperCase();
 
-  for (const doc of documents) {
+  const matches = documents.filter((doc) => {
     const fundLower = (doc.fund_name || "").toLowerCase();
     const docNameLower = (doc.name || "").toLowerCase();
     const meta = (doc.metadata || {}) as Record<string, unknown>;
     const metaTicker = ((meta.detected_ticker as string) || "").toUpperCase();
     const metaTickerEx = ((meta.detected_ticker_exchange as string) || "").toUpperCase();
 
-    const matches =
+    return (
       (fundLower.length >= 8 && nameLower.includes(fundLower.substring(0, 8))) ||
       (nameLower.length >= 8 && fundLower.includes(nameLower.substring(0, 8))) ||
       docNameLower.includes(tickerUpper.toLowerCase()) ||
       metaTicker === tickerUpper ||
-      metaTickerEx.includes(tickerUpper);
+      metaTickerEx.includes(tickerUpper)
+    );
+  });
 
-    if (matches) return doc;
+  if (matches.length === 0) return { status: "none", lastUpdated: null, docName: null };
+
+  const indexedMatches = matches.filter((d) => d.status === "indexed");
+  if (indexedMatches.length > 0) {
+    const sorted = indexedMatches.sort(
+      (a, b) => new Date(b.uploaded_at || 0).getTime() - new Date(a.uploaded_at || 0).getTime()
+    );
+    return { status: "covered", lastUpdated: sorted[0].uploaded_at, docName: sorted[0].fund_name || sorted[0].name };
   }
-  return null;
+
+  const sorted = matches.sort(
+    (a, b) => new Date(b.uploaded_at || 0).getTime() - new Date(a.uploaded_at || 0).getTime()
+  );
+  return { status: "partial", lastUpdated: sorted[0].uploaded_at, docName: sorted[0].fund_name || sorted[0].name };
 }
 
 const typeLabels: Record<string, string> = {
@@ -100,7 +94,6 @@ const typeColors: Record<string, string> = {
 };
 
 type DocFilter = "all" | "factsheet" | "apresentacao" | "processing" | "error";
-type AssetFilter = "all" | "covered" | "uncovered" | "by_class";
 
 export default function DocumentAudit() {
   const [documents, setDocuments] = useState<Doc[]>([]);
@@ -109,11 +102,17 @@ export default function DocumentAudit() {
   const [docSearch, setDocSearch] = useState("");
   const [assetSearch, setAssetSearch] = useState("");
   const [docFilter, setDocFilter] = useState<DocFilter>("all");
-  const [assetFilter, setAssetFilter] = useState<AssetFilter>("all");
+  const [assetFilter, setAssetFilter] = useState<string>("all"); // "all" | "covered" | "uncovered" | class name
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ fund_name: "", period: "", type: "" });
   const [saving, setSaving] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadingAsset, setUploadingAsset] = useState<string | null>(null);
+  const [inlineUploading, setInlineUploading] = useState(false);
   const { toast } = useToast();
+  const { uploadDocument } = useDocuments();
+  const rightColRef = useRef<HTMLDivElement>(null);
+  const inlineFileRef = useRef<HTMLInputElement>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -138,11 +137,17 @@ export default function DocumentAudit() {
   const stats = useMemo(() => {
     const indexed = documents.filter(d => d.status === "indexed").length;
     const processing = documents.filter(d => d.status === "processing").length;
-    const coverageMap = assets.map(a => isCovered(a, documents));
-    const covered = coverageMap.filter(c => c === "covered" || c === "partial").length;
-    const uncovered = coverageMap.filter(c => c === "none").length;
+    const coverageResults = assets.map(a => getCoverage(a, documents));
+    const covered = coverageResults.filter(c => c.status === "covered" || c.status === "partial").length;
+    const uncovered = coverageResults.filter(c => c.status === "none").length;
     return { indexed, processing, covered, uncovered };
   }, [documents, assets]);
+
+  // Unique asset classes
+  const uniqueClasses = useMemo(() => {
+    const classes = new Set(assets.map(a => a.asset_class));
+    return Array.from(classes).sort();
+  }, [assets]);
 
   // Filtered docs
   const filteredDocs = useMemo(() => {
@@ -163,19 +168,23 @@ export default function DocumentAudit() {
 
   // Filtered assets
   const filteredAssets = useMemo(() => {
-    let list = assets.map(a => ({ ...a, coverage: isCovered(a, documents) }));
+    let list = assets.map(a => ({ ...a, coverageResult: getCoverage(a, documents) }));
     if (assetSearch) {
       const q = assetSearch.toLowerCase();
       list = list.filter(a =>
         a.name.toLowerCase().includes(q) || a.ticker.toLowerCase().includes(q)
       );
     }
-    if (assetFilter === "covered") list = list.filter(a => a.coverage === "covered");
-    else if (assetFilter === "uncovered") list = list.filter(a => a.coverage === "none");
+    if (assetFilter === "covered") list = list.filter(a => a.coverageResult.status === "covered");
+    else if (assetFilter === "uncovered") list = list.filter(a => a.coverageResult.status === "none");
+    else if (assetFilter !== "all") {
+      // Filter by class name
+      list = list.filter(a => a.asset_class === assetFilter);
+    }
     // Sort uncovered first
     list.sort((a, b) => {
       const order = { none: 0, partial: 1, covered: 2 };
-      return order[a.coverage] - order[b.coverage];
+      return order[a.coverageResult.status] - order[b.coverageResult.status];
     });
     return list;
   }, [assets, documents, assetSearch, assetFilter]);
@@ -186,8 +195,8 @@ export default function DocumentAudit() {
     for (const a of assets) {
       if (!classes[a.asset_class]) classes[a.asset_class] = { total: 0, covered: 0 };
       classes[a.asset_class].total++;
-      const cov = isCovered(a, documents);
-      if (cov === "covered" || cov === "partial") classes[a.asset_class].covered++;
+      const cov = getCoverage(a, documents);
+      if (cov.status === "covered" || cov.status === "partial") classes[a.asset_class].covered++;
     }
     return Object.entries(classes).sort((a, b) => a[0].localeCompare(b[0]));
   }, [assets, documents]);
@@ -222,14 +231,26 @@ export default function DocumentAudit() {
     }
   };
 
-  const copyUploadRequest = (asset: Asset) => {
-    const text = `Pendente: upload do factsheet de ${asset.name} (${asset.ticker})`;
-    navigator.clipboard.writeText(text);
-    toast({ title: "Copiado!", description: text });
+  const handleInlineUpload = async (file: File, asset: Asset) => {
+    setInlineUploading(true);
+    const success = await uploadDocument(file, {
+      name: file.name,
+      type: "factsheet",
+      fund_name: asset.name,
+      period: new Date().toISOString().slice(0, 7),
+    });
+    setInlineUploading(false);
+    if (success) {
+      toast({ title: "Factsheet indexado com sucesso!" });
+      setUploadingAsset(null);
+      fetchData();
+    } else {
+      toast({ title: "Erro ao indexar factsheet", variant: "destructive" });
+    }
   };
 
   const chipClass = (active: boolean) =>
-    `px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
+    `px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors whitespace-nowrap ${
       active
         ? "bg-primary/15 text-primary border border-primary/30"
         : "bg-secondary text-muted-foreground border border-transparent hover:bg-accent/10"
@@ -256,24 +277,43 @@ export default function DocumentAudit() {
     <Layout>
       <div className="p-6 space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Auditoria de Documentos</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Cobertura da base de conhecimento vs investimentos cadastrados
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Auditoria de Documentos</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Cobertura da base de conhecimento vs investimentos cadastrados
+            </p>
+          </div>
+          <Button onClick={() => setShowUploadModal(true)} className="gap-2">
+            <Plus className="h-4 w-4" /> Upload Documento
+          </Button>
         </div>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: "Documentos indexados", value: stats.indexed, icon: FileText },
-            { label: "Investimentos com cobertura", value: stats.covered, icon: CheckCircle },
-            { label: "Investimentos sem factsheet", value: stats.uncovered, icon: AlertTriangle },
-            { label: "Documentos processando", value: stats.processing, icon: Loader2 },
+            { label: "Documentos indexados", value: stats.indexed, icon: FileText, clickable: false },
+            { label: "Investimentos com cobertura", value: stats.covered, icon: CheckCircle, clickable: false },
+            { label: "Investimentos sem factsheet", value: stats.uncovered, icon: AlertTriangle, clickable: true },
+            { label: "Documentos processando", value: stats.processing, icon: Loader2, clickable: false },
           ].map((card) => (
-            <div key={card.label} className="p-5 bg-card border border-border rounded-xl">
+            <div
+              key={card.label}
+              className={`p-5 bg-card border border-border rounded-xl ${
+                card.clickable
+                  ? "cursor-pointer hover:border-primary/30 hover:bg-card/80 transition-colors group"
+                  : ""
+              }`}
+              onClick={card.clickable ? () => {
+                setAssetFilter("uncovered");
+                rightColRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+              } : undefined}
+            >
               <div className="flex items-center gap-2 mb-2">
                 <card.icon className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
+                {card.clickable && (
+                  <ArrowRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-auto" />
+                )}
               </div>
               <p className="text-3xl font-bold text-primary">{card.value}</p>
               <p className="text-xs text-muted-foreground mt-1">{card.label}</p>
@@ -407,7 +447,7 @@ export default function DocumentAudit() {
           </div>
 
           {/* RIGHT: Assets */}
-          <div className="space-y-4">
+          <div className="space-y-4" ref={rightColRef}>
             <h2 className="text-lg font-semibold text-foreground">Investimentos cadastrados</h2>
 
             <div className="relative">
@@ -420,14 +460,19 @@ export default function DocumentAudit() {
               />
             </div>
 
-            <div className="flex gap-2 flex-wrap">
-              {([
-                ["all", "Todos"],
-                ["covered", "Com Factsheet"],
-                ["uncovered", "Sem Factsheet"],
-              ] as [AssetFilter, string][]).map(([key, label]) => (
-                <button key={key} className={chipClass(assetFilter === key)} onClick={() => setAssetFilter(key)}>
-                  {label}
+            <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "thin" }}>
+              <button className={chipClass(assetFilter === "all")} onClick={() => setAssetFilter("all")}>
+                Todos
+              </button>
+              <button className={chipClass(assetFilter === "covered")} onClick={() => setAssetFilter("covered")}>
+                Com Factsheet
+              </button>
+              <button className={chipClass(assetFilter === "uncovered")} onClick={() => setAssetFilter("uncovered")}>
+                Sem Factsheet
+              </button>
+              {uniqueClasses.map((cls) => (
+                <button key={cls} className={chipClass(assetFilter === cls)} onClick={() => setAssetFilter(cls)}>
+                  {cls}
                 </button>
               ))}
             </div>
@@ -437,7 +482,9 @@ export default function DocumentAudit() {
                 <p className="text-sm text-muted-foreground py-8 text-center">Nenhum investimento encontrado.</p>
               )}
               {filteredAssets.map((asset) => {
-                const matchedDoc = getMatchedDoc(asset, documents);
+                const cov = asset.coverageResult;
+                const isUploadingThis = uploadingAsset === asset.id;
+
                 return (
                   <div key={asset.id} className="p-4 bg-card border border-border rounded-xl">
                     <div className="flex items-start justify-between gap-2">
@@ -456,38 +503,99 @@ export default function DocumentAudit() {
                             </span>
                           ))}
                         </div>
-                        <div className="mt-2">
-                          {asset.coverage === "covered" && (
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-xs gap-1">
-                                <CheckCircle className="h-3 w-3" /> Coberto
-                              </Badge>
-                              {matchedDoc && (
-                                <span className="text-xs text-muted-foreground truncate max-w-[180px]">{matchedDoc.name}</span>
-                              )}
-                            </div>
+                        <div className="mt-2 space-y-1">
+                          {cov.status === "covered" && (
+                            <>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-xs gap-1">
+                                  <CheckCircle className="h-3 w-3" /> Coberto
+                                </Badge>
+                                {cov.docName && (
+                                  <span className="text-xs text-muted-foreground truncate max-w-[180px]">{cov.docName}</span>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                Atualizado {cov.lastUpdated
+                                  ? formatDistanceToNow(new Date(cov.lastUpdated), { addSuffix: true, locale: ptBR })
+                                  : "—"}
+                              </p>
+                            </>
                           )}
-                          {asset.coverage === "partial" && (
-                            <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-xs gap-1">
-                              <AlertTriangle className="h-3 w-3" /> Parcial
-                            </Badge>
-                          )}
-                          {asset.coverage === "none" && (
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20 text-xs gap-1">
-                                <XCircle className="h-3 w-3" /> Sem factsheet
+                          {cov.status === "partial" && (
+                            <>
+                              <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-xs gap-1">
+                                <AlertTriangle className="h-3 w-3" /> Parcial
                               </Badge>
-                              <button
-                                onClick={() => copyUploadRequest(asset)}
-                                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                              >
-                                <Copy className="h-3 w-3" /> Solicitar upload
-                              </button>
-                            </div>
+                              <p className="text-xs text-muted-foreground">
+                                Atualizado {cov.lastUpdated
+                                  ? formatDistanceToNow(new Date(cov.lastUpdated), { addSuffix: true, locale: ptBR })
+                                  : "—"}
+                              </p>
+                            </>
+                          )}
+                          {cov.status === "none" && !isUploadingThis && (
+                            <>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20 text-xs gap-1">
+                                  <XCircle className="h-3 w-3" /> Sem factsheet
+                                </Badge>
+                                <button
+                                  onClick={() => setUploadingAsset(asset.id)}
+                                  className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
+                                >
+                                  <Upload className="h-3 w-3" /> Upload Factsheet
+                                </button>
+                              </div>
+                              <p className="text-xs text-muted-foreground">Nunca indexado</p>
+                            </>
                           )}
                         </div>
                       </div>
                     </div>
+
+                    {/* Inline upload panel */}
+                    {isUploadingThis && (
+                      <div className="mt-3 pt-3 border-t border-border">
+                        {inlineUploading ? (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                            Indexando...
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <input
+                              ref={inlineFileRef}
+                              type="file"
+                              accept=".pdf"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleInlineUpload(file, asset);
+                                e.target.value = "";
+                              }}
+                            />
+                            <div
+                              onClick={() => inlineFileRef.current?.click()}
+                              onDragOver={(e) => e.preventDefault()}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                const file = e.dataTransfer.files[0];
+                                if (file && file.type === "application/pdf") handleInlineUpload(file, asset);
+                              }}
+                              className="flex-1 border border-dashed border-primary/30 rounded-lg px-3 py-2 text-xs text-muted-foreground hover:border-primary/50 cursor-pointer transition-colors text-center"
+                            >
+                              Arraste o PDF ou clique para selecionar
+                            </div>
+                            <button
+                              onClick={() => setUploadingAsset(null)}
+                              className="p-1 text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -517,6 +625,13 @@ export default function DocumentAudit() {
           </div>
         )}
       </div>
+
+      <UploadModal
+        open={showUploadModal}
+        onClose={() => { setShowUploadModal(false); fetchData(); }}
+        onUpload={uploadDocument}
+        initialFiles={[]}
+      />
     </Layout>
   );
 }
