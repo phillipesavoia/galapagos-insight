@@ -6,12 +6,14 @@ const corsHeaders = {
 };
 
 // --- Type detection ---
-function detectAssetType(ticker: string, name: string): "us_etf" | "ucits_etf" | "bond" | "amc" | "manual" {
-  const t = ticker.toUpperCase();
-  const n = name.toLowerCase();
+function detectAssetType(ticker: string, name: string): "us_etf" | "ucits_etf" | "offshore_fund" | "bond" | "index" | "amc" | "manual" {
+  const t = ticker.toUpperCase().trim();
+  const n = name.toLowerCase().trim();
   if (n.includes("amc") || n.includes("opus")) return "amc";
-  if (t.endsWith("LN EQUITY") || t.endsWith("LN")) return "ucits_etf";
-  if (t.endsWith("US EQUITY") || t.endsWith("US")) return "us_etf";
+  if (t.endsWith("INDEX") || t.endsWith(" INDEX")) return "index";
+  if (t.endsWith("LN EQUITY") || t.endsWith(" LN")) return "ucits_etf";
+  if (t.endsWith("ID EQUITY") || t.endsWith(" ID")) return "offshore_fund";
+  if (t.endsWith("US EQUITY") || t.endsWith(" US")) return "us_etf";
   if (t.endsWith("CORP") || t.endsWith("GOVT")) return "bond";
   return "manual";
 }
@@ -232,6 +234,11 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    if (assetType === "index") {
+      return new Response(JSON.stringify({ status: "skipped", reason: "Bloomberg index — used for replication only, no factsheet needed" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     if (assetType === "manual") {
       return new Response(JSON.stringify({ status: "manual", reason: "Alternative fund — requires manual upload" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -308,7 +315,7 @@ Deno.serve(async (req) => {
     // For ETFs: find and download PDF
     let fetchResult: { pdfUrl: string; period: string } | null = null;
     if (assetType === "us_etf") fetchResult = await fetchUSETFFactsheet(ticker, isin, name);
-    if (assetType === "ucits_etf") fetchResult = await fetchUCITSFactsheet(ticker, isin, name);
+    if (assetType === "ucits_etf" || assetType === "offshore_fund") fetchResult = await fetchUCITSFactsheet(ticker, isin, name);
 
     if (!fetchResult) {
       return new Response(JSON.stringify({ status: "not_found", reason: "Could not locate factsheet URL", ticker, type: assetType }), {
