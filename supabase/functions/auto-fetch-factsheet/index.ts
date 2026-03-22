@@ -339,9 +339,9 @@ Deno.serve(async (req) => {
       const formData = new FormData();
       formData.append("file", blob, `${name.replace(/[^a-zA-Z0-9]/g, "_")}_bond_data.txt`);
       formData.append("document_id", doc.id);
-      formData.append("name", `${name} — Bond Data`);
+      formData.append("name", `${isin ? isin : name} — ${name} Bond Data`);
       formData.append("type", "factsheet");
-      formData.append("fund_name", name);
+      formData.append("fund_name", isin || name);
       formData.append("period", bondDoc.period);
 
       const ingestUrl = `${supabaseUrl}/functions/v1/ingest-document`;
