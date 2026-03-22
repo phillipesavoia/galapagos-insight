@@ -234,6 +234,11 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    if (assetType === "index") {
+      return new Response(JSON.stringify({ status: "skipped", reason: "Bloomberg index — used for replication only, no factsheet needed" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     if (assetType === "manual") {
       return new Response(JSON.stringify({ status: "manual", reason: "Alternative fund — requires manual upload" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
