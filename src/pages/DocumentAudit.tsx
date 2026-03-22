@@ -111,11 +111,13 @@ const typeColors: Record<string, string> = {
 
 type DocFilter = "all" | "factsheet" | "apresentacao" | "processing" | "error";
 function detectAssetType(ticker: string, name: string): string {
-  const t = ticker.toUpperCase();
-  const n = name.toLowerCase();
+  const t = ticker.toUpperCase().trim();
+  const n = name.toLowerCase().trim();
   if (n.includes("amc") || n.includes("opus")) return "amc";
-  if (t.endsWith("LN EQUITY") || t.endsWith("LN")) return "ucits_etf";
-  if (t.endsWith("US EQUITY") || t.endsWith("US")) return "us_etf";
+  if (t.endsWith("INDEX") || t.endsWith(" INDEX")) return "index";
+  if (t.endsWith("LN EQUITY") || t.endsWith(" LN")) return "ucits_etf";
+  if (t.endsWith("ID EQUITY") || t.endsWith(" ID")) return "offshore_fund";
+  if (t.endsWith("US EQUITY") || t.endsWith(" US")) return "us_etf";
   if (t.endsWith("CORP") || t.endsWith("GOVT")) return "bond";
   return "manual";
 }
