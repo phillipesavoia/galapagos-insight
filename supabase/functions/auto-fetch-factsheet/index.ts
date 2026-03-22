@@ -19,92 +19,7 @@ function detectAssetType(ticker: string, name: string): "us_etf" | "ucits_etf" |
 }
 
 
-
-// --- Step 1: Resolve ticker + exchange to ISIN via OpenFIGI ---
-async function resolveISIN(ticker: string, exchangeSuffix: string): Promise<{ isin: string; name: string; provider: string } | null> {
-  const exchMap: Record<string, string> = {
-    "LN": "LN",
-    "US": "US",
-    "ID": "ID",
-    "GR": "GR",
-    "SW": "SW",
-    "NA": "NA",
-    "IM": "IM",
-    "FP": "FP",
-  };
-  const exchCode = exchMap[exchangeSuffix] || exchangeSuffix;
-
-  try {
-    const res = await fetch("https://api.openfigi.com/v3/mapping", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify([{ idType: "TICKER", idValue: ticker, exchCode }]),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const item = data?.[0]?.data?.[0];
-    if (!item) return null;
-
-    if (item.figi) {
-      const figiRes = await fetch("https://api.openfigi.com/v3/mapping", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify([{ idType: "ID_BB_GLOBAL", idValue: item.figi }]),
-      });
-      if (figiRes.ok) {
-        const figiData = await figiRes.json();
-        const resolved = figiData?.[0]?.data?.[0];
-        if (resolved?.isin) {
-          return {
-            isin: resolved.isin,
-            name: resolved.name || item.name || "",
-            provider: (resolved.name || item.name || "").toLowerCase(),
-          };
-        }
-      }
-    }
-
-    return { isin: "", name: item.name || "", provider: (item.name || "").toLowerCase() };
-  } catch (_) {
-    return null;
-  }
-}
-
-// --- Step 2: Find factsheet URL from ISIN via JustETF ---
-async function findFactsheetViaJustETF(isin: string): Promise<string | null> {
-  try {
-    const searchUrl = `https://www.justetf.com/api/etfs?isin=${isin}&locale=en`;
-    const res = await fetch(searchUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-        "Accept": "application/json",
-        "Accept-Language": "en-GB,en;q=0.9",
-        "Referer": "https://www.justetf.com/",
-      },
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const etf = data?.etfs?.[0];
-    if (etf?.kiidUrl) return etf.kiidUrl;
-    if (etf?.prospectusUrl) return etf.prospectusUrl;
-
-    const detailUrl = `https://www.justetf.com/en/etf-profile.html?isin=${isin}`;
-    const html = await fetch(detailUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-        "Accept-Language": "en-GB,en;q=0.9",
-      },
-    }).then(r => r.text()).catch(() => "");
-    const match = html.match(/href="([^"]+(?:fact[-_]?sheet|kiid|kid)[^"]*\.pdf[^"]*)"/i);
-    if (match) return match[1].startsWith("http") ? match[1] : `https://www.justetf.com${match[1]}`;
-
-    return null;
-  } catch (_) {
-    return null;
-  }
-}
-
-// --- Step 3: Find factsheet from provider website using ISIN ---
+// --- Find factsheet from provider website using ISIN ---
 async function findFactsheetFromProvider(isin: string, providerName: string): Promise<string | null> {
   const p = providerName.toLowerCase();
 
@@ -172,42 +87,100 @@ async function findFactsheetFromProvider(isin: string, providerName: string): Pr
 }
 
 // --- Unified ETF/Fund fetcher ---
-async function fetchETFFactsheet(ticker: string, isin: string | null, name: string, exchangeSuffix: string): Promise<{ pdfUrl: string; period: string } | null> {
+async function fetchETFFactsheet(
+  ticker: string,
+  isin: string | null,
+  name: string,
+  exchangeSuffix: string
+): Promise<{ pdfUrl: string; period: string } | null> {
   const period = new Date().toISOString().slice(0, 7);
-  let resolvedIsin = isin;
-  let resolvedName = name;
 
-  if (!resolvedIsin) {
-    const resolved = await resolveISIN(ticker, exchangeSuffix);
-    if (resolved?.isin) {
-      resolvedIsin = resolved.isin;
-      resolvedName = resolved.name || name;
+  // Extract clean ticker symbol (remove Bloomberg exchange suffix)
+  const cleanTicker = ticker
+    .replace(/\s+LN\s+EQUITY$/i, "")
+    .replace(/\s+US\s+EQUITY$/i, "")
+    .replace(/\s+ID\s+EQUITY$/i, "")
+    .replace(/\s+GR\s+EQUITY$/i, "")
+    .replace(/\s+SW\s+EQUITY$/i, "")
+    .replace(/\s+NA\s+EQUITY$/i, "")
+    .replace(/\s+IM\s+EQUITY$/i, "")
+    .replace(/\s+FP\s+EQUITY$/i, "")
+    .replace(/\s+LN$/i, "")
+    .replace(/\s+US$/i, "")
+    .trim();
+
+  // Step 1: Search JustETF by ticker symbol — works without ISIN
+  try {
+    const searchUrl = `https://www.justetf.com/api/etfs?search=${encodeURIComponent(cleanTicker)}&locale=en&assetClass=exchangeTradedFund`;
+    const res = await fetch(searchUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "application/json",
+        "Accept-Language": "en-GB,en;q=0.9",
+        "Referer": "https://www.justetf.com/en/find-etf.html",
+      },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const etfs = data?.etfs || [];
+
+      // Find best match — prefer exact ticker symbol match
+      const match = etfs.find((e: any) =>
+        e.symbol?.toUpperCase() === cleanTicker.toUpperCase()
+      ) || etfs[0];
+
+      if (match) {
+        const resolvedIsin = match.isin || isin;
+
+        if (match.kiidUrl) return { pdfUrl: match.kiidUrl, period };
+        if (match.factsheetUrl) return { pdfUrl: match.factsheetUrl, period };
+
+        if (resolvedIsin) {
+          const providerUrl = await findFactsheetFromProvider(
+            resolvedIsin,
+            match.providerName || match.name || name
+          );
+          if (providerUrl) return { pdfUrl: providerUrl, period };
+        }
+      }
     }
-  }
+  } catch (_) {}
 
-  if (resolvedIsin) {
-    const justEtfUrl = await findFactsheetViaJustETF(resolvedIsin);
-    if (justEtfUrl) return { pdfUrl: justEtfUrl, period };
-  }
-
-  if (resolvedIsin) {
-    const providerUrl = await findFactsheetFromProvider(resolvedIsin, resolvedName);
+  // Step 2: If we have ISIN already, try provider directly
+  if (isin) {
+    const providerUrl = await findFactsheetFromProvider(isin, name);
     if (providerUrl) return { pdfUrl: providerUrl, period };
   }
 
+  // Step 3: US ETF fallback via ETF.com
   if (exchangeSuffix === "US") {
     try {
-      const cleanTick = ticker.replace(/ US EQUITY$/i, "").replace(/ US$/i, "").trim();
-      const etfComUrl = `https://www.etf.com/${cleanTick}`;
+      const etfComUrl = `https://www.etf.com/${cleanTicker}`;
       const html = await fetch(etfComUrl, {
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; research-bot/1.0)" }
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; research-bot/1.0)" },
       }).then(r => r.text()).catch(() => "");
       const match = html.match(/href="([^"]+(?:fact[-_]?sheet|factsheet)[^"]*\.pdf)"/i);
       if (match) {
-        const pdfUrl = match[1].startsWith("http") ? match[1] : `https://www.etf.com${match[1]}`;
+        const pdfUrl = match[1].startsWith("http")
+          ? match[1]
+          : `https://www.etf.com${match[1]}`;
         return { pdfUrl, period };
       }
     } catch (_) {}
+  }
+
+  // Step 4: iShares direct URL attempt using ISIN
+  const nameLower = name.toLowerCase();
+  if (nameLower.includes("ishares") && isin) {
+    const isinLower = isin.toLowerCase();
+    const urls = [
+      `https://www.ishares.com/uk/individual/en/literature/fact-sheet/${isinLower}-fund-fact-sheet-en-gb.pdf`,
+      `https://www.ishares.com/us/literature/fact-sheet/${isinLower}-fund-fact-sheet-en-us.pdf`,
+    ];
+    for (const url of urls) {
+      const test = await fetch(url, { method: "HEAD" }).catch(() => null);
+      if (test?.ok) return { pdfUrl: url, period };
+    }
   }
 
   return null;
