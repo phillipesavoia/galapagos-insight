@@ -557,10 +557,111 @@ Deno.serve(async (req) => {
       fetchResult = await fetchETFFactsheet(ticker, isin, name, exchangeSuffix);
     }
 
+    // If PDF not found or download fails, fall back to structured data
     if (!fetchResult) {
-      return new Response(JSON.stringify({ status: "not_found", reason: "Could not locate factsheet URL", ticker, type: assetType }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      const structuredData = await fetchETFStructuredData(ticker, isin, name, exchangeSuffix);
+      if (!structuredData) {
+        return new Response(
+          JSON.stringify({ status: "not_found", reason: "Could not locate factsheet or structured data", ticker, type: assetType }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Index structured ETF data directly (same pipeline as bonds)
+      const safeETFName = name.replace(/[^a-zA-Z0-9\s]/g, "").trim();
+      const etfIdentifier = isin || name;
+      const docName = `${isin ? isin + " — " : ""}${safeETFName} ETF Data`;
+
+      const { data: doc, error: insertErr } = await supabase
+        .from("documents")
+        .insert({
+          name: docName,
+          type: "factsheet",
+          fund_name: etfIdentifier,
+          period: structuredData.period,
+          status: "processing",
+          owner_id: null,
+        })
+        .select()
+        .single();
+
+      if (insertErr || !doc) throw new Error("Failed to insert ETF document");
+
+      const indexETFAsync = async () => {
+        try {
+          const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
+          if (!googleKey) throw new Error("Missing GOOGLE_AI_API_KEY");
+
+          const paragraphs = structuredData.content.split(/\n\n+/);
+          const chunks: string[] = [];
+          let current = "";
+
+          for (const para of paragraphs) {
+            if (current.length + para.length > 1500 && current.length > 0) {
+              chunks.push(current.trim());
+              current = para;
+            } else {
+              current += (current ? "\n\n" : "") + para;
+            }
+          }
+          if (current.trim().length > 20) chunks.push(current.trim());
+
+          const embeddedChunks: { chunk: string; embedding: number[]; index: number }[] = [];
+
+          for (let i = 0; i < chunks.length; i++) {
+            const embRes = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${googleKey}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  content: { parts: [{ text: chunks[i] }] },
+                  outputDimensionality: 768,
+                }),
+              }
+            );
+            if (!embRes.ok) continue;
+            const embData = await embRes.json();
+            embeddedChunks.push({ chunk: chunks[i], embedding: embData.embedding.values, index: i });
+          }
+
+          const chunkRecords = embeddedChunks.map(({ chunk, embedding, index }) => ({
+            document_id: doc.id,
+            content: chunk,
+            embedding: `[${embedding.join(",")}]`,
+            chunk_index: index,
+            metadata: {
+              fund_name: etfIdentifier,
+              isin: isin || null,
+              period: structuredData.period,
+              document_type: "factsheet",
+              document_name: docName,
+            },
+          }));
+
+          if (chunkRecords.length > 0) {
+            await supabase.from("document_chunks").insert(chunkRecords);
+          }
+
+          await supabase.from("documents").update({
+            status: "indexed",
+            chunk_count: chunkRecords.length,
+            language: "en-US",
+          }).eq("id", doc.id);
+
+          console.log(`ETF structured data indexed: ${etfIdentifier} — ${chunkRecords.length} chunks`);
+        } catch (err) {
+          console.error("ETF structured indexing error:", err);
+          await supabase.from("documents").update({ status: "error" }).eq("id", doc.id);
+        }
+      };
+
+      indexETFAsync().catch(console.error);
+
+      return new Response(
+        JSON.stringify({ status: "processing", document_id: doc.id, type: "etf_structured", name, isin: isin || null }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const safeName = name.replace(/[^a-zA-Z0-9\s]/g, "").trim();
