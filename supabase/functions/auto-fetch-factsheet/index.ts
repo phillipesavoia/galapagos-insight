@@ -30,8 +30,198 @@ function cleanTicker(ticker: string): string {
     .trim();
 }
 
-// --- US ETF: fetch factsheet URL from ETF provider ---
-async function fetchUSETFFactsheet(ticker: string, isin: string | null, name: string): Promise<{ pdfUrl: string; period: string } | null> {
+// --- Step 1: Resolve ticker + exchange to ISIN via OpenFIGI ---
+async function resolveISIN(ticker: string, exchangeSuffix: string): Promise<{ isin: string; name: string; provider: string } | null> {
+  const exchMap: Record<string, string> = {
+    "LN": "LN",
+    "US": "US",
+    "ID": "ID",
+    "GR": "GR",
+    "SW": "SW",
+    "NA": "NA",
+    "IM": "IM",
+    "FP": "FP",
+  };
+  const exchCode = exchMap[exchangeSuffix] || exchangeSuffix;
+
+  try {
+    const res = await fetch("https://api.openfigi.com/v3/mapping", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify([{ idType: "TICKER", idValue: ticker, exchCode }]),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const item = data?.[0]?.data?.[0];
+    if (!item) return null;
+
+    if (item.figi) {
+      const figiRes = await fetch("https://api.openfigi.com/v3/mapping", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify([{ idType: "ID_BB_GLOBAL", idValue: item.figi }]),
+      });
+      if (figiRes.ok) {
+        const figiData = await figiRes.json();
+        const resolved = figiData?.[0]?.data?.[0];
+        if (resolved?.isin) {
+          return {
+            isin: resolved.isin,
+            name: resolved.name || item.name || "",
+            provider: (resolved.name || item.name || "").toLowerCase(),
+          };
+        }
+      }
+    }
+
+    return { isin: "", name: item.name || "", provider: (item.name || "").toLowerCase() };
+  } catch (_) {
+    return null;
+  }
+}
+
+// --- Step 2: Find factsheet URL from ISIN via JustETF ---
+async function findFactsheetViaJustETF(isin: string): Promise<string | null> {
+  try {
+    const searchUrl = `https://www.justetf.com/api/etfs?isin=${isin}&locale=en`;
+    const res = await fetch(searchUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "Accept": "application/json",
+        "Accept-Language": "en-GB,en;q=0.9",
+        "Referer": "https://www.justetf.com/",
+      },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const etf = data?.etfs?.[0];
+    if (etf?.kiidUrl) return etf.kiidUrl;
+    if (etf?.prospectusUrl) return etf.prospectusUrl;
+
+    const detailUrl = `https://www.justetf.com/en/etf-profile.html?isin=${isin}`;
+    const html = await fetch(detailUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "Accept-Language": "en-GB,en;q=0.9",
+      },
+    }).then(r => r.text()).catch(() => "");
+    const match = html.match(/href="([^"]+(?:fact[-_]?sheet|kiid|kid)[^"]*\.pdf[^"]*)"/i);
+    if (match) return match[1].startsWith("http") ? match[1] : `https://www.justetf.com${match[1]}`;
+
+    return null;
+  } catch (_) {
+    return null;
+  }
+}
+
+// --- Step 3: Find factsheet from provider website using ISIN ---
+async function findFactsheetFromProvider(isin: string, providerName: string): Promise<string | null> {
+  const p = providerName.toLowerCase();
+
+  if (p.includes("ishares") || p.includes("blackrock")) {
+    const ukUrl = `https://www.ishares.com/uk/individual/en/literature/fact-sheet/${isin.toLowerCase()}-fund-fact-sheet-en-gb.pdf`;
+    const ukTest = await fetch(ukUrl, { method: "HEAD" }).catch(() => null);
+    if (ukTest?.ok) return ukUrl;
+
+    const usUrl = `https://www.ishares.com/us/literature/fact-sheet/${isin.toLowerCase()}-fund-fact-sheet-en-us.pdf`;
+    const usTest = await fetch(usUrl, { method: "HEAD" }).catch(() => null);
+    if (usTest?.ok) return usUrl;
+  }
+
+  if (p.includes("vanguard")) {
+    const url = `https://www.vanguard.co.uk/documents/portal/literature/${isin}-fund-fact-sheet.pdf`;
+    const test = await fetch(url, { method: "HEAD" }).catch(() => null);
+    if (test?.ok) return url;
+  }
+
+  if (p.includes("invesco")) {
+    const url = `https://etf.invesco.com/gb/private/en/literature/fact-sheet/${isin}-fund-fact-sheet-en-gb.pdf`;
+    const test = await fetch(url, { method: "HEAD" }).catch(() => null);
+    if (test?.ok) return url;
+  }
+
+  if (p.includes("amundi") || p.includes("lyxor")) {
+    const url = `https://www.amundietf.com/en/professional/product/view/isin/${isin}`;
+    const html = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0" }
+    }).then(r => r.text()).catch(() => "");
+    const match = html.match(/href="([^"]+(?:factsheet|fact-sheet)[^"]*\.pdf[^"]*)"/i);
+    if (match) return match[1].startsWith("http") ? match[1] : `https://www.amundietf.com${match[1]}`;
+  }
+
+  if (p.includes("spdr") || p.includes("state street")) {
+    const url = `https://www.ssga.com/uk/en_gb/individual/etfs/funds/${isin}`;
+    const html = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0" }
+    }).then(r => r.text()).catch(() => "");
+    const match = html.match(/href="([^"]+(?:factsheet|fact-sheet|fact_sheet)[^"]*\.pdf[^"]*)"/i);
+    if (match) return match[1].startsWith("http") ? match[1] : `https://www.ssga.com${match[1]}`;
+  }
+
+  if (p.includes("franklin") || p.includes("templeton")) {
+    const url = `https://www.franklintempleton.co.uk/investor/api/fund/factsheet/${isin}`;
+    const test = await fetch(url, { method: "HEAD" }).catch(() => null);
+    if (test?.ok) return url;
+  }
+
+  if (p.includes("xtrackers") || p.includes("dws")) {
+    const url = `https://etf.dws.com/en-gb/${isin}/factsheet/`;
+    const html = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } })
+      .then(r => r.text()).catch(() => "");
+    const match = html.match(/href="([^"]+\.pdf[^"]*)"/i);
+    if (match) return match[1].startsWith("http") ? match[1] : `https://etf.dws.com${match[1]}`;
+  }
+
+  if (p.includes("aberdeen") || p.includes("abrdn")) {
+    const url = `https://www.aberdeenstandard.com/docs?editionId=${isin}`;
+    const test = await fetch(url, { method: "HEAD" }).catch(() => null);
+    if (test?.ok) return url;
+  }
+
+  return null;
+}
+
+// --- Unified ETF/Fund fetcher ---
+async function fetchETFFactsheet(ticker: string, isin: string | null, name: string, exchangeSuffix: string): Promise<{ pdfUrl: string; period: string } | null> {
+  const period = new Date().toISOString().slice(0, 7);
+  let resolvedIsin = isin;
+  let resolvedName = name;
+
+  if (!resolvedIsin) {
+    const resolved = await resolveISIN(ticker, exchangeSuffix);
+    if (resolved?.isin) {
+      resolvedIsin = resolved.isin;
+      resolvedName = resolved.name || name;
+    }
+  }
+
+  if (resolvedIsin) {
+    const justEtfUrl = await findFactsheetViaJustETF(resolvedIsin);
+    if (justEtfUrl) return { pdfUrl: justEtfUrl, period };
+  }
+
+  if (resolvedIsin) {
+    const providerUrl = await findFactsheetFromProvider(resolvedIsin, resolvedName);
+    if (providerUrl) return { pdfUrl: providerUrl, period };
+  }
+
+  if (exchangeSuffix === "US") {
+    try {
+      const cleanTick = ticker.replace(/ US EQUITY$/i, "").replace(/ US$/i, "").trim();
+      const etfComUrl = `https://www.etf.com/${cleanTick}`;
+      const html = await fetch(etfComUrl, {
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; research-bot/1.0)" }
+      }).then(r => r.text()).catch(() => "");
+      const match = html.match(/href="([^"]+(?:fact[-_]?sheet|factsheet)[^"]*\.pdf)"/i);
+      if (match) {
+        const pdfUrl = match[1].startsWith("http") ? match[1] : `https://www.etf.com${match[1]}`;
+        return { pdfUrl, period };
+      }
+    } catch (_) {}
+  }
+
+  return null;
+}
   const clean = cleanTicker(ticker);
   const nameLower = name.toLowerCase();
 
