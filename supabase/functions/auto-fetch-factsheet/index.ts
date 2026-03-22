@@ -153,6 +153,7 @@ async function fetchETFFactsheet(
     const providerUrl = await findFactsheetFromProvider(isin, name);
     if (providerUrl) return { pdfUrl: providerUrl, period };
   }
+  console.log("DEBUG isin check:", isin, "— skipping provider direct");
 
   // Step 3: US ETF fallback via ETF.com
   if (exchangeSuffix === "US") {
