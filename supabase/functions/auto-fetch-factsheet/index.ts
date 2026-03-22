@@ -109,6 +109,8 @@ async function fetchETFFactsheet(
     .replace(/\s+US$/i, "")
     .trim();
 
+  console.log("DEBUG cleanTicker:", cleanTicker, "| isin:", isin, "| exchangeSuffix:", exchangeSuffix, "| name:", name);
+
   // Step 1: Search JustETF by ticker symbol — works without ISIN
   try {
     const searchUrl = `https://www.justetf.com/api/etfs?search=${encodeURIComponent(cleanTicker)}&locale=en&assetClass=exchangeTradedFund`;
@@ -120,8 +122,10 @@ async function fetchETFFactsheet(
         "Referer": "https://www.justetf.com/en/find-etf.html",
       },
     });
+    console.log("DEBUG justETF status:", res.status, "| ok:", res.ok);
     if (res.ok) {
       const data = await res.json();
+      console.log("DEBUG justETF data:", JSON.stringify(data).slice(0, 500));
       const etfs = data?.etfs || [];
 
       // Find best match — prefer exact ticker symbol match
@@ -151,6 +155,7 @@ async function fetchETFFactsheet(
     const providerUrl = await findFactsheetFromProvider(isin, name);
     if (providerUrl) return { pdfUrl: providerUrl, period };
   }
+  console.log("DEBUG isin check:", isin, "— skipping provider direct");
 
   // Step 3: US ETF fallback via ETF.com
   if (exchangeSuffix === "US") {
