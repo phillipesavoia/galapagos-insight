@@ -191,7 +191,6 @@ async function fetchETFFactsheet(
   return null;
 }
 
-  console.log("DEBUG cleanTicker:", cleanTicker, "| isin:", isin, "| exchangeSuffix:", exchangeSuffix, "| name:", name);
 
 // --- Bond: build structured document from FINRA + OpenFIGI ---
 async function fetchBondDocument(ticker: string, isin: string | null, name: string): Promise<{ content: string; period: string } | null> {
