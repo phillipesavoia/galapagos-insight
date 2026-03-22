@@ -141,20 +141,20 @@ export default function Chat() {
         }
         setSessions(unique.slice(0, 20));
 
-        if (!initialLoadDone && unique.length > 0) {
+        if (!initialLoadDone) {
           setInitialLoadDone(true);
-          const lastSid = unique[0].session_id;
-          setSessionId(lastSid as any);
-          loadSession(lastSid);
-        } else {
-          setInitialLoadDone(true);
+          if (unique.length > 0) {
+            const lastSid = unique[0].session_id;
+            setSessionId(lastSid as any);
+            loadSession(lastSid);
+          }
         }
       } else {
         setInitialLoadDone(true);
       }
     };
     loadSessions();
-  }, [messages.length]);
+  }, []);
 
   const loadSession = useCallback(async (sid: string) => {
     const { data } = await supabase
