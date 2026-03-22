@@ -120,8 +120,10 @@ async function fetchETFFactsheet(
         "Referer": "https://www.justetf.com/en/find-etf.html",
       },
     });
+    console.log("DEBUG justETF status:", res.status, "| ok:", res.ok);
     if (res.ok) {
       const data = await res.json();
+      console.log("DEBUG justETF data:", JSON.stringify(data).slice(0, 500));
       const etfs = data?.etfs || [];
 
       // Find best match — prefer exact ticker symbol match
