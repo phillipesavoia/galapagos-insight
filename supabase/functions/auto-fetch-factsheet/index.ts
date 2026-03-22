@@ -18,17 +18,7 @@ function detectAssetType(ticker: string, name: string): "us_etf" | "ucits_etf" |
   return "manual";
 }
 
-// Extract clean ticker (remove exchange suffix)
-function cleanTicker(ticker: string): string {
-  return ticker
-    .replace(/ LN EQUITY$/i, "")
-    .replace(/ US EQUITY$/i, "")
-    .replace(/ CORP$/i, "")
-    .replace(/ GOVT$/i, "")
-    .replace(/ LN$/i, "")
-    .replace(/ US$/i, "")
-    .trim();
-}
+
 
 // --- Step 1: Resolve ticker + exchange to ISIN via OpenFIGI ---
 async function resolveISIN(ticker: string, exchangeSuffix: string): Promise<{ isin: string; name: string; provider: string } | null> {
