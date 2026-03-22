@@ -251,6 +251,60 @@ export default function DocumentAudit() {
     }
   };
 
+  const callAutoFetch = async (asset: { id: string; ticker: string; isin: string | null; name: string }) => {
+    setFetchingAssets(prev => ({ ...prev, [asset.id]: "loading" }));
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/auto-fetch-factsheet`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.access_token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({
+            asset_id: asset.id,
+            ticker: asset.ticker,
+            isin: asset.isin,
+            name: asset.name,
+          }),
+        }
+      );
+      const data = await res.json();
+      const status = data.status as "processing" | "not_found" | "manual" | "skipped" | "error";
+      if (status === "processing") {
+        setFetchingAssets(prev => ({ ...prev, [asset.id]: "success" }));
+        toast({ title: `Buscando factsheet: ${asset.name}`, description: "Indexando em background..." });
+        setTimeout(() => fetchData(), 8000);
+      } else if (status === "skipped") {
+        setFetchingAssets(prev => ({ ...prev, [asset.id]: "skipped" }));
+        toast({ title: "Factsheet recente já existe", description: data.reason });
+      } else if (status === "manual") {
+        setFetchingAssets(prev => ({ ...prev, [asset.id]: "manual" }));
+        toast({ title: "Upload manual necessário", description: "Fundo alternativo — factsheet não está em fonte pública.", variant: "destructive" });
+      } else {
+        setFetchingAssets(prev => ({ ...prev, [asset.id]: "not_found" }));
+        toast({ title: "Não encontrado", description: `Não foi possível localizar o factsheet de ${asset.name}`, variant: "destructive" });
+      }
+    } catch {
+      setFetchingAssets(prev => ({ ...prev, [asset.id]: "error" }));
+      toast({ title: "Erro", description: "Falha ao buscar factsheet", variant: "destructive" });
+    }
+  };
+
+  const handleFetchAll = async () => {
+    const uncovered = assets.filter(a => getCoverage(a, documents).status === "none");
+    setFetchAllLoading(true);
+    for (const asset of uncovered) {
+      await callAutoFetch(asset);
+      await new Promise(r => setTimeout(r, 1500));
+    }
+    setFetchAllLoading(false);
+    toast({ title: "Busca automática concluída", description: `${uncovered.length} investimentos processados.` });
+  };
+
   const chipClass = (active: boolean) =>
     `px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors whitespace-nowrap ${
       active
