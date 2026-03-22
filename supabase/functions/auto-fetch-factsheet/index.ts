@@ -86,6 +86,118 @@ async function findFactsheetFromProvider(isin: string, providerName: string): Pr
   return null;
 }
 
+// --- Structured ETF data fallback (similar to bonds) ---
+async function fetchETFStructuredData(
+  ticker: string,
+  isin: string | null,
+  name: string,
+  exchangeSuffix: string
+): Promise<{ content: string; period: string } | null> {
+  const period = new Date().toISOString().slice(0, 7);
+  const cleanTicker = ticker
+    .replace(/\s+LN\s+EQUITY$/i, "")
+    .replace(/\s+US\s+EQUITY$/i, "")
+    .replace(/\s+ID\s+EQUITY$/i, "")
+    .replace(/\s+LN$/i, "")
+    .replace(/\s+US$/i, "")
+    .trim();
+
+  let etfData: Record<string, string> = {
+    name,
+    ticker: cleanTicker,
+    isin: isin || "N/A",
+    exchange: exchangeSuffix,
+  };
+
+  // Try Morningstar search by ISIN or ticker
+  try {
+    const searchTerm = isin || cleanTicker;
+    const msApiUrl = `https://www.morningstar.co.uk/uk/util/SecuritySearch.ashx?q=${encodeURIComponent(searchTerm)}&limit=1&source=nav`;
+
+    const res = await fetch(msApiUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "Accept": "application/json",
+        "Referer": "https://www.morningstar.co.uk/",
+      },
+    });
+
+    if (res.ok) {
+      const text = await res.text();
+      try {
+        const data = JSON.parse(text);
+        const result = Array.isArray(data) ? data[0] : data?.results?.[0];
+        if (result) {
+          etfData.name = result.Name || result.name || name;
+          etfData.category = result.CategoryName || result.category || "";
+          etfData.currency = result.Currency || result.currency || "";
+          etfData.morningstarId = result.Id || result.id || "";
+        }
+      } catch (_) {}
+    }
+  } catch (_) {}
+
+  // Try JustETF for additional data
+  if (isin) {
+    try {
+      const justEtfUrl = `https://www.justetf.com/api/etfs?isin=${isin}&locale=en`;
+      const res = await fetch(justEtfUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+          "Accept": "application/json",
+          "Referer": "https://www.justetf.com/",
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const etf = data?.etfs?.[0];
+        if (etf) {
+          etfData.name = etf.name || etfData.name;
+          etfData.ter = etf.ter ? `${etf.ter}%` : "";
+          etfData.aum = etf.aum ? `${etf.aum} ${etf.currency || "USD"}` : "";
+          etfData.replicationMethod = etf.replicationMethod || "";
+          etfData.distributionPolicy = etf.distributionPolicy || "";
+          etfData.domicile = etf.domicile || "";
+          etfData.fundProvider = etf.providerName || etf.provider || "";
+          etfData.index = etf.benchmarkName || etf.indexName || "";
+          etfData.currency = etf.currency || etfData.currency;
+          etfData.inceptionDate = etf.inceptionDate || "";
+          etfData.numberOfHoldings = etf.numberOfHoldings ? String(etf.numberOfHoldings) : "";
+        }
+      }
+    } catch (_) {}
+  }
+
+  const content = `ETF FACT SHEET
+
+Name: ${etfData.name}
+Ticker: ${etfData.ticker}
+ISIN: ${etfData.isin}
+Exchange: ${etfData.exchange}
+${etfData.fundProvider ? `Provider: ${etfData.fundProvider}` : ""}
+${etfData.index ? `Benchmark Index: ${etfData.index}` : ""}
+${etfData.ter ? `Total Expense Ratio (TER): ${etfData.ter}` : ""}
+${etfData.aum ? `Assets Under Management: ${etfData.aum}` : ""}
+${etfData.currency ? `Currency: ${etfData.currency}` : ""}
+${etfData.domicile ? `Domicile: ${etfData.domicile}` : ""}
+${etfData.replicationMethod ? `Replication Method: ${etfData.replicationMethod}` : ""}
+${etfData.distributionPolicy ? `Distribution Policy: ${etfData.distributionPolicy}` : ""}
+${etfData.inceptionDate ? `Inception Date: ${etfData.inceptionDate}` : ""}
+${etfData.numberOfHoldings ? `Number of Holdings: ${etfData.numberOfHoldings}` : ""}
+${etfData.category ? `Morningstar Category: ${etfData.category}` : ""}
+
+PORTFOLIO
+---------
+This ETF is held within the Galapagos Capital model portfolios.
+${exchangeSuffix === "LN" || exchangeSuffix === "ID" ? "This is a UCITS ETF domiciled in Europe, accessible to offshore investors." : "This is a US-listed ETF."}
+
+Generated: ${new Date().toLocaleDateString("pt-BR")}
+Source: JustETF, Morningstar public data.
+`;
+
+  return { content: content.replace(/\n{3,}/g, "\n\n").trim(), period };
+}
+
 // --- Unified ETF/Fund fetcher ---
 async function fetchETFFactsheet(
   ticker: string,
