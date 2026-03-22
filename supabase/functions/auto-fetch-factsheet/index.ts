@@ -86,6 +86,102 @@ async function findFactsheetFromProvider(isin: string, providerName: string): Pr
   return null;
 }
 
+// --- Yahoo Finance ETF data fetcher (US ETFs) ---
+async function fetchYahooETFData(
+  ticker: string,
+  isin: string | null,
+  name: string
+): Promise<{ content: string; period: string } | null> {
+  const period = new Date().toISOString().slice(0, 7);
+  const cleanTicker = ticker
+    .replace(/\s+US\s+EQUITY$/i, "")
+    .replace(/\s+US$/i, "")
+    .trim();
+
+  try {
+    // Yahoo Finance quote summary
+    const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${cleanTicker}?modules=assetProfile,summaryDetail,fundProfile,topHoldings,fundPerformance,defaultKeyStatistics`;
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "application/json",
+        "Accept-Language": "en-US,en;q=0.9",
+      },
+    });
+
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const result = data?.quoteSummary?.result?.[0];
+    if (!result) return null;
+
+    const summary = result.summaryDetail || {};
+    const profile = result.fundProfile || {};
+    const keyStats = result.defaultKeyStatistics || {};
+    const holdings = result.topHoldings || {};
+    const perf = result.fundPerformance || {};
+
+    // Format top holdings
+    const topHoldings = (holdings.holdings || []).slice(0, 10)
+      .map((h: any) => `  - ${h.holdingName || h.symbol}: ${h.holdingPercent ? (h.holdingPercent * 100).toFixed(2) + "%" : "N/A"}`)
+      .join("\n");
+
+    // Format performance
+    const perfData = perf.trailingReturns || {};
+    const ytd = perfData.ytd ? (perfData.ytd * 100).toFixed(2) + "%" : "N/A";
+    const oneYear = perfData.oneYear ? (perfData.oneYear * 100).toFixed(2) + "%" : "N/A";
+    const threeYear = perfData.threeYear ? (perfData.threeYear * 100).toFixed(2) + "%" : "N/A";
+    const fiveYear = perfData.fiveYear ? (perfData.fiveYear * 100).toFixed(2) + "%" : "N/A";
+
+    const content = `ETF FACT SHEET — ${name}
+
+Ticker: ${cleanTicker}
+ISIN: ${isin || "N/A"}
+Generated: ${new Date().toLocaleDateString("pt-BR")}
+
+FUND OVERVIEW
+-------------
+Name: ${name}
+Category: ${profile.categoryName || "N/A"}
+Family: ${profile.family || "N/A"}
+Legal Type: ${profile.legalType || "ETF"}
+Currency: ${summary.currency || "USD"}
+Exchange: US Listed
+
+FUND METRICS
+------------
+Total Assets (AUM): ${summary.totalAssets ? "$" + (summary.totalAssets / 1e9).toFixed(2) + "B" : "N/A"}
+Expense Ratio (TER): ${summary.annualReportExpenseRatio ? (summary.annualReportExpenseRatio * 100).toFixed(2) + "%" : keyStats.annualHoldingsTurnover ? "N/A" : "N/A"}
+52-Week High: ${summary.fiftyTwoWeekHigh?.raw ? "$" + summary.fiftyTwoWeekHigh.raw.toFixed(2) : "N/A"}
+52-Week Low: ${summary.fiftyTwoWeekLow?.raw ? "$" + summary.fiftyTwoWeekLow.raw.toFixed(2) : "N/A"}
+50-Day Average: ${summary.fiftyDayAverage?.raw ? "$" + summary.fiftyDayAverage.raw.toFixed(2) : "N/A"}
+200-Day Average: ${summary.twoHundredDayAverage?.raw ? "$" + summary.twoHundredDayAverage.raw.toFixed(2) : "N/A"}
+Beta (3Y): ${keyStats.beta3Year?.raw?.toFixed(2) || "N/A"}
+
+PERFORMANCE
+-----------
+YTD Return: ${ytd}
+1-Year Return: ${oneYear}
+3-Year Return: ${threeYear}
+5-Year Return: ${fiveYear}
+
+${topHoldings ? `TOP HOLDINGS\n------------\n${topHoldings}` : ""}
+
+PORTFOLIO
+---------
+This ETF is held within the Galapagos Capital model portfolios.
+This is a US-listed ETF.
+
+Source: Yahoo Finance public data.
+`;
+
+    return { content: content.replace(/\n{3,}/g, "\n\n").trim(), period };
+  } catch (err) {
+    console.error("Yahoo Finance fetch error:", err);
+    return null;
+  }
+}
+
 // --- Structured ETF data fallback (similar to bonds) ---
 async function fetchETFStructuredData(
   ticker: string,
