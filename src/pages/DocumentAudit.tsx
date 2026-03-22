@@ -340,9 +340,21 @@ export default function DocumentAudit() {
               Cobertura da base de conhecimento vs investimentos cadastrados
             </p>
           </div>
-          <Button onClick={() => setShowUploadModal(true)} className="gap-2">
-            <Plus className="h-4 w-4" /> Upload Documento
-          </Button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleFetchAll}
+              disabled={fetchAllLoading}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              {fetchAllLoading
+                ? <><Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} /> Buscando...</>
+                : <><Zap className="h-4 w-4" strokeWidth={1.5} /> Buscar todos automaticamente</>
+              }
+            </button>
+            <Button onClick={() => setShowUploadModal(true)} className="gap-2">
+              <Plus className="h-4 w-4" /> Upload Documento
+            </Button>
+          </div>
         </div>
 
         {/* Summary Cards */}
