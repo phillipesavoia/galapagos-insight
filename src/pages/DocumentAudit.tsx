@@ -679,32 +679,40 @@ export default function DocumentAudit() {
                               {/* Action buttons based on asset type */}
                               {!assetFetchStatus || assetFetchStatus === "not_found" || assetFetchStatus === "error" ? (
                                 <div className="flex items-center gap-2 mt-2">
-                                  {assetType === "amc" ? (
-                                    <span className="px-2 py-0.5 rounded-md bg-muted text-xs text-muted-foreground">AMC Galapagos</span>
-                                  ) : assetType === "manual" ? (
+                                  {assetType === "amc" && (
+                                    <span className="text-xs text-muted-foreground">AMC Galapagos</span>
+                                  )}
+                                  {assetType === "index" && (
+                                    <span className="text-xs text-muted-foreground">
+                                      Índice de referência — sem factsheet
+                                    </span>
+                                  )}
+                                  {assetType === "manual" && (
                                     <>
                                       <button
                                         onClick={() => setUploadingAsset(asset.id)}
                                         className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
                                       >
-                                        <Upload className="h-3 w-3" /> Upload Factsheet
+                                        <Upload className="h-3 w-3" strokeWidth={1.5} /> Upload Factsheet
                                       </button>
                                       <span className="text-xs text-muted-foreground">Alternativo — upload manual</span>
                                     </>
-                                  ) : (
+                                  )}
+                                  {(assetType === "us_etf" || assetType === "ucits_etf" ||
+                                    assetType === "offshore_fund" || assetType === "bond") && (
                                     <>
                                       <button
                                         onClick={() => callAutoFetch(asset)}
                                         disabled={assetFetchStatus === "loading"}
                                         className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors disabled:opacity-50"
                                       >
-                                        <Zap className="h-3 w-3" /> Auto-buscar factsheet
+                                        <Zap className="h-3 w-3" strokeWidth={1.5} /> Auto-buscar factsheet
                                       </button>
                                       <button
                                         onClick={() => setUploadingAsset(asset.id)}
                                         className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
                                       >
-                                        <Upload className="h-3 w-3" /> Upload manual
+                                        <Upload className="h-3 w-3" strokeWidth={1.5} /> Upload manual
                                       </button>
                                     </>
                                   )}
