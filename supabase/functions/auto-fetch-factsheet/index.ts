@@ -219,26 +219,26 @@ async function fetchBondDocument(ticker: string, isin: string | null, name: stri
   }
 
   // Build a structured text document (used as factsheet substitute)
-  const content = `BOND FACT SHEET — ${bondData.name}
-Generated: ${new Date().toLocaleDateString("pt-BR")}
+  const content = `BOND FACT SHEET
 
-IDENTIFICATION
---------------
+ISIN: ${isin || "N/A"}
 Name: ${bondData.name}
 Ticker: ${ticker}
-ISIN: ${bondData.isin}
 Security Type: ${bondData.securityType || "Corporate Bond"}
 Market Sector: ${bondData.marketSector || "Corporate"}
+Exchange: ${bondData.exchCode || "N/A"}
+Generated: ${new Date().toLocaleDateString("pt-BR")}
 
 PORTFOLIO
 ---------
-This bond is part of the Galapagos Capital Bond Portfolio.
-It is a direct bond holding (not a fund or ETF).
+This bond is a direct bond holding in the Galapagos Capital Bond Portfolio.
+ISIN identifier: ${isin || "N/A"}
 
 SOURCE
 ------
 Data sourced from OpenFIGI public API.
-For full terms, covenants and pricing, refer to Bloomberg Terminal or the issuer's Investor Relations page.
+For full terms, covenants, coupon, maturity and pricing, 
+refer to Bloomberg Terminal or the issuer Investor Relations page.
 `;
 
   return { content, period: new Date().toISOString().slice(0, 7) };
@@ -291,13 +291,14 @@ Deno.serve(async (req) => {
     // Check if a recent factsheet already exists (indexed within last 25 days)
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 25);
+    const lookupValue = (assetType === "bond" && isin) ? isin : name;
+    const lookupColumn = (assetType === "bond" && isin) ? "fund_name" : "fund_name";
     const { data: existing } = await supabase
       .from("documents")
       .select("id, uploaded_at")
-      .ilike("fund_name", `%${name.substring(0, 12)}%`)
+      .eq("fund_name", lookupValue)
       .eq("type", "factsheet")
-      .eq("status", "indexed")
-      .gte("uploaded_at", cutoff.toISOString())
+      .in("status", ["indexed", "processing"])
       .limit(1);
 
     if (existing && existing.length > 0) {
@@ -319,9 +320,9 @@ Deno.serve(async (req) => {
       const { data: doc, error: insertErr } = await supabase
         .from("documents")
         .insert({
-          name: `${name} — Bond Data`,
+          name: `${isin ? isin : name} — ${name} Bond Data`,
           type: "factsheet",
-          fund_name: name,
+          fund_name: isin || name,
           period: bondDoc.period,
           status: "processing",
           owner_id: null,
@@ -338,9 +339,9 @@ Deno.serve(async (req) => {
       const formData = new FormData();
       formData.append("file", blob, `${name.replace(/[^a-zA-Z0-9]/g, "_")}_bond_data.txt`);
       formData.append("document_id", doc.id);
-      formData.append("name", `${name} — Bond Data`);
+      formData.append("name", `${isin ? isin : name} — ${name} Bond Data`);
       formData.append("type", "factsheet");
-      formData.append("fund_name", name);
+      formData.append("fund_name", isin || name);
       formData.append("period", bondDoc.period);
 
       const ingestUrl = `${supabaseUrl}/functions/v1/ingest-document`;
