@@ -11,7 +11,7 @@ import { useDocuments } from "@/hooks/useDocuments";
 import { UploadModal } from "@/components/library/UploadModal";
 import {
   FileText, CheckCircle, AlertTriangle, XCircle, Pencil, Copy,
-  Search, Loader2, Upload, Plus, X, ArrowRight,
+  Search, Loader2, Upload, Plus, X, ArrowRight, Zap,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -94,8 +94,25 @@ const typeColors: Record<string, string> = {
 };
 
 type DocFilter = "all" | "factsheet" | "apresentacao" | "processing" | "error";
+function detectAssetType(ticker: string, name: string): string {
+  const t = ticker.toUpperCase();
+  const n = name.toLowerCase();
+  if (n.includes("amc") || n.includes("opus")) return "amc";
+  if (t.endsWith("LN EQUITY") || t.endsWith("LN")) return "ucits_etf";
+  if (t.endsWith("US EQUITY") || t.endsWith("US")) return "us_etf";
+  if (t.endsWith("CORP") || t.endsWith("GOVT")) return "bond";
+  return "manual";
+}
 
-export default function DocumentAudit() {
+const assetTypeBadge: Record<string, { label: string; className: string }> = {
+  us_etf: { label: "US ETF", className: "bg-blue-500/15 text-blue-400" },
+  ucits_etf: { label: "UCITS", className: "bg-purple-500/15 text-purple-400" },
+  bond: { label: "Bond", className: "bg-rose-500/15 text-rose-400" },
+  amc: { label: "AMC", className: "bg-primary/10 text-primary" },
+  manual: { label: "Alternativo", className: "bg-muted text-muted-foreground" },
+};
+
+
   const [documents, setDocuments] = useState<Doc[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,6 +126,8 @@ export default function DocumentAudit() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadingAsset, setUploadingAsset] = useState<string | null>(null);
   const [inlineUploading, setInlineUploading] = useState(false);
+  const [fetchingAssets, setFetchingAssets] = useState<Record<string, "loading" | "success" | "not_found" | "manual" | "skipped" | "error">>({});
+  const [fetchAllLoading, setFetchAllLoading] = useState(false);
   const { toast } = useToast();
   const { uploadDocument } = useDocuments();
   const rightColRef = useRef<HTMLDivElement>(null);
@@ -249,6 +268,60 @@ export default function DocumentAudit() {
     }
   };
 
+  const callAutoFetch = async (asset: { id: string; ticker: string; isin: string | null; name: string }) => {
+    setFetchingAssets(prev => ({ ...prev, [asset.id]: "loading" }));
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/auto-fetch-factsheet`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.access_token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({
+            asset_id: asset.id,
+            ticker: asset.ticker,
+            isin: asset.isin,
+            name: asset.name,
+          }),
+        }
+      );
+      const data = await res.json();
+      const status = data.status as "processing" | "not_found" | "manual" | "skipped" | "error";
+      if (status === "processing") {
+        setFetchingAssets(prev => ({ ...prev, [asset.id]: "success" }));
+        toast({ title: `Buscando factsheet: ${asset.name}`, description: "Indexando em background..." });
+        setTimeout(() => fetchData(), 8000);
+      } else if (status === "skipped") {
+        setFetchingAssets(prev => ({ ...prev, [asset.id]: "skipped" }));
+        toast({ title: "Factsheet recente já existe", description: data.reason });
+      } else if (status === "manual") {
+        setFetchingAssets(prev => ({ ...prev, [asset.id]: "manual" }));
+        toast({ title: "Upload manual necessário", description: "Fundo alternativo — factsheet não está em fonte pública.", variant: "destructive" });
+      } else {
+        setFetchingAssets(prev => ({ ...prev, [asset.id]: "not_found" }));
+        toast({ title: "Não encontrado", description: `Não foi possível localizar o factsheet de ${asset.name}`, variant: "destructive" });
+      }
+    } catch {
+      setFetchingAssets(prev => ({ ...prev, [asset.id]: "error" }));
+      toast({ title: "Erro", description: "Falha ao buscar factsheet", variant: "destructive" });
+    }
+  };
+
+  const handleFetchAll = async () => {
+    const uncovered = assets.filter(a => getCoverage(a, documents).status === "none");
+    setFetchAllLoading(true);
+    for (const asset of uncovered) {
+      await callAutoFetch(asset);
+      await new Promise(r => setTimeout(r, 1500));
+    }
+    setFetchAllLoading(false);
+    toast({ title: "Busca automática concluída", description: `${uncovered.length} investimentos processados.` });
+  };
+
   const chipClass = (active: boolean) =>
     `px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors whitespace-nowrap ${
       active
@@ -284,9 +357,21 @@ export default function DocumentAudit() {
               Cobertura da base de conhecimento vs investimentos cadastrados
             </p>
           </div>
-          <Button onClick={() => setShowUploadModal(true)} className="gap-2">
-            <Plus className="h-4 w-4" /> Upload Documento
-          </Button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleFetchAll}
+              disabled={fetchAllLoading}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              {fetchAllLoading
+                ? <><Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} /> Buscando...</>
+                : <><Zap className="h-4 w-4" strokeWidth={1.5} /> Buscar todos automaticamente</>
+              }
+            </button>
+            <Button onClick={() => setShowUploadModal(true)} className="gap-2">
+              <Plus className="h-4 w-4" /> Upload Documento
+            </Button>
+          </div>
         </div>
 
         {/* Summary Cards */}
@@ -484,6 +569,9 @@ export default function DocumentAudit() {
               {filteredAssets.map((asset) => {
                 const cov = asset.coverageResult;
                 const isUploadingThis = uploadingAsset === asset.id;
+                const assetType = detectAssetType(asset.ticker, asset.name);
+                const assetFetchStatus = fetchingAssets[asset.id];
+                const typeBadge = assetTypeBadge[assetType];
 
                 return (
                   <div key={asset.id} className="p-4 bg-card border border-border rounded-xl">
@@ -492,6 +580,11 @@ export default function DocumentAudit() {
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-sm font-semibold text-primary">{asset.ticker}</span>
                           <span className="text-sm text-foreground truncate">{asset.name}</span>
+                          {typeBadge && (
+                            <span className={`px-2 py-0.5 rounded-md text-xs ${typeBadge.className}`}>
+                              {typeBadge.label}
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 mt-2 flex-wrap">
                           <span className="px-2 py-0.5 rounded-md bg-secondary text-xs text-muted-foreground">
@@ -539,14 +632,64 @@ export default function DocumentAudit() {
                                 <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20 text-xs gap-1">
                                   <XCircle className="h-3 w-3" /> Sem factsheet
                                 </Badge>
-                                <button
-                                  onClick={() => setUploadingAsset(asset.id)}
-                                  className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
-                                >
-                                  <Upload className="h-3 w-3" /> Upload Factsheet
-                                </button>
                               </div>
                               <p className="text-xs text-muted-foreground">Nunca indexado</p>
+
+                              {/* Auto-fetch status display */}
+                              {assetFetchStatus === "loading" && (
+                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
+                                  <Loader2 className="h-3 w-3 animate-spin" /> Buscando...
+                                </div>
+                              )}
+                              {assetFetchStatus === "success" && (
+                                <div className="flex items-center gap-1.5 text-xs text-primary mt-1">
+                                  <CheckCircle className="h-3 w-3" /> Indexando...
+                                </div>
+                              )}
+                              {assetFetchStatus === "skipped" && (
+                                <p className="text-xs text-muted-foreground mt-1">Já atualizado</p>
+                              )}
+                              {assetFetchStatus === "not_found" && (
+                                <p className="text-xs text-amber-400 mt-1">Não encontrado — tente upload manual</p>
+                              )}
+                              {assetFetchStatus === "error" && (
+                                <p className="text-xs text-destructive mt-1">Erro — tente novamente</p>
+                              )}
+
+                              {/* Action buttons based on asset type */}
+                              {!assetFetchStatus || assetFetchStatus === "not_found" || assetFetchStatus === "error" ? (
+                                <div className="flex items-center gap-2 mt-2">
+                                  {assetType === "amc" ? (
+                                    <span className="px-2 py-0.5 rounded-md bg-muted text-xs text-muted-foreground">AMC Galapagos</span>
+                                  ) : assetType === "manual" ? (
+                                    <>
+                                      <button
+                                        onClick={() => setUploadingAsset(asset.id)}
+                                        className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
+                                      >
+                                        <Upload className="h-3 w-3" /> Upload Factsheet
+                                      </button>
+                                      <span className="text-xs text-muted-foreground">Alternativo — upload manual</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <button
+                                        onClick={() => callAutoFetch(asset)}
+                                        disabled={assetFetchStatus === "loading"}
+                                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors disabled:opacity-50"
+                                      >
+                                        <Zap className="h-3 w-3" /> Auto-buscar factsheet
+                                      </button>
+                                      <button
+                                        onClick={() => setUploadingAsset(asset.id)}
+                                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                                      >
+                                        <Upload className="h-3 w-3" /> Upload manual
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              ) : null}
                             </>
                           )}
                         </div>
