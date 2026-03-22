@@ -6,12 +6,14 @@ const corsHeaders = {
 };
 
 // --- Type detection ---
-function detectAssetType(ticker: string, name: string): "us_etf" | "ucits_etf" | "bond" | "amc" | "manual" {
-  const t = ticker.toUpperCase();
-  const n = name.toLowerCase();
+function detectAssetType(ticker: string, name: string): "us_etf" | "ucits_etf" | "offshore_fund" | "bond" | "index" | "amc" | "manual" {
+  const t = ticker.toUpperCase().trim();
+  const n = name.toLowerCase().trim();
   if (n.includes("amc") || n.includes("opus")) return "amc";
-  if (t.endsWith("LN EQUITY") || t.endsWith("LN")) return "ucits_etf";
-  if (t.endsWith("US EQUITY") || t.endsWith("US")) return "us_etf";
+  if (t.endsWith("INDEX") || t.endsWith(" INDEX")) return "index";
+  if (t.endsWith("LN EQUITY") || t.endsWith(" LN")) return "ucits_etf";
+  if (t.endsWith("ID EQUITY") || t.endsWith(" ID")) return "offshore_fund";
+  if (t.endsWith("US EQUITY") || t.endsWith(" US")) return "us_etf";
   if (t.endsWith("CORP") || t.endsWith("GOVT")) return "bond";
   return "manual";
 }
