@@ -320,9 +320,9 @@ Deno.serve(async (req) => {
       const { data: doc, error: insertErr } = await supabase
         .from("documents")
         .insert({
-          name: `${name} — Bond Data`,
+          name: `${isin ? isin : name} — ${name} Bond Data`,
           type: "factsheet",
-          fund_name: name,
+          fund_name: isin || name,
           period: bondDoc.period,
           status: "processing",
           owner_id: null,
