@@ -111,11 +111,13 @@ const typeColors: Record<string, string> = {
 
 type DocFilter = "all" | "factsheet" | "apresentacao" | "processing" | "error";
 function detectAssetType(ticker: string, name: string): string {
-  const t = ticker.toUpperCase();
-  const n = name.toLowerCase();
+  const t = ticker.toUpperCase().trim();
+  const n = name.toLowerCase().trim();
   if (n.includes("amc") || n.includes("opus")) return "amc";
-  if (t.endsWith("LN EQUITY") || t.endsWith("LN")) return "ucits_etf";
-  if (t.endsWith("US EQUITY") || t.endsWith("US")) return "us_etf";
+  if (t.endsWith("INDEX") || t.endsWith(" INDEX")) return "index";
+  if (t.endsWith("LN EQUITY") || t.endsWith(" LN")) return "ucits_etf";
+  if (t.endsWith("ID EQUITY") || t.endsWith(" ID")) return "offshore_fund";
+  if (t.endsWith("US EQUITY") || t.endsWith(" US")) return "us_etf";
   if (t.endsWith("CORP") || t.endsWith("GOVT")) return "bond";
   return "manual";
 }
@@ -123,8 +125,10 @@ function detectAssetType(ticker: string, name: string): string {
 const assetTypeBadge: Record<string, { label: string; className: string }> = {
   us_etf: { label: "US ETF", className: "bg-blue-500/15 text-blue-400" },
   ucits_etf: { label: "UCITS", className: "bg-purple-500/15 text-purple-400" },
+  offshore_fund: { label: "Offshore", className: "bg-teal-500/15 text-teal-400" },
   bond: { label: "Bond", className: "bg-rose-500/15 text-rose-400" },
   amc: { label: "AMC", className: "bg-primary/10 text-primary" },
+  index: { label: "Índice", className: "bg-yellow-500/15 text-yellow-600" },
   manual: { label: "Alternativo", className: "bg-muted text-muted-foreground" },
 };
 
@@ -675,32 +679,40 @@ export default function DocumentAudit() {
                               {/* Action buttons based on asset type */}
                               {!assetFetchStatus || assetFetchStatus === "not_found" || assetFetchStatus === "error" ? (
                                 <div className="flex items-center gap-2 mt-2">
-                                  {assetType === "amc" ? (
-                                    <span className="px-2 py-0.5 rounded-md bg-muted text-xs text-muted-foreground">AMC Galapagos</span>
-                                  ) : assetType === "manual" ? (
+                                  {assetType === "amc" && (
+                                    <span className="text-xs text-muted-foreground">AMC Galapagos</span>
+                                  )}
+                                  {assetType === "index" && (
+                                    <span className="text-xs text-muted-foreground">
+                                      Índice de referência — sem factsheet
+                                    </span>
+                                  )}
+                                  {assetType === "manual" && (
                                     <>
                                       <button
                                         onClick={() => setUploadingAsset(asset.id)}
                                         className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
                                       >
-                                        <Upload className="h-3 w-3" /> Upload Factsheet
+                                        <Upload className="h-3 w-3" strokeWidth={1.5} /> Upload Factsheet
                                       </button>
                                       <span className="text-xs text-muted-foreground">Alternativo — upload manual</span>
                                     </>
-                                  ) : (
+                                  )}
+                                  {(assetType === "us_etf" || assetType === "ucits_etf" ||
+                                    assetType === "offshore_fund" || assetType === "bond") && (
                                     <>
                                       <button
                                         onClick={() => callAutoFetch(asset)}
                                         disabled={assetFetchStatus === "loading"}
                                         className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors disabled:opacity-50"
                                       >
-                                        <Zap className="h-3 w-3" /> Auto-buscar factsheet
+                                        <Zap className="h-3 w-3" strokeWidth={1.5} /> Auto-buscar factsheet
                                       </button>
                                       <button
                                         onClick={() => setUploadingAsset(asset.id)}
                                         className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
                                       >
-                                        <Upload className="h-3 w-3" /> Upload manual
+                                        <Upload className="h-3 w-3" strokeWidth={1.5} /> Upload manual
                                       </button>
                                     </>
                                   )}
