@@ -571,14 +571,17 @@ Deno.serve(async (req) => {
 
     // For ETFs: find and download PDF
     let fetchResult: { pdfUrl: string; period: string } | null = null;
-    const exchangeSuffix = ticker.toUpperCase().includes(" LN") ? "LN"
-      : ticker.toUpperCase().includes(" ID") ? "ID"
-      : ticker.toUpperCase().includes(" US") ? "US"
-      : ticker.toUpperCase().includes(" GR") ? "GR"
-      : ticker.toUpperCase().includes(" SW") ? "SW"
-      : ticker.toUpperCase().includes(" NA") ? "NA"
-      : ticker.toUpperCase().includes(" IM") ? "IM"
-      : ticker.toUpperCase().includes(" FP") ? "FP"
+    const tickerUpper = ticker.toUpperCase();
+    const exchangeSuffix = 
+      tickerUpper.includes(" LN") ? "LN"
+      : tickerUpper.includes(" ID") ? "ID"
+      : tickerUpper.includes(" LX") ? "LX"
+      : tickerUpper.includes(" GR") ? "GR"
+      : tickerUpper.includes(" SW") ? "SW"
+      : tickerUpper.includes(" NA") ? "NA"
+      : tickerUpper.includes(" IM") ? "IM"
+      : tickerUpper.includes(" FP") ? "FP"
+      : tickerUpper.includes(" US") ? "US"
       : "US";
     if (assetType === "us_etf" || assetType === "ucits_etf" || assetType === "offshore_fund") {
       fetchResult = await fetchETFFactsheet(ticker, isin, name, exchangeSuffix);
