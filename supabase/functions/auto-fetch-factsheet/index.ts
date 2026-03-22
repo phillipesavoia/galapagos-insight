@@ -86,6 +86,118 @@ async function findFactsheetFromProvider(isin: string, providerName: string): Pr
   return null;
 }
 
+// --- Structured ETF data fallback (similar to bonds) ---
+async function fetchETFStructuredData(
+  ticker: string,
+  isin: string | null,
+  name: string,
+  exchangeSuffix: string
+): Promise<{ content: string; period: string } | null> {
+  const period = new Date().toISOString().slice(0, 7);
+  const cleanTicker = ticker
+    .replace(/\s+LN\s+EQUITY$/i, "")
+    .replace(/\s+US\s+EQUITY$/i, "")
+    .replace(/\s+ID\s+EQUITY$/i, "")
+    .replace(/\s+LN$/i, "")
+    .replace(/\s+US$/i, "")
+    .trim();
+
+  let etfData: Record<string, string> = {
+    name,
+    ticker: cleanTicker,
+    isin: isin || "N/A",
+    exchange: exchangeSuffix,
+  };
+
+  // Try Morningstar search by ISIN or ticker
+  try {
+    const searchTerm = isin || cleanTicker;
+    const msApiUrl = `https://www.morningstar.co.uk/uk/util/SecuritySearch.ashx?q=${encodeURIComponent(searchTerm)}&limit=1&source=nav`;
+
+    const res = await fetch(msApiUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "Accept": "application/json",
+        "Referer": "https://www.morningstar.co.uk/",
+      },
+    });
+
+    if (res.ok) {
+      const text = await res.text();
+      try {
+        const data = JSON.parse(text);
+        const result = Array.isArray(data) ? data[0] : data?.results?.[0];
+        if (result) {
+          etfData.name = result.Name || result.name || name;
+          etfData.category = result.CategoryName || result.category || "";
+          etfData.currency = result.Currency || result.currency || "";
+          etfData.morningstarId = result.Id || result.id || "";
+        }
+      } catch (_) {}
+    }
+  } catch (_) {}
+
+  // Try JustETF for additional data
+  if (isin) {
+    try {
+      const justEtfUrl = `https://www.justetf.com/api/etfs?isin=${isin}&locale=en`;
+      const res = await fetch(justEtfUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+          "Accept": "application/json",
+          "Referer": "https://www.justetf.com/",
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const etf = data?.etfs?.[0];
+        if (etf) {
+          etfData.name = etf.name || etfData.name;
+          etfData.ter = etf.ter ? `${etf.ter}%` : "";
+          etfData.aum = etf.aum ? `${etf.aum} ${etf.currency || "USD"}` : "";
+          etfData.replicationMethod = etf.replicationMethod || "";
+          etfData.distributionPolicy = etf.distributionPolicy || "";
+          etfData.domicile = etf.domicile || "";
+          etfData.fundProvider = etf.providerName || etf.provider || "";
+          etfData.index = etf.benchmarkName || etf.indexName || "";
+          etfData.currency = etf.currency || etfData.currency;
+          etfData.inceptionDate = etf.inceptionDate || "";
+          etfData.numberOfHoldings = etf.numberOfHoldings ? String(etf.numberOfHoldings) : "";
+        }
+      }
+    } catch (_) {}
+  }
+
+  const content = `ETF FACT SHEET
+
+Name: ${etfData.name}
+Ticker: ${etfData.ticker}
+ISIN: ${etfData.isin}
+Exchange: ${etfData.exchange}
+${etfData.fundProvider ? `Provider: ${etfData.fundProvider}` : ""}
+${etfData.index ? `Benchmark Index: ${etfData.index}` : ""}
+${etfData.ter ? `Total Expense Ratio (TER): ${etfData.ter}` : ""}
+${etfData.aum ? `Assets Under Management: ${etfData.aum}` : ""}
+${etfData.currency ? `Currency: ${etfData.currency}` : ""}
+${etfData.domicile ? `Domicile: ${etfData.domicile}` : ""}
+${etfData.replicationMethod ? `Replication Method: ${etfData.replicationMethod}` : ""}
+${etfData.distributionPolicy ? `Distribution Policy: ${etfData.distributionPolicy}` : ""}
+${etfData.inceptionDate ? `Inception Date: ${etfData.inceptionDate}` : ""}
+${etfData.numberOfHoldings ? `Number of Holdings: ${etfData.numberOfHoldings}` : ""}
+${etfData.category ? `Morningstar Category: ${etfData.category}` : ""}
+
+PORTFOLIO
+---------
+This ETF is held within the Galapagos Capital model portfolios.
+${exchangeSuffix === "LN" || exchangeSuffix === "ID" ? "This is a UCITS ETF domiciled in Europe, accessible to offshore investors." : "This is a US-listed ETF."}
+
+Generated: ${new Date().toLocaleDateString("pt-BR")}
+Source: JustETF, Morningstar public data.
+`;
+
+  return { content: content.replace(/\n{3,}/g, "\n\n").trim(), period };
+}
+
 // --- Unified ETF/Fund fetcher ---
 async function fetchETFFactsheet(
   ticker: string,
@@ -445,10 +557,111 @@ Deno.serve(async (req) => {
       fetchResult = await fetchETFFactsheet(ticker, isin, name, exchangeSuffix);
     }
 
+    // If PDF not found or download fails, fall back to structured data
     if (!fetchResult) {
-      return new Response(JSON.stringify({ status: "not_found", reason: "Could not locate factsheet URL", ticker, type: assetType }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      const structuredData = await fetchETFStructuredData(ticker, isin, name, exchangeSuffix);
+      if (!structuredData) {
+        return new Response(
+          JSON.stringify({ status: "not_found", reason: "Could not locate factsheet or structured data", ticker, type: assetType }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Index structured ETF data directly (same pipeline as bonds)
+      const safeETFName = name.replace(/[^a-zA-Z0-9\s]/g, "").trim();
+      const etfIdentifier = isin || name;
+      const docName = `${isin ? isin + " — " : ""}${safeETFName} ETF Data`;
+
+      const { data: doc, error: insertErr } = await supabase
+        .from("documents")
+        .insert({
+          name: docName,
+          type: "factsheet",
+          fund_name: etfIdentifier,
+          period: structuredData.period,
+          status: "processing",
+          owner_id: null,
+        })
+        .select()
+        .single();
+
+      if (insertErr || !doc) throw new Error("Failed to insert ETF document");
+
+      const indexETFAsync = async () => {
+        try {
+          const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
+          if (!googleKey) throw new Error("Missing GOOGLE_AI_API_KEY");
+
+          const paragraphs = structuredData.content.split(/\n\n+/);
+          const chunks: string[] = [];
+          let current = "";
+
+          for (const para of paragraphs) {
+            if (current.length + para.length > 1500 && current.length > 0) {
+              chunks.push(current.trim());
+              current = para;
+            } else {
+              current += (current ? "\n\n" : "") + para;
+            }
+          }
+          if (current.trim().length > 20) chunks.push(current.trim());
+
+          const embeddedChunks: { chunk: string; embedding: number[]; index: number }[] = [];
+
+          for (let i = 0; i < chunks.length; i++) {
+            const embRes = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${googleKey}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  content: { parts: [{ text: chunks[i] }] },
+                  outputDimensionality: 768,
+                }),
+              }
+            );
+            if (!embRes.ok) continue;
+            const embData = await embRes.json();
+            embeddedChunks.push({ chunk: chunks[i], embedding: embData.embedding.values, index: i });
+          }
+
+          const chunkRecords = embeddedChunks.map(({ chunk, embedding, index }) => ({
+            document_id: doc.id,
+            content: chunk,
+            embedding: `[${embedding.join(",")}]`,
+            chunk_index: index,
+            metadata: {
+              fund_name: etfIdentifier,
+              isin: isin || null,
+              period: structuredData.period,
+              document_type: "factsheet",
+              document_name: docName,
+            },
+          }));
+
+          if (chunkRecords.length > 0) {
+            await supabase.from("document_chunks").insert(chunkRecords);
+          }
+
+          await supabase.from("documents").update({
+            status: "indexed",
+            chunk_count: chunkRecords.length,
+            language: "en-US",
+          }).eq("id", doc.id);
+
+          console.log(`ETF structured data indexed: ${etfIdentifier} — ${chunkRecords.length} chunks`);
+        } catch (err) {
+          console.error("ETF structured indexing error:", err);
+          await supabase.from("documents").update({ status: "error" }).eq("id", doc.id);
+        }
+      };
+
+      indexETFAsync().catch(console.error);
+
+      return new Response(
+        JSON.stringify({ status: "processing", document_id: doc.id, type: "etf_structured", name, isin: isin || null }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const safeName = name.replace(/[^a-zA-Z0-9\s]/g, "").trim();
