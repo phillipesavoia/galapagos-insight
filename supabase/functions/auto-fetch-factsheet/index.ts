@@ -233,8 +233,19 @@ async function fetchETFFactsheet(
     .replace(/\s+NA\s+EQUITY$/i, "")
     .replace(/\s+IM\s+EQUITY$/i, "")
     .replace(/\s+FP\s+EQUITY$/i, "")
+    .replace(/\s+LX\s+EQUITY$/i, "")
+    .replace(/\s+EQUITY$/i, "")
+    .replace(/\s+CORP$/i, "")
+    .replace(/\s+GOVT$/i, "")
     .replace(/\s+LN$/i, "")
     .replace(/\s+US$/i, "")
+    .replace(/\s+ID$/i, "")
+    .replace(/\s+GR$/i, "")
+    .replace(/\s+SW$/i, "")
+    .replace(/\s+NA$/i, "")
+    .replace(/\s+IM$/i, "")
+    .replace(/\s+FP$/i, "")
+    .replace(/\s+LX$/i, "")
     .trim();
 
   console.log("DEBUG cleanTicker:", cleanTicker, "| isin:", isin, "| exchangeSuffix:", exchangeSuffix, "| name:", name);
