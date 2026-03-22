@@ -552,6 +552,9 @@ export default function DocumentAudit() {
               {filteredAssets.map((asset) => {
                 const cov = asset.coverageResult;
                 const isUploadingThis = uploadingAsset === asset.id;
+                const assetType = detectAssetType(asset.ticker, asset.name);
+                const assetFetchStatus = fetchingAssets[asset.id];
+                const typeBadge = assetTypeBadge[assetType];
 
                 return (
                   <div key={asset.id} className="p-4 bg-card border border-border rounded-xl">
@@ -560,6 +563,11 @@ export default function DocumentAudit() {
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-sm font-semibold text-primary">{asset.ticker}</span>
                           <span className="text-sm text-foreground truncate">{asset.name}</span>
+                          {typeBadge && (
+                            <span className={`px-2 py-0.5 rounded-md text-xs ${typeBadge.className}`}>
+                              {typeBadge.label}
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 mt-2 flex-wrap">
                           <span className="px-2 py-0.5 rounded-md bg-secondary text-xs text-muted-foreground">
@@ -607,14 +615,64 @@ export default function DocumentAudit() {
                                 <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20 text-xs gap-1">
                                   <XCircle className="h-3 w-3" /> Sem factsheet
                                 </Badge>
-                                <button
-                                  onClick={() => setUploadingAsset(asset.id)}
-                                  className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
-                                >
-                                  <Upload className="h-3 w-3" /> Upload Factsheet
-                                </button>
                               </div>
                               <p className="text-xs text-muted-foreground">Nunca indexado</p>
+
+                              {/* Auto-fetch status display */}
+                              {assetFetchStatus === "loading" && (
+                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
+                                  <Loader2 className="h-3 w-3 animate-spin" /> Buscando...
+                                </div>
+                              )}
+                              {assetFetchStatus === "success" && (
+                                <div className="flex items-center gap-1.5 text-xs text-primary mt-1">
+                                  <CheckCircle className="h-3 w-3" /> Indexando...
+                                </div>
+                              )}
+                              {assetFetchStatus === "skipped" && (
+                                <p className="text-xs text-muted-foreground mt-1">Já atualizado</p>
+                              )}
+                              {assetFetchStatus === "not_found" && (
+                                <p className="text-xs text-amber-400 mt-1">Não encontrado — tente upload manual</p>
+                              )}
+                              {assetFetchStatus === "error" && (
+                                <p className="text-xs text-destructive mt-1">Erro — tente novamente</p>
+                              )}
+
+                              {/* Action buttons based on asset type */}
+                              {!assetFetchStatus || assetFetchStatus === "not_found" || assetFetchStatus === "error" ? (
+                                <div className="flex items-center gap-2 mt-2">
+                                  {assetType === "amc" ? (
+                                    <span className="px-2 py-0.5 rounded-md bg-muted text-xs text-muted-foreground">AMC Galapagos</span>
+                                  ) : assetType === "manual" ? (
+                                    <>
+                                      <button
+                                        onClick={() => setUploadingAsset(asset.id)}
+                                        className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
+                                      >
+                                        <Upload className="h-3 w-3" /> Upload Factsheet
+                                      </button>
+                                      <span className="text-xs text-muted-foreground">Alternativo — upload manual</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <button
+                                        onClick={() => callAutoFetch(asset)}
+                                        disabled={assetFetchStatus === "loading"}
+                                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors disabled:opacity-50"
+                                      >
+                                        <Zap className="h-3 w-3" /> Auto-buscar factsheet
+                                      </button>
+                                      <button
+                                        onClick={() => setUploadingAsset(asset.id)}
+                                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                                      >
+                                        <Upload className="h-3 w-3" /> Upload manual
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              ) : null}
                             </>
                           )}
                         </div>
