@@ -94,8 +94,25 @@ const typeColors: Record<string, string> = {
 };
 
 type DocFilter = "all" | "factsheet" | "apresentacao" | "processing" | "error";
+function detectAssetType(ticker: string, name: string): string {
+  const t = ticker.toUpperCase();
+  const n = name.toLowerCase();
+  if (n.includes("amc") || n.includes("opus")) return "amc";
+  if (t.endsWith("LN EQUITY") || t.endsWith("LN")) return "ucits_etf";
+  if (t.endsWith("US EQUITY") || t.endsWith("US")) return "us_etf";
+  if (t.endsWith("CORP") || t.endsWith("GOVT")) return "bond";
+  return "manual";
+}
 
-export default function DocumentAudit() {
+const assetTypeBadge: Record<string, { label: string; className: string }> = {
+  us_etf: { label: "US ETF", className: "bg-blue-500/15 text-blue-400" },
+  ucits_etf: { label: "UCITS", className: "bg-purple-500/15 text-purple-400" },
+  bond: { label: "Bond", className: "bg-rose-500/15 text-rose-400" },
+  amc: { label: "AMC", className: "bg-primary/10 text-primary" },
+  manual: { label: "Alternativo", className: "bg-muted text-muted-foreground" },
+};
+
+
   const [documents, setDocuments] = useState<Doc[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
