@@ -244,24 +244,8 @@ For full terms, covenants and pricing, refer to Bloomberg Terminal or the issuer
   return { content, period: new Date().toISOString().slice(0, 7) };
 }
 
-// --- Download PDF bytes ---
-async function downloadPDF(url: string): Promise<Uint8Array | null> {
-  try {
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Accept": "application/pdf,*/*",
-      },
-    });
-    if (!res.ok) return null;
-    const contentType = res.headers.get("content-type") || "";
-    if (!contentType.includes("pdf") && !contentType.includes("octet-stream")) return null;
-    const buffer = await res.arrayBuffer();
-    return new Uint8Array(buffer);
-  } catch (_) {
-    return null;
-  }
-}
+
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
