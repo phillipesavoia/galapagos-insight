@@ -653,39 +653,60 @@ export default function Chat() {
                     )}
 
                     {msg.role === "assistant" && (msg.content || (msg.toolCalls && msg.toolCalls.length > 0)) && (
-                      <div className="flex items-center gap-1 mt-3 pt-2">
-                        <button
-                          onClick={() => {/* TODO: feedback */}}
-                          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                          title="Útil"
-                        >
-                          <ThumbsUp className="h-3.5 w-3.5" strokeWidth={1.5} />
-                        </button>
-                        <button
-                          onClick={() => {/* TODO: feedback */}}
-                          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                          title="Não útil"
-                        >
-                          <ThumbsDown className="h-3.5 w-3.5" strokeWidth={1.5} />
-                        </button>
-                        <button
-                          onClick={() => {
-                            const lastUserMsg = messages.slice(0, messages.indexOf(msg)).reverse().find(m => m.role === "user");
-                            if (lastUserMsg) handleSend(lastUserMsg.content);
-                          }}
-                          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                          title="Regenerar"
-                        >
-                          <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.5} />
-                        </button>
-                        <button
-                          onClick={() => navigator.clipboard.writeText(msg.content)}
-                          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                          title="Copiar"
-                        >
-                          <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
-                        </button>
-                      </div>
+                      <>
+                        <div className="flex items-center gap-1 mt-3 pt-2">
+                          <button
+                            onClick={() => {/* TODO: feedback */}}
+                            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                            title="Útil"
+                          >
+                            <ThumbsUp className="h-3.5 w-3.5" strokeWidth={1.5} />
+                          </button>
+                          <button
+                            onClick={() => {/* TODO: feedback */}}
+                            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                            title="Não útil"
+                          >
+                            <ThumbsDown className="h-3.5 w-3.5" strokeWidth={1.5} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              const lastUserMsg = messages.slice(0, messages.indexOf(msg)).reverse().find(m => m.role === "user");
+                              if (lastUserMsg) handleSend(lastUserMsg.content);
+                            }}
+                            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                            title="Regenerar"
+                          >
+                            <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.5} />
+                          </button>
+                          <button
+                            onClick={() => navigator.clipboard.writeText(msg.content)}
+                            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                            title="Copiar"
+                          >
+                            <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
+                          </button>
+                        </div>
+                        {msg.id === messages[messages.length - 1]?.id && !isLoading && (
+                          <div className="mt-3 flex flex-wrap gap-1.5">
+                            {[
+                              "Quais são os principais destaques do último factsheet?",
+                              "Resuma a apresentação mais recente dos portfólios",
+                              "Qual a performance reportada no factsheet do Growth?",
+                              "O que mudou na alocação segundo a última apresentação?",
+                            ].map((q, i) => (
+                              <button
+                                key={i}
+                                onClick={() => handleSend(q)}
+                                disabled={isLoading}
+                                className="max-w-xs truncate rounded-full border border-border bg-secondary px-2.5 py-1 text-[11px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+                              >
+                                {q}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
