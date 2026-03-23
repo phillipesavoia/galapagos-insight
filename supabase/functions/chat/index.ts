@@ -364,8 +364,8 @@ Deno.serve(async (req) => {
         const filterTypeParam = (filter_type && filter_type !== "all") ? filter_type : null;
         const filterFundParam = filter_fund || null;
         const { data: semanticChunks, error: matchError } = await supabase.rpc("match_chunks", {
-          query_embedding: JSON.stringify(embedding),
-          match_threshold: 0.3,
+          query_embedding: `[${embedding.join(",")}]`,
+          match_threshold: 0.5,
           match_count: 15,
           filter_type: filterTypeParam,
           filter_fund: filterFundParam,
