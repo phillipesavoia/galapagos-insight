@@ -464,7 +464,26 @@ export default function Chat() {
               <span className="text-xs font-semibold tracking-wide text-foreground">Galapagos RIA</span>
               <span className="text-[10px] font-medium tracking-widest uppercase text-muted-foreground">Offshore</span>
             </div>
-            <span className="text-[10px] text-muted-foreground">Advisor Chat</span>
+            <div className="flex items-center gap-1">
+              {[
+                { label: "Todos", value: "all" },
+                { label: "Factsheets", value: "factsheet" },
+                { label: "Apresentações", value: "apresentacao" },
+                { label: "Cartas", value: "carta_mensal" },
+              ].map((f) => (
+                <button
+                  key={f.value}
+                  onClick={() => setFilterType(f.value)}
+                  className={`px-2 py-0.5 rounded-md text-[10px] transition-colors ${
+                    filterType === f.value
+                      ? "bg-primary/15 text-primary font-medium"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent/10"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {isEmpty ? (
