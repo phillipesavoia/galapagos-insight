@@ -108,6 +108,7 @@ export default function Chat() {
   const [showHistory, setShowHistory] = useState(true);
   const [randomSuggestions] = useState(() => getRandomSuggestions(4));
   const [initialLoadDone, setInitialLoadDone] = useState(false);
+  const [filterType, setFilterType] = useState<string>("all");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const isEmpty = messages.length === 0;
