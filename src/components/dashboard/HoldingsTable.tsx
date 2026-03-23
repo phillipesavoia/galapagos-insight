@@ -42,6 +42,18 @@ const mockHoldings: Record<PortfolioName, Holding[]> = {
     { ticker: "IWM", name: "iShares Russell 2000 ETF", weight: "10.0%", dailyReturn: "+0.45%", contribution: "+0.045%" },
     { ticker: "CASH", name: "USD Cash", weight: "10.0%", dailyReturn: "+0.01%", contribution: "+0.001%" },
   ],
+  Liquidity: [
+    { ticker: "SHV", name: "iShares Short Treasury Bond ETF", weight: "40.0%", dailyReturn: "+0.02%", contribution: "+0.008%" },
+    { ticker: "BIL", name: "SPDR Bloomberg 1-3 Month T-Bill ETF", weight: "30.0%", dailyReturn: "+0.01%", contribution: "+0.003%" },
+    { ticker: "CASH", name: "USD Cash", weight: "30.0%", dailyReturn: "+0.01%", contribution: "+0.003%" },
+  ],
+  "Bond Portfolio": [
+    { ticker: "AGG", name: "iShares Core US Aggregate Bond ETF", weight: "30.0%", dailyReturn: "+0.04%", contribution: "+0.012%" },
+    { ticker: "TLT", name: "iShares 20+ Year Treasury ETF", weight: "25.0%", dailyReturn: "+0.12%", contribution: "+0.030%" },
+    { ticker: "LQD", name: "iShares IG Corporate Bond ETF", weight: "20.0%", dailyReturn: "+0.05%", contribution: "+0.010%" },
+    { ticker: "EMB", name: "iShares J.P. Morgan EM Bond ETF", weight: "15.0%", dailyReturn: "+0.06%", contribution: "+0.009%" },
+    { ticker: "CASH", name: "USD Cash", weight: "10.0%", dailyReturn: "+0.01%", contribution: "+0.001%" },
+  ],
 };
 
 interface HoldingsTableProps {
