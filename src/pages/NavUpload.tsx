@@ -97,46 +97,18 @@ export default function NavUpload() {
     let dataStartIndex = 1;
 
     if (isBloomberg) {
-      // Bloomberg format: dynamically find the row containing "Dates"
-      // Row 0 = Start Date, Row 1 = End Date, Row 2 = portfolio names,
-      // Row 3 = tickers, Row 4 = "Dates" + data headers
-      for (let i = 0; i < Math.min(rows.length, 10); i++) {
-        const firstCell = String(rows[i]?.[0] || "").trim().toLowerCase();
-        if (firstCell === "dates" || firstCell === "date") {
-          headerRowIndex = i;
-          dataStartIndex = i + 1;
-          break;
-        }
-      }
-      // If no "Dates" row found, try row 2 as fallback for portfolio names
-      if (headerRowIndex === 0) {
-        // Look for portfolio names row
-        for (let i = 0; i < Math.min(rows.length, 10); i++) {
-          const rowValues = rows[i].map((v: any) => String(v || "").trim());
-          if (PORTFOLIO_COLS.some(p => rowValues.includes(p))) {
-            headerRowIndex = i;
-            dataStartIndex = i + 2; // skip tickers row
-            break;
-          }
-        }
-      }
+      headerRowIndex = 2;
+      dataStartIndex = 4;
     }
 
     const headerRow = rows[headerRowIndex].map((h: any) => String(h || "").trim());
 
-    // Find Dates column index — look in header row and also check if 
-    // first column of data rows contains dates
-    let datesIdx = headerRow.findIndex((h: string) => 
+    const datesIdx = headerRow.findIndex((h: string) =>
       h.toLowerCase() === "dates" || h.toLowerCase() === "date"
     );
-    
-    // If not found in header, assume first column is dates
-    if (datesIdx === -1 && isBloomberg) {
-      datesIdx = 0;
-    }
 
     if (datesIdx === -1) {
-      setValidationError("Coluna 'Dates' não encontrada. Verifique o formato do arquivo.");
+      setValidationError("Coluna 'Dates' não encontrada.");
       setUploading(false);
       return;
     }
