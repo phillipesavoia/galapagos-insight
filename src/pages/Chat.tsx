@@ -241,7 +241,7 @@ export default function Chat() {
     setInput("");
     setIsLoading(true);
 
-    const filter_type = "all";
+    const filter_type = filterType;
 
     await persistMessage(newMsg, sessionId, { filter_type });
 
