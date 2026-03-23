@@ -7,7 +7,7 @@ import type { NavDataPoint, PortfolioName } from "@/pages/Dashboard";
 import type { Period } from "@/components/dashboard/PeriodFilter";
 import { ReportPreview } from "@/components/reports/ReportPreview";
 
-const portfolios: PortfolioName[] = ["Conservative", "Income", "Balanced", "Growth"];
+const portfolios: PortfolioName[] = ["Conservative", "Income", "Balanced", "Growth", "Liquidity", "Bond Portfolio"];
 const periods: { label: string; value: Period }[] = [
   { label: "1 Mês", value: "1M" },
   { label: "YTD", value: "YTD" },

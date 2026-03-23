@@ -12,7 +12,7 @@ export interface PortfolioMarketData {
   sparklineData: { value: number }[];
 }
 
-const PORTFOLIOS = ["Conservative", "Income", "Balanced", "Growth"];
+const PORTFOLIOS = ["Conservative", "Income", "Balanced", "Growth", "Liquidity", "Bond Portfolio"];
 
 export function usePortfolioMarketData() {
   const [data, setData] = useState<PortfolioMarketData[]>([]);

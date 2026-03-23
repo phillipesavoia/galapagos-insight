@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PortfolioTab } from "@/components/dashboard/PortfolioTab";
 import { supabase } from "@/integrations/supabase/client";
 
-const portfolios = ["Conservative", "Income", "Balanced", "Growth"] as const;
+const portfolios = ["Conservative", "Income", "Balanced", "Growth", "Liquidity", "Bond Portfolio"] as const;
 export type PortfolioName = (typeof portfolios)[number];
 
 export interface NavDataPoint {
