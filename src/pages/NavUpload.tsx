@@ -1,14 +1,12 @@
 import { useState, useRef } from "react";
-import { Upload, FileSpreadsheet, Check, AlertCircle, Loader2, Download } from "lucide-react";
+import { Upload, FileSpreadsheet, Check, AlertCircle, Loader2 } from "lucide-react";
 import Papa from "papaparse";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-const PORTFOLIO_COLS = ["Conservative", "Income", "Balanced", "Growth", "Bond Portfolio", "Liquidity"];
-const BENCHMARK_SUFFIX = " Benchmark";
-const BLOOMBERG_FORMAT_MARKER = "Start Date";
+const PORTFOLIO_COLS = ["Conservative", "Income", "Balanced", "Growth"];
 
 interface NavRow {
   portfolio_name: string;
@@ -38,7 +36,7 @@ export default function NavUpload() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
-    if (f && (f.name.endsWith(".csv") || f.name.endsWith(".xlsx") || f.name.endsWith(".xls"))) {
+    if (f && f.name.endsWith(".csv")) {
       setFile(f);
       setResult(null);
       setValidationError(null);
@@ -51,169 +49,127 @@ export default function NavUpload() {
     setValidationError(null);
     setResult(null);
 
-    const isExcel = file.name.endsWith(".xlsx") || file.name.endsWith(".xls");
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (parsed) => {
+        const headers = parsed.meta.fields || [];
 
-    if (isExcel) {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const XLSX = await import("xlsx");
-          const data = new Uint8Array(e.target?.result as ArrayBuffer);
-          const workbook = XLSX.read(data, { type: "array" });
-          const sheet = workbook.Sheets[workbook.SheetNames[0]];
-          const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
-          await parseAndUploadRows(rows);
-        } catch (err) {
-          setValidationError(`Erro ao ler Excel: ${err instanceof Error ? err.message : "Erro desconhecido"}`);
+        // Validate: must have "Dates" column and at least one portfolio column
+        if (!headers.includes("Dates")) {
+          setValidationError("Coluna 'Dates' não encontrada. O CSV deve ter o formato: Dates, Conservative, Income, Balanced, Growth");
           setUploading(false);
+          return;
         }
-      };
-      reader.readAsArrayBuffer(file);
-    } else {
-      Papa.parse(file, {
-        header: false,
-        skipEmptyLines: true,
-        complete: async (parsed) => {
-          await parseAndUploadRows(parsed.data as any[][]);
-        },
-        error: (err) => {
-          setValidationError(`Erro ao ler CSV: ${err.message}`);
+
+        const foundPortfolios = PORTFOLIO_COLS.filter((c) => headers.includes(c));
+        if (foundPortfolios.length === 0) {
+          setValidationError(`Nenhuma coluna de portfólio encontrada. Esperado: ${PORTFOLIO_COLS.join(", ")}`);
           setUploading(false);
-        },
-      });
-    }
-  };
-
-  const parseAndUploadRows = async (rows: any[][]) => {
-    if (!rows || rows.length < 3) {
-      setValidationError("Arquivo inválido — linhas insuficientes.");
-      setUploading(false);
-      return;
-    }
-
-    const isBloomberg = String(rows[0]?.[0] || "").trim() === BLOOMBERG_FORMAT_MARKER;
-
-    let headerRowIndex = 0;
-    let dataStartIndex = 1;
-
-    if (isBloomberg) {
-      headerRowIndex = 2;
-      dataStartIndex = 4;
-    }
-
-    const headerRow = rows[headerRowIndex].map((h: any) => String(h || "").trim());
-
-    const datesIdx = headerRow.findIndex((h: string) =>
-      h.toLowerCase() === "dates" || h.toLowerCase() === "date"
-    );
-
-    if (datesIdx === -1) {
-      setValidationError("Coluna 'Dates' não encontrada.");
-      setUploading(false);
-      return;
-    }
-
-    const portfolioColMap: Record<string, number> = {};
-    const benchmarkColMap: Record<string, number> = {};
-
-    headerRow.forEach((header: string, idx: number) => {
-      if (idx === datesIdx) return;
-      const cleanHeader = header.replace(BENCHMARK_SUFFIX, "").trim();
-      if (header.includes(BENCHMARK_SUFFIX)) {
-        if (PORTFOLIO_COLS.includes(cleanHeader)) {
-          benchmarkColMap[cleanHeader] = idx;
+          return;
         }
-      } else if (PORTFOLIO_COLS.includes(header)) {
-        portfolioColMap[header] = idx;
-      }
+
+        // Unpivot wide → long, sorted by date per portfolio
+        const rawData = parsed.data as Record<string, string>[];
+
+        // Build per-portfolio sorted arrays
+        const perPortfolio: Record<string, { date: string; nav: number }[]> = {};
+        for (const col of foundPortfolios) {
+          perPortfolio[col] = [];
+        }
+
+        for (const row of rawData) {
+          const isoDate = parseUSDate(row["Dates"] || "");
+          if (!isoDate) continue;
+
+          for (const col of foundPortfolios) {
+            const val = parseFloat(row[col]);
+            if (!isNaN(val)) {
+              perPortfolio[col].push({ date: isoDate, nav: val });
+            }
+          }
+        }
+
+        // Sort each portfolio by date and compute returns
+        const allRows: NavRow[] = [];
+
+        for (const portfolio of foundPortfolios) {
+          const entries = perPortfolio[portfolio].sort((a, b) => a.date.localeCompare(b.date));
+
+          // Find YTD base NAVs: last NAV of each prior year
+          const navByYear: Record<number, number> = {};
+          for (const e of entries) {
+            const year = parseInt(e.date.substring(0, 4));
+            navByYear[year] = e.nav; // will keep overwriting, last entry of that year wins
+          }
+
+          // We need the last NAV of the PREVIOUS year for YTD calc.
+          // So we first collect all entries sorted, then compute.
+          let prevNav: number | null = null;
+
+          for (const entry of entries) {
+            const year = parseInt(entry.date.substring(0, 4));
+
+            // daily_return
+            const daily_return = prevNav !== null
+              ? parseFloat((((entry.nav - prevNav) / prevNav) * 100).toFixed(4))
+              : null;
+
+            // ytd_return: compare to last NAV of previous year
+            const prevYearBase = navByYear[year - 1] ?? null;
+            const ytd_return = prevYearBase !== null
+              ? parseFloat((((entry.nav - prevYearBase) / prevYearBase) * 100).toFixed(4))
+              : null;
+
+            allRows.push({
+              portfolio_name: portfolio,
+              date: entry.date,
+              nav: entry.nav,
+              daily_return,
+              ytd_return,
+            });
+
+            prevNav = entry.nav;
+          }
+        }
+
+        if (allRows.length === 0) {
+          setValidationError("Nenhuma linha válida encontrada no CSV.");
+          setUploading(false);
+          return;
+        }
+
+        // Upsert in batches of 500
+        let success = 0;
+        let errors = 0;
+        const BATCH = 500;
+
+        for (let i = 0; i < allRows.length; i += BATCH) {
+          const batch = allRows.slice(i, i + BATCH);
+          const { error } = await supabase
+            .from("daily_navs")
+            .upsert(batch as any, { onConflict: "portfolio_name,date" });
+
+          if (error) {
+            console.error("Upsert error:", error);
+            errors += batch.length;
+          } else {
+            success += batch.length;
+          }
+        }
+
+        setResult({ success, errors });
+        toast({
+          title: "Upload concluído",
+          description: `${success} registros inseridos, ${errors} erros.`,
+        });
+        setUploading(false);
+      },
+      error: (err) => {
+        setValidationError(`Erro ao ler CSV: ${err.message}`);
+        setUploading(false);
+      },
     });
-
-    const foundPortfolios = Object.keys(portfolioColMap);
-    if (foundPortfolios.length === 0) {
-      setValidationError(`Nenhuma coluna de portfólio encontrada. Esperado: ${PORTFOLIO_COLS.join(", ")}`);
-      setUploading(false);
-      return;
-    }
-
-    const dataRows = rows.slice(dataStartIndex);
-    const perPortfolio: Record<string, { date: string; nav: number }[]> = {};
-    for (const col of foundPortfolios) perPortfolio[col] = [];
-
-    for (const row of dataRows) {
-      const rawDate = String(row[datesIdx] || "").trim();
-      if (!rawDate) continue;
-
-      let isoDate: string | null = null;
-      if (/^\d+$/.test(rawDate)) {
-        const excelDate = new Date(Date.UTC(1899, 11, 30) + parseInt(rawDate) * 86400000);
-        isoDate = excelDate.toISOString().slice(0, 10);
-      } else {
-        isoDate = parseUSDate(rawDate);
-      }
-
-      if (!isoDate) continue;
-
-      for (const col of foundPortfolios) {
-        const val = parseFloat(String(row[portfolioColMap[col]] || "").replace(/[,%\s]/g, ""));
-        if (!isNaN(val) && val > 0) {
-          perPortfolio[col].push({ date: isoDate, nav: val });
-        }
-      }
-    }
-
-    const allRows: NavRow[] = [];
-
-    for (const portfolio of foundPortfolios) {
-      const entries = perPortfolio[portfolio].sort((a, b) => a.date.localeCompare(b.date));
-
-      const navByYear: Record<number, number> = {};
-      for (const e of entries) {
-        const year = parseInt(e.date.substring(0, 4));
-        navByYear[year] = e.nav;
-      }
-
-      let prevNav: number | null = null;
-
-      for (const entry of entries) {
-        const year = parseInt(entry.date.substring(0, 4));
-
-        const daily_return = prevNav !== null
-          ? parseFloat((((entry.nav - prevNav) / prevNav) * 100).toFixed(4))
-          : null;
-
-        const prevYearBase = navByYear[year - 1] ?? null;
-        const ytd_return = prevYearBase !== null
-          ? parseFloat((((entry.nav - prevYearBase) / prevYearBase) * 100).toFixed(4))
-          : null;
-
-        allRows.push({ portfolio_name: portfolio, date: entry.date, nav: entry.nav, daily_return, ytd_return });
-        prevNav = entry.nav;
-      }
-    }
-
-    if (allRows.length === 0) {
-      setValidationError("Nenhuma linha válida encontrada.");
-      setUploading(false);
-      return;
-    }
-
-    let success = 0;
-    let errors = 0;
-    const BATCH = 500;
-
-    for (let i = 0; i < allRows.length; i += BATCH) {
-      const batch = allRows.slice(i, i + BATCH);
-      const { error } = await supabase
-        .from("daily_navs")
-        .upsert(batch as any, { onConflict: "portfolio_name,date" });
-
-      if (error) { errors += batch.length; console.error("Upsert error:", error); }
-      else { success += batch.length; }
-    }
-
-    setResult({ success, errors });
-    toast({ title: "Upload concluído", description: `${success} registros inseridos, ${errors} erros.` });
-    setUploading(false);
   };
 
   return (
@@ -224,9 +180,9 @@ export default function NavUpload() {
             Upload de NAV Diário
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Importe o CSV/Excel no formato:{" "}
+            Importe o CSV no formato:{" "}
             <code className="text-xs bg-secondary px-1 py-0.5 rounded">
-              Formato Bloomberg: Conservative, Income, Balanced, Growth, Bond Portfolio, Liquidity + Benchmarks
+              Dates, Conservative, Income, Balanced, Growth
             </code>
           </p>
         </div>
@@ -250,10 +206,10 @@ export default function NavUpload() {
                 <>
                   <Upload className="h-10 w-10 text-muted-foreground" strokeWidth={1.5} />
                   <p className="text-sm text-foreground font-medium">
-                    Clique para selecionar um CSV ou Excel
+                    Clique para selecionar um CSV
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Formato Bloomberg: Dates, Conservative, Income, Balanced, Growth, Bond Portfolio, Liquidity
+                    Formato wide: Dates, Conservative, Income, Balanced, Growth
                   </p>
                 </>
               )}
@@ -262,7 +218,7 @@ export default function NavUpload() {
             <input
               ref={inputRef}
               type="file"
-              accept=".csv,.xlsx,.xls"
+              accept=".csv"
               onChange={handleFileChange}
               className="hidden"
             />
@@ -273,31 +229,6 @@ export default function NavUpload() {
                 {validationError}
               </div>
             )}
-
-            <Button
-              variant="outline"
-              onClick={() => {
-                import("xlsx").then((XLSX) => {
-                  const templateData = [
-                    ["Start Date", "9/22/2022", "", "", "", "", "", "", "", "", "", "", ""],
-                    ["End Date", "", "", "", "", "", "", "", "", "", "", "", ""],
-                    ["Dates", "Conservative", "Conservative Benchmark", "Income", "Income Benchmark", "Balanced", "Balanced Benchmark", "Growth", "Growth Benchmark", "Bond Portfolio", "Bond Portfolio New", "Liquidity", ""],
-                    ["", ".CONS_MODG Index", ".CONS_BENC Index", ".INC_MODG Index", ".INC_BENC Index", ".BAL_MODG Index", ".BAL_BENC Index", ".GROW_MODG Index", ".GROW_BENC Index", ".BONDPORTG Index", ".BONDS20 Index", ".LIQ_MODEL Index", ""],
-                    ["9/22/2022", 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, ""],
-                    ["9/23/2022", 98.52, 99.1, 100, 100.2, 98.20, 98.5, "", "", 99.70, "", 97.66, ""],
-                  ];
-                  const ws = XLSX.utils.aoa_to_sheet(templateData);
-                  const wb = XLSX.utils.book_new();
-                  XLSX.utils.book_append_sheet(wb, ws, "NAV Data");
-                  XLSX.writeFile(wb, "nav_template.xlsx");
-                });
-              }}
-              className="w-full"
-              size="lg"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Download Template Excel
-            </Button>
 
             <Button
               onClick={handleUpload}
@@ -318,7 +249,7 @@ export default function NavUpload() {
               ) : (
                 <>
                   <Upload className="h-4 w-4 mr-2" />
-                  Enviar CSV / Excel
+                  Enviar CSV
                 </>
               )}
             </Button>
