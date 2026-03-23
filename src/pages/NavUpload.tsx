@@ -85,7 +85,7 @@ export default function NavUpload() {
   };
 
   const parseAndUploadRows = async (rows: any[][]) => {
-    if (!rows || rows.length < 6) {
+    if (!rows || rows.length < 3) {
       setValidationError("Arquivo inválido — linhas insuficientes.");
       setUploading(false);
       return;
@@ -93,54 +93,37 @@ export default function NavUpload() {
 
     const isBloomberg = String(rows[0]?.[0] || "").trim() === BLOOMBERG_FORMAT_MARKER;
 
-    let portfolioHeaderRowIndex = -1;
-    let dataStartIndex = -1;
+    let headerRowIndex = 0;
+    let dataStartIndex = 1;
 
     if (isBloomberg) {
-      // Find the row with portfolio names (contains "Conservative" or other known portfolios)
-      for (let i = 0; i < Math.min(rows.length, 10); i++) {
-        const rowVals = rows[i].map((v: any) => String(v || "").trim());
-        if (PORTFOLIO_COLS.some(p => rowVals.includes(p))) {
-          portfolioHeaderRowIndex = i;
-          break;
-        }
-      }
-
-      // Data starts after "Dates" row (which is 2 rows after portfolio header)
-      if (portfolioHeaderRowIndex >= 0) {
-        // Find the "Dates" row
-        for (let i = portfolioHeaderRowIndex + 1; i < Math.min(rows.length, portfolioHeaderRowIndex + 4); i++) {
-          const firstCell = String(rows[i]?.[0] || "").trim().toLowerCase();
-          if (firstCell === "dates" || firstCell === "date") {
-            dataStartIndex = i + 1;
-            break;
-          }
-        }
-
-        // Fallback: data starts 3 rows after portfolio header
-        if (dataStartIndex === -1) {
-          dataStartIndex = portfolioHeaderRowIndex + 2;
-        }
-      }
-    } else {
-      // Legacy format: first row is header with "Dates" in col A
-      portfolioHeaderRowIndex = 0;
-      dataStartIndex = 1;
+      headerRowIndex = 2;
+      dataStartIndex = 4;
     }
 
-    if (portfolioHeaderRowIndex === -1) {
-      setValidationError(`Nenhuma coluna de portfólio encontrada. Esperado: ${PORTFOLIO_COLS.join(", ")}`);
+    const headerRow = rows[headerRowIndex].map((h: any) => String(h || "").trim());
+
+    const datesIdx = headerRow.findIndex((h: string) =>
+      h.toLowerCase() === "dates" || h.toLowerCase() === "date"
+    );
+
+    if (datesIdx === -1) {
+      setValidationError("Coluna 'Dates' não encontrada.");
       setUploading(false);
       return;
     }
 
-    const headerRow = rows[portfolioHeaderRowIndex].map((h: any) => String(h || "").trim());
-
-    // Map portfolio columns by matching names exactly
     const portfolioColMap: Record<string, number> = {};
+    const benchmarkColMap: Record<string, number> = {};
 
     headerRow.forEach((header: string, idx: number) => {
-      if (PORTFOLIO_COLS.includes(header)) {
+      if (idx === datesIdx) return;
+      const cleanHeader = header.replace(BENCHMARK_SUFFIX, "").trim();
+      if (header.includes(BENCHMARK_SUFFIX)) {
+        if (PORTFOLIO_COLS.includes(cleanHeader)) {
+          benchmarkColMap[cleanHeader] = idx;
+        }
+      } else if (PORTFOLIO_COLS.includes(header)) {
         portfolioColMap[header] = idx;
       }
     });
@@ -152,54 +135,41 @@ export default function NavUpload() {
       return;
     }
 
-    // Parse data rows — date is always column 0
     const dataRows = rows.slice(dataStartIndex);
     const perPortfolio: Record<string, { date: string; nav: number }[]> = {};
     for (const col of foundPortfolios) perPortfolio[col] = [];
 
     for (const row of dataRows) {
-      const rawDate = row[0];
+      const rawDate = String(row[datesIdx] || "").trim();
       if (!rawDate) continue;
 
       let isoDate: string | null = null;
-      const rawStr = String(rawDate).trim();
-
-      // Handle Date objects from Excel (openpyxl returns ISO strings)
-      if (rawStr.includes("T") || rawStr.match(/^\d{4}-\d{2}-\d{2}/)) {
-        isoDate = rawStr.slice(0, 10);
-      } else if (/^\d+$/.test(rawStr)) {
-        // Excel serial number
-        const excelDate = new Date(Date.UTC(1899, 11, 30) + parseInt(rawStr) * 86400000);
+      if (/^\d+$/.test(rawDate)) {
+        const excelDate = new Date(Date.UTC(1899, 11, 30) + parseInt(rawDate) * 86400000);
         isoDate = excelDate.toISOString().slice(0, 10);
       } else {
-        isoDate = parseUSDate(rawStr);
+        isoDate = parseUSDate(rawDate);
       }
 
-      if (!isoDate || isoDate < "2000-01-01") continue;
+      if (!isoDate) continue;
 
       for (const col of foundPortfolios) {
-        const rawVal = String(row[portfolioColMap[col]] || "").trim();
-        // Skip Bloomberg error values
-        if (rawVal.startsWith("#") || rawVal === "" || rawVal === "NULL") continue;
-
-        const val = parseFloat(rawVal.replace(/[,%\s]/g, ""));
+        const val = parseFloat(String(row[portfolioColMap[col]] || "").replace(/[,%\s]/g, ""));
         if (!isNaN(val) && val > 0) {
           perPortfolio[col].push({ date: isoDate, nav: val });
         }
       }
     }
 
-    // Compute returns and build allRows
     const allRows: NavRow[] = [];
 
     for (const portfolio of foundPortfolios) {
       const entries = perPortfolio[portfolio].sort((a, b) => a.date.localeCompare(b.date));
 
-      if (entries.length === 0) continue;
-
       const navByYear: Record<number, number> = {};
       for (const e of entries) {
-        navByYear[parseInt(e.date.substring(0, 4))] = e.nav;
+        const year = parseInt(e.date.substring(0, 4));
+        navByYear[year] = e.nav;
       }
 
       let prevNav: number | null = null;
@@ -222,12 +192,11 @@ export default function NavUpload() {
     }
 
     if (allRows.length === 0) {
-      setValidationError("Nenhuma linha válida encontrada. Verifique se os valores não estão como #N/A.");
+      setValidationError("Nenhuma linha válida encontrada.");
       setUploading(false);
       return;
     }
 
-    // Upsert in batches of 500
     let success = 0;
     let errors = 0;
     const BATCH = 500;
@@ -243,10 +212,7 @@ export default function NavUpload() {
     }
 
     setResult({ success, errors });
-    toast({ 
-      title: "Upload concluído", 
-      description: `${success} registros inseridos${errors > 0 ? `, ${errors} erros` : ""}.` 
-    });
+    toast({ title: "Upload concluído", description: `${success} registros inseridos, ${errors} erros.` });
     setUploading(false);
   };
 
