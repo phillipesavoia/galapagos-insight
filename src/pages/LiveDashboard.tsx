@@ -2,8 +2,8 @@ import { Layout } from "@/components/Layout";
 import { MarketCard } from "@/components/dashboard/MarketCard";
 import { usePortfolioMarketData, useBenchmarkMarketData } from "@/hooks/usePortfolioMarketData";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle } from "lucide-react";
-import { useMemo } from "react";
+import { RefreshCw } from "lucide-react";
+import { useMemo, useState } from "react";
 
 const benchmarkPlaceholders = [
   { title: "S&P 500 Total Return", ticker: "SPXT Index" },
