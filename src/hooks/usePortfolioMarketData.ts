@@ -135,7 +135,7 @@ export function useBenchmarkMarketData(
           const json = await res.json();
           const meta = json?.chart?.result?.[0]?.meta;
           const timestamps = json?.chart?.result?.[0]?.timestamp || [];
-          const closes = json?.chart?.result?>[0]?.indicators?.quote?.[0]?.close || [];
+          const closes = json?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || [];
 
           if (!meta?.regularMarketPrice) continue;
 
