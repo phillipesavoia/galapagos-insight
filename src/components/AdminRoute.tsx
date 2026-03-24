@@ -1,5 +1,5 @@
 import { Navigate } from "react-router-dom";
-import { useUserRole } from "@/hooks/useUserRole";
+import { useUserRole } from "@/contexts/UserRoleContext";
 
 export function AdminRoute({ children }: { children: React.ReactNode }) {
   const { isAdmin, loading } = useUserRole();
