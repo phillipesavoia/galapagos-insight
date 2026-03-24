@@ -83,13 +83,37 @@ export default function Reports() {
   return (
     <Layout>
       <div className="flex-1 flex flex-col min-h-0 bg-background">
-        <div className="px-6 pt-6 pb-4 border-b border-border">
-          <h1 className="text-xl font-semibold text-foreground tracking-tight">
-            Gerador de Relatórios
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Monte relatórios personalizados para seus clientes
-          </p>
+        <div className="px-6 pt-6 pb-4 border-b border-border flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-semibold text-foreground tracking-tight">
+              Relatório de Portfólio
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Monte relatórios personalizados para seus clientes
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setHistoryTab("novo")}
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                historyTab === "novo"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent/10"
+              }`}
+            >
+              Novo relatório
+            </button>
+            <button
+              onClick={() => setHistoryTab("historico")}
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                historyTab === "historico"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent/10"
+              }`}
+            >
+              Histórico
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto">
