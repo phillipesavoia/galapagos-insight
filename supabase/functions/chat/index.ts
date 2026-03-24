@@ -30,52 +30,155 @@ async function generateEmbedding(text: string, googleKey: string): Promise<numbe
   }
 }
 
-// --- Live Market Data fetcher ---
-async function fetchLiveMarketData(ticker: string, isin: string | null): Promise<any> {
-  const apiKey = Deno.env.get("MARKET_DATA_API_KEY");
-  if (!apiKey) {
-    console.warn("MARKET_DATA_API_KEY not configured — returning placeholder response");
-    return {
-      status: "api_not_configured",
-      message: `A API de dados de mercado ainda não está configurada. Configure a variável MARKET_DATA_API_KEY para habilitar dados em tempo real.`,
-      ticker,
-      isin: isin || null,
-    };
+// --- Live Market Data fetcher (cascading providers) ---
+interface MarketDataResult {
+  status: "success" | "error" | "not_found";
+  ticker: string;
+  isin: string | null;
+  price?: number;
+  currency?: string;
+  change?: number;
+  changePercent?: number;
+  ytdReturn?: number;
+  volume?: number;
+  marketCap?: number;
+  yield?: number;
+  nav?: number;
+  aum?: number;
+  name?: string;
+  asOf?: string;
+  provider?: string;
+  message?: string;
+}
+
+async function fetchLiveMarketData(ticker: string, isin: string | null): Promise<MarketDataResult> {
+  const base: MarketDataResult = { status: "not_found", ticker, isin };
+
+  // --- 1. Financial Modeling Prep ---
+  const fmpKey = Deno.env.get("FMP_API_KEY");
+  if (fmpKey) {
+    try {
+      const symbol = ticker.split(" ")[0];
+      const res = await fetch(
+        `https://financialmodelingprep.com/api/v3/quote/${encodeURIComponent(symbol)}?apikey=${fmpKey}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const q = Array.isArray(data) ? data[0] : data;
+        if (q?.price) {
+          return {
+            status: "success", ticker, isin,
+            price: q.price,
+            currency: "USD",
+            change: q.change,
+            changePercent: q.changesPercentage,
+            volume: q.volume,
+            marketCap: q.marketCap,
+            yield: q.dividendYield,
+            name: q.name,
+            asOf: new Date().toISOString().slice(0, 10),
+            provider: "FMP",
+          };
+        }
+      }
+    } catch (e) {
+      console.warn("FMP failed:", e);
+    }
   }
 
-  // Placeholder implementation — replace with actual API call when ready
-  // Example APIs: Financial Modeling Prep, Alpha Vantage, Polygon.io, Bloomberg B-PIPE
-  const identifier = isin || ticker;
-  const apiUrl = `https://api.marketdata.example.com/v1/quote?symbol=${encodeURIComponent(identifier)}&apikey=${apiKey}`;
-  
-  try {
-    const res = await fetch(apiUrl);
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error(`Market data API error [${res.status}]:`, errText);
-      return {
-        status: "api_error",
-        message: `Erro ao buscar dados de mercado para ${ticker}: HTTP ${res.status}`,
-        ticker,
-        isin: isin || null,
-      };
+  // --- 2. Polygon.io ---
+  const polygonKey = Deno.env.get("POLYGON_API_KEY");
+  if (polygonKey) {
+    try {
+      const symbol = ticker.split(" ")[0];
+      const res = await fetch(
+        `https://api.polygon.io/v2/aggs/ticker/${encodeURIComponent(symbol)}/prev?adjusted=true&apiKey=${polygonKey}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const r = data?.results?.[0];
+        if (r?.c) {
+          return {
+            status: "success", ticker, isin,
+            price: r.c,
+            currency: "USD",
+            change: r.c - r.o,
+            changePercent: ((r.c - r.o) / r.o) * 100,
+            volume: r.v,
+            asOf: new Date(r.t).toISOString().slice(0, 10),
+            provider: "Polygon",
+          };
+        }
+      }
+    } catch (e) {
+      console.warn("Polygon failed:", e);
     }
-    const data = await res.json();
-    return {
-      status: "success",
-      ticker,
-      isin: isin || null,
-      ...data,
-    };
-  } catch (err) {
-    console.error("Market data fetch error:", err);
-    return {
-      status: "fetch_error",
-      message: `Falha na conexão com API de mercado para ${ticker}`,
-      ticker,
-      isin: isin || null,
-    };
   }
+
+  // --- 3. Alpha Vantage ---
+  const avKey = Deno.env.get("ALPHA_VANTAGE_KEY");
+  if (avKey) {
+    try {
+      const symbol = ticker.split(" ")[0];
+      const res = await fetch(
+        `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${encodeURIComponent(symbol)}&apikey=${avKey}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const q = data?.["Global Quote"];
+        if (q?.["05. price"]) {
+          return {
+            status: "success", ticker, isin,
+            price: parseFloat(q["05. price"]),
+            currency: "USD",
+            change: parseFloat(q["09. change"]),
+            changePercent: parseFloat(q["10. change percent"]?.replace("%", "")),
+            volume: parseInt(q["06. volume"]),
+            asOf: q["07. latest trading day"],
+            provider: "AlphaVantage",
+          };
+        }
+      }
+    } catch (e) {
+      console.warn("AlphaVantage failed:", e);
+    }
+  }
+
+  // --- 4. Yahoo Finance (no key needed) ---
+  try {
+    const symbol = ticker.split(" ")[0];
+    const res = await fetch(
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1d`,
+      { headers: { "User-Agent": "Mozilla/5.0" } }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const meta = data?.chart?.result?.[0]?.meta;
+      if (meta?.regularMarketPrice) {
+        return {
+          status: "success", ticker, isin,
+          price: meta.regularMarketPrice,
+          currency: meta.currency,
+          change: meta.regularMarketPrice - meta.previousClose,
+          changePercent: ((meta.regularMarketPrice - meta.previousClose) / meta.previousClose) * 100,
+          volume: meta.regularMarketVolume,
+          marketCap: meta.marketCap,
+          name: meta.longName || meta.shortName,
+          asOf: new Date(meta.regularMarketTime * 1000).toISOString().slice(0, 10),
+          provider: "Yahoo",
+        };
+      }
+    }
+  } catch (e) {
+    console.warn("Yahoo Finance failed:", e);
+  }
+
+  // --- All providers failed ---
+  return {
+    ...base,
+    status: "error",
+    message: `Nenhum provider retornou dados para ${ticker}. Verifique se o ticker está correto (ex: AAPL, SPY, DTLA LN).`,
+  };
 }
 
 const TOOLS = [
