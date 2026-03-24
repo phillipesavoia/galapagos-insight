@@ -116,6 +116,7 @@ export default function Reports() {
           </div>
         </div>
 
+        {historyTab === "novo" && (
         <div className="flex-1 overflow-y-auto">
           <div className="flex gap-6 p-6 min-h-full">
             {/* Left: Controls */}
