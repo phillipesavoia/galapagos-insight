@@ -24,6 +24,24 @@ export default function Reports() {
   const [comment, setComment] = useState("");
   const [navData, setNavData] = useState<NavDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
+  const [historyTab, setHistoryTab] = useState<"novo" | "historico">("novo");
+  const [generatedReports, setGeneratedReports] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  useEffect(() => {
+    if (historyTab !== "historico") return;
+    const fetchHistory = async () => {
+      setLoadingHistory(true);
+      const { data } = await supabase
+        .from("generated_reports")
+        .select("id, name, period, created_at, content")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      setGeneratedReports(data || []);
+      setLoadingHistory(false);
+    };
+    fetchHistory();
+  }, [historyTab]);
 
   const printRef = useRef<HTMLDivElement>(null);
   const handlePrint = useReactToPrint({
