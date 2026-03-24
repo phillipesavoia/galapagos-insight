@@ -37,7 +37,7 @@ export interface PortfolioMarketData {
 
 import { PORTFOLIOS } from "@/lib/constants";
 
-export function usePortfolioMarketData() {
+export function usePortfolioMarketData(refreshKey = 0) {
   const [data, setData] = useState<PortfolioMarketData[]>([]);
   const [loading, setLoading] = useState(true);
 
