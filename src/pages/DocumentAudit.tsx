@@ -308,7 +308,7 @@ export default function DocumentAudit() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/auto-fetch-factsheet`,
+        `https://unqdafdzbtgpwlgkepqh.supabase.co/functions/v1/auto-fetch-factsheet`,
         {
           method: "POST",
           headers: {
