@@ -16,6 +16,7 @@ const adminNavItems = [
   { title: "Asset Dictionary", label: "Asset Dictionary", url: "/admin/assets", icon: BookOpen },
   { title: "Upload NAV", label: "Upload NAV", url: "/admin/nav-upload", icon: Upload },
   { title: "Auditoria de Docs", label: "Auditoria de Docs", url: "/admin/audit", icon: ClipboardCheck },
+  { title: "Usuários", label: "Usuários", url: "/admin/users", icon: Users },
 ];
 
 export function AppSidebar() {
