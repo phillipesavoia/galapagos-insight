@@ -1,0 +1,1 @@
+DELETE FROM documents WHERE id = '90de9f0a-aff7-43ae-b73e-92ca94a80ed5' AND type = 'relatorio' AND status = 'processing' AND chunk_count = 0;
