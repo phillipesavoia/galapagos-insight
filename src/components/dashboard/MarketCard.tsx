@@ -1,5 +1,6 @@
 import { Area, AreaChart, ResponsiveContainer } from "recharts";
 import { cn } from "@/lib/utils";
+import { BLOOMBERG_TO_YAHOO } from "@/hooks/usePortfolioMarketData";
 
 export interface MarketCardProps {
   title: string;
@@ -84,6 +85,11 @@ export function MarketCard({
           <div>
             <h3 className="text-sm font-semibold text-foreground leading-tight">{title}</h3>
             <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{ticker}</p>
+            {BLOOMBERG_TO_YAHOO[ticker] && (
+              <span className="text-[10px] text-muted-foreground/50">
+                via {BLOOMBERG_TO_YAHOO[ticker]}
+              </span>
+            )}
           </div>
           <span
             className={cn(
