@@ -22,6 +22,8 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Sonner />
+      <UserRoleProvider>
+      <BrowserRouter>
       <BrowserRouter>
         <AuthGuard>
           <Routes>
