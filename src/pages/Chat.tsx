@@ -1,13 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, ChevronDown, ChevronRight, ThumbsUp, ThumbsDown, RefreshCw, Copy, PanelLeftClose, PanelLeft, SquarePen, History, Trash2, MoreHorizontal } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { Send, PanelLeftClose, PanelLeft, History } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
-import { InlineBarChart } from "@/components/chat/InlineBarChart";
-import { FlashFactsheet } from "@/components/chat/FlashFactsheet";
 import { useChatSessions } from "@/hooks/useChatSessions";
 import { useChatMessages, type ChatSource, type ToolCallData, type ChatMessage } from "@/hooks/useChatMessages";
+import { ChatMessageItem } from "@/components/chat/ChatMessageItem";
+import { ChatSessionSidebar } from "@/components/chat/ChatSessionSidebar";
 
 const allSuggestions = [
   "Qual foi o drawdown máximo no último trimestre?",
@@ -33,44 +31,6 @@ function getRandomSuggestions(count: number) {
   return shuffled.slice(0, count);
 }
 
-function extractFollowUps(content: string): { cleanContent: string; followUps: string[] } {
-  const regex = /💡\s*\*{0,2}Explorar mais:?\*{0,2}\s*\n([\s\S]*?)$/;
-  const match = content.match(regex);
-  if (!match) return { cleanContent: content, followUps: [] };
-
-  const cleanContent = content.slice(0, match.index).trimEnd();
-  const lines = match[1].trim().split("\n").map(l => l.trim()).filter(Boolean);
-  const followUps = lines
-    .map(l => l.replace(/^\d+\.\s*/, "").trim())
-    .filter(q => q.length > 5);
-
-  return { cleanContent, followUps };
-}
-
-function normalizeMarkdownTables(content: string) {
-  const lines = content.split("\n");
-  const normalized: string[] = [];
-
-  for (let i = 0; i < lines.length; i += 1) {
-    const currentLine = lines[i];
-    const trimmedCurrentLine = currentLine.trim();
-    const previousMeaningfulLine = normalized.length > 0 ? normalized[normalized.length - 1].trim() : "";
-    const nextMeaningfulLine = lines.slice(i + 1).find((line) => line.trim().length > 0)?.trim() ?? "";
-
-    const isBlankLine = trimmedCurrentLine === "";
-    const isInsideTable = previousMeaningfulLine.startsWith("|") && nextMeaningfulLine.startsWith("|");
-
-    if (isBlankLine && isInsideTable) {
-      continue;
-    }
-
-    normalized.push(currentLine);
-  }
-
-  return normalized.join("\n");
-}
-
-
 export default function Chat() {
   const {
     sessions, setSessions, currentSessionId, setCurrentSessionId,
@@ -80,6 +40,7 @@ export default function Chat() {
   const {
     messages, setMessages, isLoading, setIsLoading, loadSession, clearMessages
   } = useChatMessages();
+
   const [menuOpenSession, setMenuOpenSession] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [expandedSources, setExpandedSources] = useState<Record<string, boolean>>({});
@@ -278,112 +239,20 @@ export default function Chat() {
     }
   };
 
-  const renderToolCall = (tc: ToolCallData, idx: number) => {
-    if (tc.tool === "renderizar_grafico_barras" && tc.input) {
-      return (
-        <InlineBarChart
-          key={idx}
-          title={tc.input.title || ""}
-          data={tc.input.data || []}
-          bars={tc.input.bars || []}
-          yAxisLabel={tc.input.yAxisLabel}
-        />
-      );
-    }
-    if (tc.tool === "renderizar_flash_factsheet" && tc.input) {
-      return (
-        <FlashFactsheet
-          key={idx}
-          assetName={tc.input.assetName || ""}
-          ticker={tc.input.ticker}
-          assetClass={tc.input.assetClass || ""}
-          portfolios={tc.input.portfolios || []}
-          weightsByPortfolio={tc.input.weightsByPortfolio}
-          radarMetrics={tc.input.radarMetrics || []}
-          thesis={tc.input.thesis || ""}
-        />
-      );
-    }
-    return null;
-  };
-
   return (
     <Layout>
       <div className="flex h-screen bg-background text-foreground">
         {showHistory && (
-          <div className="w-64 shrink-0 border-r border-border bg-card flex flex-col">
-            <div className="px-4 pt-5 pb-2">
-              <button
-                onClick={handleNewChat}
-                className="flex w-full items-center gap-3 rounded-full px-4 py-2.5 text-sm text-foreground transition-colors hover:bg-accent"
-              >
-                <SquarePen className="h-4 w-4 text-muted-foreground" strokeWidth={1.5} />
-                <span>New chat</span>
-              </button>
-            </div>
-
-            <div className="px-4 pt-4 pb-2">
-              <h3 className="text-xs font-medium text-muted-foreground">Chats</h3>
-            </div>
-
-            <div className="flex-1 overflow-y-auto scrollbar-thin px-2 pb-2 space-y-0.5">
-              {sessions.map((s) => (
-                <div
-                  key={s.session_id}
-                  className={`group relative flex items-center rounded-full transition-colors ${
-                    s.session_id === currentSessionId
-                      ? "bg-secondary text-foreground font-medium"
-                      : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                  }`}
-                >
-                  <button
-                    onClick={() => handleSelectSession(s.session_id)}
-                    className="flex-1 min-w-0 truncate px-3 py-2 text-left text-[13px]"
-                  >
-                    {s.preview || "Conversa sem título"}
-                  </button>
-                  <div className="relative shrink-0 pr-1">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setMenuOpenSession(menuOpenSession === s.session_id ? null : s.session_id);
-                      }}
-                      className="rounded-md p-1 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-secondary transition-all"
-                      title="Opções"
-                    >
-                      <MoreHorizontal className="h-3.5 w-3.5" />
-                    </button>
-                    {menuOpenSession === s.session_id && (
-                      <div className="absolute right-0 top-full z-50 mt-1 w-36 rounded-lg border border-border bg-card shadow-lg py-1">
-                        <button
-                          onClick={(e) => handleDeleteSession(s.session_id, e)}
-                          className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10 transition-colors"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                          Excluir chat
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {sessions.length === 0 && (
-                <p className="px-3 py-4 text-center text-xs text-muted-foreground">Nenhuma conversa anterior.</p>
-              )}
-            </div>
-
-            {sessions.length > 0 && (
-              <div className="px-4 py-3 border-t border-border">
-                <button
-                  onClick={handleClearAllChats}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-destructive hover:bg-destructive/10 transition-colors"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  <span>Apagar histórico</span>
-                </button>
-              </div>
-            )}
-          </div>
+          <ChatSessionSidebar
+            sessions={sessions}
+            currentSessionId={currentSessionId}
+            menuOpenSession={menuOpenSession}
+            onSelectSession={handleSelectSession}
+            onDeleteSession={handleDeleteSession}
+            onNewChat={handleNewChat}
+            onClearAll={handleClearAllChats}
+            onSetMenuOpen={setMenuOpenSession}
+          />
         )}
 
         <div className="flex-1 flex min-w-0 flex-col">
@@ -447,205 +316,17 @@ export default function Chat() {
           ) : (
             <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-6 space-y-6 bg-background" ref={messagesEndRef}>
               {messages.map((msg) => (
-                <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div
-                    className={`max-w-4xl w-full text-[13px] leading-[1.7] ${
-                      msg.role === "user"
-                        ? "rounded-2xl border border-border bg-secondary px-4 py-3 text-foreground"
-                        : "text-foreground"
-                    }`}
-                  >
-                    {msg.role === "assistant" ? (
-                      <>
-                        {msg.content && (() => {
-                          const { cleanContent, followUps } = extractFollowUps(msg.content);
-                          const normalizedMarkdown = normalizeMarkdownTables(cleanContent);
-
-                          return (
-                            <>
-                              <div className="prose prose-sm max-w-none text-foreground [&_p]:my-2 [&_p]:text-foreground [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-1 [&_li]:text-foreground [&_strong]:font-semibold [&_strong]:text-foreground [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:text-[15px] [&_h1]:font-bold [&_h1]:text-foreground [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:text-[14px] [&_h2]:font-bold [&_h2]:text-foreground [&_h3]:mt-3 [&_h3]:mb-1 [&_h3]:text-[13px] [&_h3]:font-semibold [&_h3]:text-foreground [&_ul]:pl-5 [&_ol]:pl-5 [&_hr]:my-3 [&_hr]:border-border [&_code]:text-foreground">
-                                <ReactMarkdown
-                                  remarkPlugins={[remarkGfm]}
-                                  components={{
-                                    table: ({ children }) => (
-                                      <div className="my-4 overflow-x-auto rounded-xl border border-border bg-card">
-                                        <table className="w-full min-w-max border-collapse text-xs text-foreground">
-                                          {children}
-                                        </table>
-                                      </div>
-                                    ),
-                                    thead: ({ children }) => (
-                                      <thead className="border-b border-border bg-secondary text-primary">
-                                        {children}
-                                      </thead>
-                                    ),
-                                    th: ({ children }) => (
-                                      <th className="px-3 py-2 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.24em] text-primary whitespace-nowrap">
-                                        {children}
-                                      </th>
-                                    ),
-                                    tbody: ({ children }) => (
-                                      <tbody className="divide-y divide-border/70 bg-card text-foreground">
-                                        {children}
-                                      </tbody>
-                                    ),
-                                    tr: ({ children }) => (
-                                      <tr className="transition-colors hover:bg-accent/40">
-                                        {children}
-                                      </tr>
-                                    ),
-                                    td: ({ children }) => {
-                                      const text = String(children ?? "").trim();
-                                      const isPositive = /^\+\d+(\.\d+)?%$/.test(text);
-                                      const isNegative = /^-\d+(\.\d+)?%$/.test(text);
-                                      const isNA = text === "N/A";
-
-                                      return (
-                                        <td
-                                          className={[
-                                            "px-3 py-2 align-top font-mono tabular-nums text-foreground whitespace-nowrap",
-                                            isPositive && "text-primary font-medium",
-                                            isNegative && "text-destructive font-medium",
-                                            isNA && "text-muted-foreground",
-                                          ].filter(Boolean).join(" ")}
-                                        >
-                                          {children}
-                                        </td>
-                                      );
-                                    },
-                                  }}
-                                >
-                                  {normalizedMarkdown}
-                                </ReactMarkdown>
-                              </div>
-                              {followUps.length > 0 && (
-                                <div className="mt-2 flex flex-wrap gap-1.5">
-                                  {followUps.map((q, i) => (
-                                    <button
-                                      key={i}
-                                      onClick={() => handleSend(q)}
-                                      disabled={isLoading}
-                                      className="max-w-xs truncate rounded-full border border-border bg-secondary px-2.5 py-1 text-[11px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
-                                    >
-                                      {q}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </>
-                          );
-                        })()}
-
-                        {msg.toolCalls && msg.toolCalls.length > 0 && (
-                          <div className="mt-2">
-                            {msg.toolCalls.map((tc, i) => renderToolCall(tc, i))}
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <p className="whitespace-pre-wrap">{msg.content}</p>
-                    )}
-
-                    {msg.role === "assistant" && msg.sources && msg.sources.length > 0 && (
-                      <div className="mt-4 pt-3 border-t border-border">
-                        <button
-                          onClick={() =>
-                            setExpandedSources((prev) => ({ ...prev, [msg.id]: !prev[msg.id] }))
-                          }
-                          className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-                        >
-                          {expandedSources[msg.id] ? (
-                            <ChevronDown className="h-3 w-3" />
-                          ) : (
-                            <ChevronRight className="h-3 w-3" />
-                          )}
-                          Fontes ({msg.sources.length})
-                        </button>
-                        {expandedSources[msg.id] && (
-                          <div className="flex flex-wrap gap-1.5 mt-2">
-                            {msg.sources.map((src, i) => (
-                              src.file_url ? (
-                                <a
-                                  key={i}
-                                  href={src.file_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center rounded-md border border-border bg-secondary px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-accent cursor-pointer"
-                                >
-                                  {src.name} · {src.period}
-                                </a>
-                              ) : (
-                                <span
-                                  key={i}
-                                  className="inline-flex items-center rounded-md border border-border bg-card px-2.5 py-1 text-xs text-muted-foreground"
-                                >
-                                  {src.name} · {src.period}
-                                </span>
-                              )
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {msg.role === "assistant" && (msg.content || (msg.toolCalls && msg.toolCalls.length > 0)) && (
-                      <>
-                        <div className="flex items-center gap-1 mt-3 pt-2">
-                          <button
-                            onClick={() => {/* TODO: feedback */}}
-                            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                            title="Útil"
-                          >
-                            <ThumbsUp className="h-3.5 w-3.5" strokeWidth={1.5} />
-                          </button>
-                          <button
-                            onClick={() => {/* TODO: feedback */}}
-                            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                            title="Não útil"
-                          >
-                            <ThumbsDown className="h-3.5 w-3.5" strokeWidth={1.5} />
-                          </button>
-                          <button
-                            onClick={() => {
-                              const lastUserMsg = messages.slice(0, messages.indexOf(msg)).reverse().find(m => m.role === "user");
-                              if (lastUserMsg) handleSend(lastUserMsg.content);
-                            }}
-                            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                            title="Regenerar"
-                          >
-                            <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.5} />
-                          </button>
-                          <button
-                            onClick={() => navigator.clipboard.writeText(msg.content)}
-                            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                            title="Copiar"
-                          >
-                            <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
-                          </button>
-                        </div>
-                        {msg.id === messages[messages.length - 1]?.id && !isLoading && (
-                          <div className="mt-3 flex flex-wrap gap-1.5">
-                            {[
-                              "Quais são os principais destaques do último factsheet?",
-                              "Resuma a apresentação mais recente dos portfólios",
-                              "Qual a performance reportada no factsheet do Growth?",
-                              "O que mudou na alocação segundo a última apresentação?",
-                            ].map((q, i) => (
-                              <button
-                                key={i}
-                                onClick={() => handleSend(q)}
-                                disabled={isLoading}
-                                className="max-w-xs truncate rounded-full border border-border bg-secondary px-2.5 py-1 text-[11px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
-                              >
-                                {q}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
+                <ChatMessageItem
+                  key={msg.id}
+                  message={msg}
+                  isLastMessage={msg.id === messages[messages.length - 1]?.id}
+                  isLoading={isLoading}
+                  allMessages={messages}
+                  expandedSources={expandedSources}
+                  onToggleSource={(id) => setExpandedSources((prev) => ({ ...prev, [id]: !prev[id] }))}
+                  onSend={(text) => handleSend(text)}
+                  onRegenerate={(text) => handleSend(text)}
+                />
               ))}
               {isLoading && (
                 <div className="flex justify-start animate-fade-in">
