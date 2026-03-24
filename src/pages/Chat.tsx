@@ -182,7 +182,7 @@ export default function Chat() {
 
     const filter_type = filterType;
 
-    await persistMessage(newMsg, sessionId, { filter_type });
+    await persistMessage(newMsg, currentSessionId, { filter_type });
 
     const assistantId = (Date.now() + 1).toString();
     let fullContent = "";
@@ -199,7 +199,7 @@ export default function Chat() {
           Authorization: `Bearer ${session?.access_token}`,
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
-        body: JSON.stringify({ query: msg, filter_type, session_id: sessionId }),
+        body: JSON.stringify({ query: msg, filter_type, session_id: currentSessionId }),
       });
 
       if (!resp.ok || !resp.body) {
@@ -262,7 +262,7 @@ export default function Chat() {
 
       await persistMessage(
         { id: assistantId, role: "assistant", content: fullContent, sources },
-        sessionId
+        currentSessionId
       );
     } catch (err) {
       console.error("Chat error:", err);
@@ -334,7 +334,7 @@ export default function Chat() {
                 <div
                   key={s.session_id}
                   className={`group relative flex items-center rounded-full transition-colors ${
-                    s.session_id === sessionId
+                    s.session_id === currentSessionId
                       ? "bg-secondary text-foreground font-medium"
                       : "text-muted-foreground hover:bg-accent hover:text-foreground"
                   }`}
