@@ -70,7 +70,7 @@ export default function Library() {
   const handleGenerateReport = async () => {
     setGeneratingReport(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      
       const { data: presentations } = await supabase
         .from("documents")
         .select("id, name")
