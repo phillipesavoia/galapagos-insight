@@ -75,14 +75,14 @@ function generateSessionId() {
 }
 
 export default function Chat() {
-  const [menuOpenSession, setMenuOpenSession] = useState<string | null>(null);
-  const [sessionId, setSessionId] = useState(() => generateSessionId());
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState("");
-  const [expandedSources, setExpandedSources] = useState<Record<string, boolean>>({});
-  const [isLoading, setIsLoading] = useState(false);
-  const [sessions, setSessions] = useState<ChatSession[]>([]);
-  const [showHistory, setShowHistory] = useState(true);
+  const {
+    sessions, setSessions, currentSessionId, setCurrentSessionId,
+    initialLoadDone, setInitialLoadDone, loadSessions, deleteSession, startNewSession
+  } = useChatSessions();
+
+  const {
+    messages, setMessages, isLoading, setIsLoading, loadSession, clearMessages
+  } = useChatMessages();
   const [randomSuggestions] = useState(() => getRandomSuggestions(4));
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [filterType, setFilterType] = useState<string>("all");
