@@ -116,13 +116,15 @@ export default function Generator() {
 
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") continue;
           try {
-            const evt = JSON.parse(line.slice(6));
-            if (evt.type === "delta") {
-              fullContent += evt.text;
+            const evt = JSON.parse(jsonStr);
+            if (evt.type === "content_block_delta" && evt.delta?.text) {
+              fullContent += evt.delta.text;
               setSetter(fullContent);
             } else if (evt.type === "error") {
-              throw new Error(evt.message);
+              throw new Error(evt.error?.message || "Anthropic stream error");
             }
           } catch (e) {
             if (e instanceof SyntaxError) continue;
@@ -258,10 +260,15 @@ export default function Generator() {
     }
     if (currentContent) {
       return (
-        <div
-          className="prose prose-invert prose-sm max-w-none text-muted-foreground text-justify"
-          dangerouslySetInnerHTML={{ __html: parsedHtml }}
-        />
+        <>
+          <div
+            className="prose prose-invert prose-sm max-w-none text-muted-foreground text-justify"
+            dangerouslySetInnerHTML={{ __html: parsedHtml }}
+          />
+          {isGenerating && (
+            <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-0.5 align-middle" />
+          )}
+        </>
       );
     }
     const labels: Record<Tab, string> = {
