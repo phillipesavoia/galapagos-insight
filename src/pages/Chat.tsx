@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Send, ChevronDown, ChevronRight, ThumbsUp, ThumbsDown, RefreshCw, Copy, PanelLeftClose, PanelLeft, SquarePen, History, Trash2, MoreHorizontal } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -6,31 +6,8 @@ import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { InlineBarChart } from "@/components/chat/InlineBarChart";
 import { FlashFactsheet } from "@/components/chat/FlashFactsheet";
-
-interface ChatSource {
-  name: string;
-  period: string;
-  file_url?: string | null;
-}
-
-interface ToolCallData {
-  tool: string;
-  input: any;
-}
-
-interface ChatMessage {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  sources?: ChatSource[];
-  toolCalls?: ToolCallData[];
-}
-
-interface ChatSession {
-  session_id: string;
-  preview: string;
-  created_at: string;
-}
+import { useChatSessions } from "@/hooks/useChatSessions";
+import { useChatMessages, type ChatSource, type ToolCallData, type ChatMessage } from "@/hooks/useChatMessages";
 
 const allSuggestions = [
   "Qual foi o drawdown máximo no último trimestre?",
