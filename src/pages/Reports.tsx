@@ -8,7 +8,7 @@ import { PORTFOLIOS, type PortfolioName } from "@/lib/constants";
 import type { Period } from "@/components/dashboard/PeriodFilter";
 import { ReportPreview } from "@/components/reports/ReportPreview";
 
-const portfolios: PortfolioName[] = ["Conservative", "Income", "Balanced", "Growth", "Liquidity", "Bond Portfolio"];
+const portfolios: readonly PortfolioName[] = PORTFOLIOS;
 const periods: { label: string; value: Period }[] = [
   { label: "1 Mês", value: "1M" },
   { label: "YTD", value: "YTD" },
