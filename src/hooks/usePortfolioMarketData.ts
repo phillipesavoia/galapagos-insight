@@ -108,7 +108,7 @@ export function usePortfolioMarketData(refreshKey = 0) {
     }
 
     fetch();
-  }, []);
+  }, [refreshKey]);
 
   return { data, loading };
 }
