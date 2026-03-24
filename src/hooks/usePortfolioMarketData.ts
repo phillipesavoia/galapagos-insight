@@ -122,69 +122,42 @@ export function useBenchmarkMarketData(
   useEffect(() => {
     async function fetchAll() {
       setLoading(true);
-      const results: BenchmarkMarketData[] = [];
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
-      for (const b of benchmarks) {
-        const yahooTicker = BLOOMBERG_TO_YAHOO[b.ticker] || b.ticker.split(" ")[0];
-        try {
-          const res = await fetch(
-            `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooTicker)}?interval=1d&range=1mo`,
-            { headers: { "User-Agent": "Mozilla/5.0" } }
-          );
-          if (!res.ok) continue;
-          const json = await res.json();
-          const meta = json?.chart?.result?.[0]?.meta;
-          const timestamps = json?.chart?.result?.[0]?.timestamp || [];
-          const closes = json?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || [];
+        const yahooTickers = benchmarks.map(b => BLOOMBERG_TO_YAHOO[b.ticker] || b.ticker.split(" ")[0]);
 
-          if (!meta?.regularMarketPrice) continue;
+        const res = await fetch(`${supabaseUrl}/functions/v1/market-proxy`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session?.access_token}`,
+            "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ tickers: yahooTickers }),
+        });
 
-          const price = meta.regularMarketPrice;
-          const prevClose = meta.previousClose || price;
-          const change1D = ((price - prevClose) / prevClose) * 100;
+        const proxyData = await res.json();
 
-          // Sparkline from closes
-          const sparklineData = closes
-            .filter((c: number | null) => c != null)
-            .map((c: number) => ({ value: c }));
-
-          // MTD: first close of current month vs latest
-          const now = new Date();
-          const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-          let changeMTD = 0;
-          if (timestamps.length > 0 && closes.length > 0) {
-            for (let i = 0; i < timestamps.length; i++) {
-              const d = new Date(timestamps[i] * 1000);
-              const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-              if (monthStr === currentMonthStr && closes[i] != null) {
-                changeMTD = ((price - closes[i]) / closes[i]) * 100;
-                break;
-              }
-            }
-          }
-
-          // YTD: approximate from chartPreviousClose if available
-          const chartPrevClose = meta.chartPreviousClose || closes[0] || price;
-          const changeYTD = ((price - chartPrevClose) / chartPrevClose) * 100;
-
-          results.push({
+        const results: BenchmarkMarketData[] = benchmarks.map((b, i) => {
+          const yahooTicker = yahooTickers[i];
+          const d = proxyData[yahooTicker];
+          if (!d) return null;
+          return {
             title: b.title,
             ticker: b.ticker,
             yahooTicker,
-            lastPrice: parseFloat(price.toFixed(2)),
-            currency: meta.currency || "USD",
-            change1D: parseFloat(change1D.toFixed(2)),
-            changeMTD: parseFloat(changeMTD.toFixed(2)),
-            changeYTD: parseFloat(changeYTD.toFixed(2)),
-            sparklineData: sparklineData.slice(-30),
-          });
-        } catch (e) {
-          console.warn(`Failed to fetch benchmark ${b.ticker}:`, e);
-        }
-      }
+            ...d,
+          };
+        }).filter(Boolean) as BenchmarkMarketData[];
 
-      setData(results);
-      setLoading(false);
+        setData(results);
+      } catch (e) {
+        console.warn("Failed to fetch benchmarks via proxy:", e);
+      } finally {
+        setLoading(false);
+      }
     }
 
     if (benchmarks.length > 0) fetchAll();
