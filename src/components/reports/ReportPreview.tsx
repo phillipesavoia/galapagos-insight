@@ -8,7 +8,8 @@ import {
   CartesianGrid,
   Tooltip,
 } from "recharts";
-import type { NavDataPoint, PortfolioName } from "@/pages/Dashboard";
+import type { PortfolioName } from "@/lib/constants";
+import type { NavDataPoint } from "@/lib/utils";
 
 const RISK_FREE_RATE = 0.045;
 const TRADING_DAYS = 252;

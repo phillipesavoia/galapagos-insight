@@ -17,7 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TrendingUp } from "lucide-react";
-import type { NavDataPoint } from "@/pages/Dashboard";
+import type { NavDataPoint } from "@/lib/utils";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
