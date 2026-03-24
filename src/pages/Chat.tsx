@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Send, ChevronDown, ChevronRight, ThumbsUp, ThumbsDown, RefreshCw, Copy, PanelLeftClose, PanelLeft, SquarePen, History, Trash2, MoreHorizontal } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -6,31 +6,8 @@ import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { InlineBarChart } from "@/components/chat/InlineBarChart";
 import { FlashFactsheet } from "@/components/chat/FlashFactsheet";
-
-interface ChatSource {
-  name: string;
-  period: string;
-  file_url?: string | null;
-}
-
-interface ToolCallData {
-  tool: string;
-  input: any;
-}
-
-interface ChatMessage {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  sources?: ChatSource[];
-  toolCalls?: ToolCallData[];
-}
-
-interface ChatSession {
-  session_id: string;
-  preview: string;
-  created_at: string;
-}
+import { useChatSessions } from "@/hooks/useChatSessions";
+import { useChatMessages, type ChatSource, type ToolCallData, type ChatMessage } from "@/hooks/useChatMessages";
 
 const allSuggestions = [
   "Qual foi o drawdown máximo no último trimestre?",
@@ -93,21 +70,21 @@ function normalizeMarkdownTables(content: string) {
   return normalized.join("\n");
 }
 
-function generateSessionId() {
-  return crypto.randomUUID();
-}
 
 export default function Chat() {
+  const {
+    sessions, setSessions, currentSessionId, setCurrentSessionId,
+    initialLoadDone, setInitialLoadDone, loadSessions, deleteSession, startNewSession
+  } = useChatSessions();
+
+  const {
+    messages, setMessages, isLoading, setIsLoading, loadSession, clearMessages
+  } = useChatMessages();
   const [menuOpenSession, setMenuOpenSession] = useState<string | null>(null);
-  const [sessionId, setSessionId] = useState(() => generateSessionId());
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [expandedSources, setExpandedSources] = useState<Record<string, boolean>>({});
-  const [isLoading, setIsLoading] = useState(false);
-  const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [showHistory, setShowHistory] = useState(true);
   const [randomSuggestions] = useState(() => getRandomSuggestions(4));
-  const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [filterType, setFilterType] = useState<string>("all");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -120,59 +97,18 @@ export default function Chat() {
   }, [messages, isLoading]);
 
   useEffect(() => {
-    const loadSessions = async () => {
-      const { data } = await supabase
-        .from("advisor_chat_history")
-        .select("session_id, content, created_at")
-        .eq("role", "user")
-        .order("created_at", { ascending: false });
-
-      if (data) {
-        const seen = new Set<string>();
-        const unique: ChatSession[] = [];
-        for (const row of data) {
-          if (row.session_id && !seen.has(row.session_id)) {
-            seen.add(row.session_id);
-            unique.push({
-              session_id: row.session_id,
-              preview: (row.content || "").substring(0, 60),
-              created_at: row.created_at || "",
-            });
-          }
-        }
-        setSessions(unique.slice(0, 20));
-
-        if (!initialLoadDone) {
-          setInitialLoadDone(true);
-          if (unique.length > 0) {
-            const lastSid = unique[0].session_id;
-            setSessionId(lastSid as any);
-            loadSession(lastSid);
-          }
-        }
-      } else {
+    const init = async () => {
+      const unique = await loadSessions();
+      if (!initialLoadDone) {
         setInitialLoadDone(true);
+        if (unique.length > 0) {
+          const lastSid = unique[0].session_id;
+          setCurrentSessionId(lastSid);
+          loadSession(lastSid);
+        }
       }
     };
-    loadSessions();
-  }, []);
-
-  const loadSession = useCallback(async (sid: string) => {
-    const { data } = await supabase
-      .from("advisor_chat_history")
-      .select("*")
-      .eq("session_id", sid)
-      .order("created_at", { ascending: true });
-
-    if (data && data.length > 0) {
-      const loaded: ChatMessage[] = data.map((row) => ({
-        id: row.id,
-        role: (row.role as "user" | "assistant") || "user",
-        content: row.content || "",
-        sources: row.sources ? (row.sources as any[]) : [],
-      }));
-      setMessages(loaded);
-    }
+    init();
   }, []);
 
   const persistMessage = async (
@@ -192,8 +128,8 @@ export default function Chat() {
   };
 
   const handleNewChat = () => {
-    setSessionId(generateSessionId());
-    setMessages([]);
+    startNewSession();
+    clearMessages();
     setExpandedSources({});
     setShowHistory(false);
   };
@@ -204,8 +140,8 @@ export default function Chat() {
     if (!user) return;
     await supabase.from("advisor_chat_history").delete().eq("user_id", user.id);
     setSessions([]);
-    setMessages([]);
-    setSessionId(generateSessionId());
+    clearMessages();
+    startNewSession();
   };
 
   const handleDeleteSession = async (sid: string, e: React.MouseEvent) => {
@@ -215,15 +151,15 @@ export default function Chat() {
     if (!user) return;
     await supabase.from("advisor_chat_history").delete().eq("session_id", sid).eq("user_id", user.id);
     setSessions((prev) => prev.filter((s) => s.session_id !== sid));
-    if (sessionId === sid) {
-      setMessages([]);
-      setSessionId(generateSessionId());
+    if (currentSessionId === sid) {
+      clearMessages();
+      startNewSession();
     }
   };
 
   const handleSelectSession = (sid: string) => {
-    setSessionId(sid as `${string}-${string}-${string}-${string}-${string}`);
-    setMessages([]);
+    setCurrentSessionId(sid);
+    clearMessages();
     loadSession(sid);
     setShowHistory(false);
   };
@@ -243,7 +179,7 @@ export default function Chat() {
 
     const filter_type = filterType;
 
-    await persistMessage(newMsg, sessionId, { filter_type });
+    await persistMessage(newMsg, currentSessionId, { filter_type });
 
     const assistantId = (Date.now() + 1).toString();
     let fullContent = "";
@@ -260,7 +196,7 @@ export default function Chat() {
           Authorization: `Bearer ${session?.access_token}`,
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
-        body: JSON.stringify({ query: msg, filter_type, session_id: sessionId }),
+        body: JSON.stringify({ query: msg, filter_type, session_id: currentSessionId }),
       });
 
       if (!resp.ok || !resp.body) {
@@ -323,7 +259,7 @@ export default function Chat() {
 
       await persistMessage(
         { id: assistantId, role: "assistant", content: fullContent, sources },
-        sessionId
+        currentSessionId
       );
     } catch (err) {
       console.error("Chat error:", err);
@@ -395,7 +331,7 @@ export default function Chat() {
                 <div
                   key={s.session_id}
                   className={`group relative flex items-center rounded-full transition-colors ${
-                    s.session_id === sessionId
+                    s.session_id === currentSessionId
                       ? "bg-secondary text-foreground font-medium"
                       : "text-muted-foreground hover:bg-accent hover:text-foreground"
                   }`}
