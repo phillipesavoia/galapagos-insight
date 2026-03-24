@@ -55,29 +55,47 @@ export default function LiveDashboard() {
 
         {/* Benchmarks */}
         <section>
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-              Benchmarks de Mercado
-            </h2>
-            <span className="inline-flex items-center gap-1 text-[10px] text-warning bg-warning/10 px-2 py-0.5 rounded-full font-medium">
-              <AlertTriangle className="h-3 w-3" />
-              Aguardando API
-            </span>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {benchmarkPlaceholders.map((b) => (
-              <div
-                key={b.ticker}
-                className="rounded-xl border border-dashed border-border bg-card/50 p-5 flex flex-col items-center justify-center text-center min-h-[140px]"
-              >
-                <p className="text-sm font-semibold text-foreground">{b.title}</p>
-                <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{b.ticker}</p>
-                <p className="text-xs text-muted-foreground mt-3">
-                  Dados disponíveis quando a API de mercado for conectada
-                </p>
-              </div>
-            ))}
-          </div>
+          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-4">
+            Benchmarks de Mercado
+          </h2>
+          {loadingBenchmarks ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                <CardSkeleton key={i} />
+              ))}
+            </div>
+          ) : benchmarks.length === 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {benchmarkPlaceholders.map((b) => (
+                <div
+                  key={b.ticker}
+                  className="rounded-xl border border-dashed border-border bg-card/50 p-5 flex flex-col items-center justify-center text-center min-h-[140px]"
+                >
+                  <p className="text-sm font-semibold text-foreground">{b.title}</p>
+                  <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{b.ticker}</p>
+                  <p className="text-xs text-muted-foreground mt-3">
+                    Dados indisponíveis no momento
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {benchmarks.map((b) => (
+                <MarketCard
+                  key={b.ticker}
+                  title={b.title}
+                  ticker={b.ticker}
+                  lastPrice={b.lastPrice}
+                  currency={b.currency}
+                  change1D={b.change1D}
+                  changeMTD={b.changeMTD}
+                  changeYTD={b.changeYTD}
+                  sparklineData={b.sparklineData}
+                />
+              ))}
+            </div>
+          )}
         </section>
 
         {/* Portfolios */}
