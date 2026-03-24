@@ -70,9 +70,6 @@ function normalizeMarkdownTables(content: string) {
   return normalized.join("\n");
 }
 
-function generateSessionId() {
-  return crypto.randomUUID();
-}
 
 export default function Chat() {
   const {
