@@ -4,7 +4,8 @@ import { RiskMetrics } from "./RiskMetrics";
 import { HoldingsTable } from "./HoldingsTable";
 import { MonthlyReturnsTable } from "./MonthlyReturnsTable";
 import { PeriodFilter, type Period } from "./PeriodFilter";
-import type { PortfolioName, NavDataPoint } from "@/pages/Dashboard";
+import type { PortfolioName } from "@/lib/constants";
+import { filterByPeriod, type NavDataPoint } from "@/lib/utils";
 
 interface PortfolioTabProps {
   portfolio: PortfolioName;
