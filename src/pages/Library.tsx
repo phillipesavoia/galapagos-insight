@@ -30,6 +30,33 @@ export default function Library() {
   const { documents, loading, uploadDocument, deleteDocument, fetchDocuments } = useDocuments();
   const { toast } = useToast();
 
+  useEffect(() => {
+    const channel = supabase
+      .channel("library-documents")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "documents" },
+        (payload) => {
+          setDocuments((prev: any[]) =>
+            prev.map((doc: any) =>
+              doc.id === payload.new.id ? { ...doc, ...payload.new } : doc
+            )
+          );
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "documents" },
+        () => {
+          fetchDocuments();
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   const filtered = documents.filter((doc) => {
     const matchesSearch =
       !search ||
