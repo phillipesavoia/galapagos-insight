@@ -120,72 +120,33 @@ Estruture a comparação com:
 Escreva em português brasileiro, formato profissional.`;
     }
 
-    // Call Claude with streaming
-    const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
+    const anthropicResp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
         "x-api-key": anthropicKey,
         "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
-        max_tokens: 2048,
+        max_tokens: 4096,
         stream: true,
         messages: [{ role: "user", content: prompt }],
       }),
     });
 
-    if (!claudeRes.ok) throw new Error(`Claude error: ${await claudeRes.text()}`);
+    if (!anthropicResp.ok) {
+      const err = await anthropicResp.text();
+      throw new Error(`Anthropic error: ${err}`);
+    }
 
-    // Transform Claude's SSE stream into our own SSE stream
-    const stream = new ReadableStream({
-      async start(controller) {
-        const encoder = new TextEncoder();
-        const reader = claudeRes.body!.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-
-            const lines = buffer.split("\n");
-            buffer = lines.pop() || "";
-
-            for (const line of lines) {
-              if (!line.startsWith("data: ")) continue;
-              const data = line.slice(6).trim();
-              if (data === "[DONE]") continue;
-
-              try {
-                const evt = JSON.parse(data);
-                if (evt.type === "content_block_delta" && evt.delta?.text) {
-                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "delta", text: evt.delta.text })}\n\n`));
-                }
-              } catch {
-                // skip unparseable
-              }
-            }
-          }
-
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`));
-        } catch (err) {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "error", message: String(err) })}\n\n`));
-        } finally {
-          controller.close();
-        }
-      },
-    });
-
-    return new Response(stream, {
+    // Pipe the SSE stream directly to the client
+    return new Response(anthropicResp.body, {
       headers: {
         ...corsHeaders,
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
-        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
       },
     });
 
