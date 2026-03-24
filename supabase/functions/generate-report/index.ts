@@ -116,8 +116,12 @@ ESTRUTURA OBRIGATÓRIA — siga exatamente esta ordem:
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-opus-4-5",
-        max_tokens: 8000,
+        model: "claude-sonnet-4-6",
+        max_tokens: 16000,
+        thinking: {
+          type: "enabled",
+          budget_tokens: 5000,
+        },
         system: systemPrompt,
         messages: [{
           role: "user",
@@ -132,7 +136,11 @@ ESTRUTURA OBRIGATÓRIA — siga exatamente esta ordem:
     }
 
     const claudeData = await claudeRes.json();
-    const reportMarkdown = claudeData.content?.[0]?.text || "";
+    console.log("Claude response type:", claudeData?.type, "stop_reason:", claudeData?.stop_reason);
+    
+    // Extract text block — skip thinking blocks
+    const textBlock = (claudeData?.content || []).find((b: any) => b.type === "text");
+    const reportMarkdown = textBlock?.text || "";
 
     if (!reportMarkdown || reportMarkdown.length < 100) {
       throw new Error("Claude returned empty report");
