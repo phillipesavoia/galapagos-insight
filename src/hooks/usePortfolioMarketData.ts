@@ -114,7 +114,8 @@ export function usePortfolioMarketData(refreshKey = 0) {
 }
 
 export function useBenchmarkMarketData(
-  benchmarks: { title: string; ticker: string }[]
+  benchmarks: { title: string; ticker: string }[],
+  refreshKey = 0
 ) {
   const [data, setData] = useState<BenchmarkMarketData[]>([]);
   const [loading, setLoading] = useState(true);
