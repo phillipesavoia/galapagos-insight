@@ -206,7 +206,42 @@ export default function Reports() {
             </div>
           </div>
         </div>
+        )}
+
+        {historyTab === "historico" && (
+          <div className="flex-1 overflow-y-auto p-6">
+            {loadingHistory ? (
+              <div className="text-sm text-muted-foreground">Carregando...</div>
+            ) : generatedReports.length === 0 ? (
+              <div className="text-sm text-muted-foreground">Nenhum relatório gerado ainda.</div>
+            ) : (
+              <div className="space-y-3">
+                {generatedReports.map((report) => (
+                  <div
+                    key={report.id}
+                    className="rounded-xl border border-border bg-card p-4 flex items-center justify-between gap-4"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{report.name}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {report.period} · {new Date(report.created_at).toLocaleDateString("pt-BR")}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const win = window.open("", "_blank");
+                        win?.document.write(`<pre style="font-family:sans-serif;padding:2rem;white-space:pre-wrap">${report.content}</pre>`);
+                      }}
+                      className="shrink-0 text-xs text-primary hover:underline"
+                    >
+                      Ver relatório
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
-    </Layout>
   );
 }
