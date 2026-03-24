@@ -128,7 +128,9 @@ export default function Library() {
     setGeneratingReport(false);
   };
 
-  const reports = filtered.filter(d => d.type === "relatorio");
+  const reports = filtered.filter(d => 
+    d.type === "relatorio" || d.type === "Relatorio" || d.type === "report"
+  );
   const presentations = filtered.filter(d => d.type === "apresentacao");
   const others = filtered.filter(d => d.type !== "relatorio" && d.type !== "apresentacao");
 
