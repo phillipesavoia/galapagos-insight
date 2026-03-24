@@ -37,7 +37,7 @@ export interface PortfolioMarketData {
 
 import { PORTFOLIOS } from "@/lib/constants";
 
-export function usePortfolioMarketData() {
+export function usePortfolioMarketData(refreshKey = 0) {
   const [data, setData] = useState<PortfolioMarketData[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -108,13 +108,14 @@ export function usePortfolioMarketData() {
     }
 
     fetch();
-  }, []);
+  }, [refreshKey]);
 
   return { data, loading };
 }
 
 export function useBenchmarkMarketData(
-  benchmarks: { title: string; ticker: string }[]
+  benchmarks: { title: string; ticker: string }[],
+  refreshKey = 0
 ) {
   const [data, setData] = useState<BenchmarkMarketData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -161,7 +162,7 @@ export function useBenchmarkMarketData(
     }
 
     if (benchmarks.length > 0) fetchAll();
-  }, [benchmarks]);
+  }, [benchmarks, refreshKey]);
 
   return { data, loading };
 }
