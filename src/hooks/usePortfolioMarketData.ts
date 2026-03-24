@@ -162,7 +162,7 @@ export function useBenchmarkMarketData(
     }
 
     if (benchmarks.length > 0) fetchAll();
-  }, [benchmarks]);
+  }, [benchmarks, refreshKey]);
 
   return { data, loading };
 }

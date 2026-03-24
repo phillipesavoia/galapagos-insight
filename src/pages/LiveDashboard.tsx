@@ -27,9 +27,10 @@ function CardSkeleton() {
 }
 
 export default function LiveDashboard() {
-  const { data: portfolios, loading } = usePortfolioMarketData();
+  const [refreshKey, setRefreshKey] = useState(0);
+  const { data: portfolios, loading } = usePortfolioMarketData(refreshKey);
   const benchmarkInputs = useMemo(() => benchmarkPlaceholders, []);
-  const { data: benchmarks, loading: loadingBenchmarks } = useBenchmarkMarketData(benchmarkInputs);
+  const { data: benchmarks, loading: loadingBenchmarks } = useBenchmarkMarketData(benchmarkInputs, refreshKey);
 
   // Determine last date from portfolios data
   const lastDate = portfolios.length > 0 ? portfolios[0].lastDate : null;
@@ -41,16 +42,25 @@ export default function LiveDashboard() {
     <Layout>
       <div className="w-full px-6 py-6 space-y-10 overflow-x-hidden">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">
-            Live Market Dashboard
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Preços de fechamento (D-1) e performance de curto prazo ·{" "}
-            <span className="text-primary font-medium">
-              📅 Data Base: {formattedDate}
-            </span>
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">
+              Live Market Dashboard
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Preços de fechamento (D-1) e performance de curto prazo ·{" "}
+              <span className="text-primary font-medium">
+                📅 Data Base: {formattedDate}
+              </span>
+            </p>
+          </div>
+          <button
+            onClick={() => setRefreshKey(k => k + 1)}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-accent/10 transition-colors border border-border"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Atualizar
+          </button>
         </div>
 
         {/* Benchmarks */}
