@@ -30,6 +30,16 @@ export function UserRoleProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     };
 
+    // Fetch immediately from current session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        fetchRole(session.user.id);
+      } else {
+        setLoading(false);
+      }
+    });
+
+    // Listen for future auth changes (login/logout/token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         fetchRole(session.user.id);
