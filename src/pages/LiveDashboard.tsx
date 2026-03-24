@@ -28,6 +28,8 @@ function CardSkeleton() {
 
 export default function LiveDashboard() {
   const { data: portfolios, loading } = usePortfolioMarketData();
+  const benchmarkInputs = useMemo(() => benchmarkPlaceholders, []);
+  const { data: benchmarks, loading: loadingBenchmarks } = useBenchmarkMarketData(benchmarkInputs);
 
   // Determine last date from portfolios data
   const lastDate = portfolios.length > 0 ? portfolios[0].lastDate : null;
