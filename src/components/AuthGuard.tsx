@@ -13,11 +13,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
-
     return () => subscription.unsubscribe();
   }, []);
 
