@@ -136,7 +136,11 @@ ESTRUTURA OBRIGATÓRIA — siga exatamente esta ordem:
     }
 
     const claudeData = await claudeRes.json();
-    const reportMarkdown = claudeData.content?.[0]?.text || "";
+    console.log("Claude response type:", claudeData?.type, "stop_reason:", claudeData?.stop_reason);
+    
+    // Extract text block — skip thinking blocks
+    const textBlock = (claudeData?.content || []).find((b: any) => b.type === "text");
+    const reportMarkdown = textBlock?.text || "";
 
     if (!reportMarkdown || reportMarkdown.length < 100) {
       throw new Error("Claude returned empty report");
