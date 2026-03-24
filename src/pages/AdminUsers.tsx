@@ -21,8 +21,7 @@ export default function AdminUsers() {
     setLoading(true);
     const { data, error } = await supabase
       .from("user_roles")
-      .select("user_id, role, created_at")
-      .order("created_at", { ascending: false });
+      .select("user_id, role");
 
     if (error) {
       toast({ title: "Erro ao carregar usuários", variant: "destructive" });
