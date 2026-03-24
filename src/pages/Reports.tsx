@@ -3,7 +3,8 @@ import { useReactToPrint } from "react-to-print";
 import { Download } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
-import type { NavDataPoint, PortfolioName } from "@/pages/Dashboard";
+import { filterByPeriod, type NavDataPoint } from "@/lib/utils";
+import { PORTFOLIOS, type PortfolioName } from "@/lib/constants";
 import type { Period } from "@/components/dashboard/PeriodFilter";
 import { ReportPreview } from "@/components/reports/ReportPreview";
 
