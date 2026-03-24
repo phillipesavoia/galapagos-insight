@@ -243,5 +243,6 @@ export default function Reports() {
           </div>
         )}
       </div>
+    </Layout>
   );
 }
