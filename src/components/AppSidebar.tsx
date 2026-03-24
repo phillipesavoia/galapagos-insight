@@ -1,7 +1,7 @@
 import { MessageSquare, FileText, FolderOpen, BarChart3, Upload, LogOut, ClipboardList, BookOpen, TrendingUp, ClipboardCheck } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { supabase } from "@/integrations/supabase/client";
-import { useUserRole } from "@/hooks/useUserRole";
+import { useUserRole } from "@/contexts/UserRoleContext";
 
 const publicNavItems = [
   { title: "Dashboard", label: "Dashboard", url: "/dashboard", icon: TrendingUp },
