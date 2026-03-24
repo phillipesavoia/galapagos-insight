@@ -1,6 +1,29 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+export const BLOOMBERG_TO_YAHOO: Record<string, string> = {
+  "SPXT Index":     "^SP500TR",   // S&P 500 Total Return
+  "LUATTRUU Index": "AGG",        // US Agg Total Return (proxy: iShares Core US Agg)
+  "BKT0 Index":     "BIL",        // US T-Bills 1-3 Month (proxy: SPDR 1-3M T-Bill ETF)
+  "NDX Index":      "^NDX",       // NASDAQ 100
+  "MXWO Index":     "URTH",       // MSCI World (proxy: iShares MSCI World ETF)
+  "MXEF Index":     "EEM",        // MSCI Emerging Markets (proxy: iShares MSCI EM ETF)
+  "LF98TRUU Index": "HYG",        // US Corporate High Yield (proxy: iShares HY Bond ETF)
+  "WLIQA Index":    "QAI",        // Wilshire Liquid Alternative (proxy: IQ Hedge Multi-Strategy)
+};
+
+export interface BenchmarkMarketData {
+  title: string;
+  ticker: string;
+  yahooTicker: string;
+  lastPrice: number;
+  currency: string;
+  change1D: number;
+  changeMTD: number;
+  changeYTD: number;
+  sparklineData: { value: number }[];
+}
+
 export interface PortfolioMarketData {
   name: string;
   ticker: string;
