@@ -257,7 +257,39 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { query, filter_type, filter_fund, session_id } = await req.json();
+    const { query, filter_type, filter_fund, session_id, free_search } = await req.json();
+    const isFreeSearch = free_search === true;
+
+    // Detect period intent from query
+    // e.g. "dezembro 2025" → "2025-12", "março de 2026" → "2026-03", "atual" → most recent
+    function detectPeriodFromQuery(q: string): string | null {
+      const lower = q.toLowerCase();
+      const monthMap: Record<string, string> = {
+        "janeiro": "01", "fevereiro": "02", "março": "03", "marco": "03",
+        "abril": "04", "maio": "05", "junho": "06", "julho": "07",
+        "agosto": "08", "setembro": "09", "outubro": "10",
+        "novembro": "11", "dezembro": "12",
+        "jan": "01", "fev": "02", "mar": "03", "abr": "04",
+        "mai": "05", "jun": "06", "jul": "07", "ago": "08",
+        "set": "09", "out": "10", "nov": "11", "dez": "12",
+      };
+      for (const [monthName, monthNum] of Object.entries(monthMap)) {
+        const regex = new RegExp(`${monthName}[^\\d]*(\\d{4})|${monthName}\\s*/\\s*(\\d{4})|(\\d{4})\\s*[/-]\\s*${monthName}`, "i");
+        const match = lower.match(regex);
+        if (match) {
+          const year = match[1] || match[2] || match[3];
+          if (year) return `${year}-${monthNum}`;
+        }
+      }
+      // e.g. "2025-12" or "12/2025"
+      const isoMatch = lower.match(/(\d{4})-(\d{2})/);
+      if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}`;
+      const brMatch = lower.match(/(\d{2})\/(\d{4})/);
+      if (brMatch) return `${brMatch[2]}-${brMatch[1]}`;
+      return null;
+    }
+
+    const queriedPeriod = detectPeriodFromQuery(query);
     if (!query) return new Response(JSON.stringify({ error: "query required" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -512,7 +544,33 @@ Deno.serve(async (req) => {
       { role: "user", content: userMessageContent },
     ];
 
-    const systemPrompt = `Você é o Advisor Intelligence da Galapagos Capital Advisory (Miami).
+    // Fetch most recent report period for reference
+    const { data: latestReport } = await serviceClient
+      .from("documents")
+      .select("period, name")
+      .eq("type", "relatorio")
+      .eq("status", "indexed")
+      .order("period", { ascending: false })
+      .limit(1);
+
+    const latestReportPeriod = latestReport?.[0]?.period || null;
+    const latestReportName = latestReport?.[0]?.name || null;
+
+    const systemPrompt = `${latestReportPeriod ? `
+───────────────────────────────────────
+RELATÓRIO MENSAL MAIS RECENTE DISPONÍVEL
+───────────────────────────────────────
+Período: ${latestReportPeriod}
+Nome: ${latestReportName}
+Quando um advisor fizer perguntas sobre a gestão atual sem especificar período,
+use como referência o relatório do período ${latestReportPeriod}.
+Quando o advisor especificar um período diferente (ex: "em dezembro/2025", 
+"no fechamento do ano"), busque informações do relatório daquele período.
+Perguntas sobre composição atual, mudanças táticas recentes, macro atual → 
+use sempre o relatório mais recente (${latestReportPeriod}).
+Perguntas históricas ("como estava em X mês") → use o relatório do período mencionado.
+
+` : ""}Você é o Advisor Intelligence da Galapagos Capital Advisory (Miami).
 
 Seu papel é apoiar os assessores internos com análises precisas sobre
 
