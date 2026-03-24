@@ -83,8 +83,11 @@ export default function Chat() {
   const {
     messages, setMessages, isLoading, setIsLoading, loadSession, clearMessages
   } = useChatMessages();
+  const [menuOpenSession, setMenuOpenSession] = useState<string | null>(null);
+  const [input, setInput] = useState("");
+  const [expandedSources, setExpandedSources] = useState<Record<string, boolean>>({});
+  const [showHistory, setShowHistory] = useState(true);
   const [randomSuggestions] = useState(() => getRandomSuggestions(4));
-  const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [filterType, setFilterType] = useState<string>("all");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -97,59 +100,18 @@ export default function Chat() {
   }, [messages, isLoading]);
 
   useEffect(() => {
-    const loadSessions = async () => {
-      const { data } = await supabase
-        .from("advisor_chat_history")
-        .select("session_id, content, created_at")
-        .eq("role", "user")
-        .order("created_at", { ascending: false });
-
-      if (data) {
-        const seen = new Set<string>();
-        const unique: ChatSession[] = [];
-        for (const row of data) {
-          if (row.session_id && !seen.has(row.session_id)) {
-            seen.add(row.session_id);
-            unique.push({
-              session_id: row.session_id,
-              preview: (row.content || "").substring(0, 60),
-              created_at: row.created_at || "",
-            });
-          }
-        }
-        setSessions(unique.slice(0, 20));
-
-        if (!initialLoadDone) {
-          setInitialLoadDone(true);
-          if (unique.length > 0) {
-            const lastSid = unique[0].session_id;
-            setSessionId(lastSid as any);
-            loadSession(lastSid);
-          }
-        }
-      } else {
+    const init = async () => {
+      const unique = await loadSessions();
+      if (!initialLoadDone) {
         setInitialLoadDone(true);
+        if (unique.length > 0) {
+          const lastSid = unique[0].session_id;
+          setCurrentSessionId(lastSid);
+          loadSession(lastSid);
+        }
       }
     };
-    loadSessions();
-  }, []);
-
-  const loadSession = useCallback(async (sid: string) => {
-    const { data } = await supabase
-      .from("advisor_chat_history")
-      .select("*")
-      .eq("session_id", sid)
-      .order("created_at", { ascending: true });
-
-    if (data && data.length > 0) {
-      const loaded: ChatMessage[] = data.map((row) => ({
-        id: row.id,
-        role: (row.role as "user" | "assistant") || "user",
-        content: row.content || "",
-        sources: row.sources ? (row.sources as any[]) : [],
-      }));
-      setMessages(loaded);
-    }
+    init();
   }, []);
 
   const persistMessage = async (
@@ -169,8 +131,8 @@ export default function Chat() {
   };
 
   const handleNewChat = () => {
-    setSessionId(generateSessionId());
-    setMessages([]);
+    startNewSession();
+    clearMessages();
     setExpandedSources({});
     setShowHistory(false);
   };
@@ -181,8 +143,8 @@ export default function Chat() {
     if (!user) return;
     await supabase.from("advisor_chat_history").delete().eq("user_id", user.id);
     setSessions([]);
-    setMessages([]);
-    setSessionId(generateSessionId());
+    clearMessages();
+    startNewSession();
   };
 
   const handleDeleteSession = async (sid: string, e: React.MouseEvent) => {
@@ -192,15 +154,15 @@ export default function Chat() {
     if (!user) return;
     await supabase.from("advisor_chat_history").delete().eq("session_id", sid).eq("user_id", user.id);
     setSessions((prev) => prev.filter((s) => s.session_id !== sid));
-    if (sessionId === sid) {
-      setMessages([]);
-      setSessionId(generateSessionId());
+    if (currentSessionId === sid) {
+      clearMessages();
+      startNewSession();
     }
   };
 
   const handleSelectSession = (sid: string) => {
-    setSessionId(sid as `${string}-${string}-${string}-${string}-${string}`);
-    setMessages([]);
+    setCurrentSessionId(sid);
+    clearMessages();
     loadSession(sid);
     setShowHistory(false);
   };
