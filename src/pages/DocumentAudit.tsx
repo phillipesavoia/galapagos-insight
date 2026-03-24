@@ -187,6 +187,34 @@ export default function DocumentAudit() {
 
   useEffect(() => { fetchData(); }, []);
 
+  // Realtime subscription for document changes
+  useEffect(() => {
+    const channel = supabase
+      .channel("audit-documents")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "documents" },
+        (payload) => {
+          setDocuments((prev) =>
+            prev.map((doc) =>
+              doc.id === payload.new.id ? { ...doc, ...(payload.new as Doc) } : doc
+            )
+          );
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "documents" },
+        () => {
+          fetchData();
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   // Summary stats
   const stats = useMemo(() => {
     const indexed = documents.filter(d => d.status === "indexed").length;
