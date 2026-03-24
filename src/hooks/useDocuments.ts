@@ -39,14 +39,40 @@ export function useDocuments() {
     fetchDocuments();
   }, [fetchDocuments]);
 
+  // Realtime subscription replaces polling
   useEffect(() => {
-    const hasProcessing = documents.some(d => d.status === "processing");
-    if (!hasProcessing) return;
-    const interval = setInterval(() => {
-      fetchDocuments();
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [documents, fetchDocuments]);
+    const channel = supabase
+      .channel("documents-realtime")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "documents" },
+        (payload) => {
+          setDocuments((prev) =>
+            prev.map((doc) =>
+              doc.id === payload.new.id ? { ...doc, ...(payload.new as Document) } : doc
+            )
+          );
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "documents" },
+        () => {
+          fetchDocuments();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "documents" },
+        (payload) => {
+          setDocuments((prev) => prev.filter((doc) => doc.id !== payload.old.id));
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchDocuments]);
 
   const uploadDocument = async (
     file: File,
