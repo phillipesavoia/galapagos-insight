@@ -112,3 +112,83 @@ export function usePortfolioMarketData() {
 
   return { data, loading };
 }
+
+export function useBenchmarkMarketData(
+  benchmarks: { title: string; ticker: string }[]
+) {
+  const [data, setData] = useState<BenchmarkMarketData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchAll() {
+      setLoading(true);
+      const results: BenchmarkMarketData[] = [];
+
+      for (const b of benchmarks) {
+        const yahooTicker = BLOOMBERG_TO_YAHOO[b.ticker] || b.ticker.split(" ")[0];
+        try {
+          const res = await fetch(
+            `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooTicker)}?interval=1d&range=1mo`,
+            { headers: { "User-Agent": "Mozilla/5.0" } }
+          );
+          if (!res.ok) continue;
+          const json = await res.json();
+          const meta = json?.chart?.result?.[0]?.meta;
+          const timestamps = json?.chart?.result?.[0]?.timestamp || [];
+          const closes = json?.chart?.result?>[0]?.indicators?.quote?.[0]?.close || [];
+
+          if (!meta?.regularMarketPrice) continue;
+
+          const price = meta.regularMarketPrice;
+          const prevClose = meta.previousClose || price;
+          const change1D = ((price - prevClose) / prevClose) * 100;
+
+          // Sparkline from closes
+          const sparklineData = closes
+            .filter((c: number | null) => c != null)
+            .map((c: number) => ({ value: c }));
+
+          // MTD: first close of current month vs latest
+          const now = new Date();
+          const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+          let changeMTD = 0;
+          if (timestamps.length > 0 && closes.length > 0) {
+            for (let i = 0; i < timestamps.length; i++) {
+              const d = new Date(timestamps[i] * 1000);
+              const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+              if (monthStr === currentMonthStr && closes[i] != null) {
+                changeMTD = ((price - closes[i]) / closes[i]) * 100;
+                break;
+              }
+            }
+          }
+
+          // YTD: approximate from chartPreviousClose if available
+          const chartPrevClose = meta.chartPreviousClose || closes[0] || price;
+          const changeYTD = ((price - chartPrevClose) / chartPrevClose) * 100;
+
+          results.push({
+            title: b.title,
+            ticker: b.ticker,
+            yahooTicker,
+            lastPrice: parseFloat(price.toFixed(2)),
+            currency: meta.currency || "USD",
+            change1D: parseFloat(change1D.toFixed(2)),
+            changeMTD: parseFloat(changeMTD.toFixed(2)),
+            changeYTD: parseFloat(changeYTD.toFixed(2)),
+            sparklineData: sparklineData.slice(-30),
+          });
+        } catch (e) {
+          console.warn(`Failed to fetch benchmark ${b.ticker}:`, e);
+        }
+      }
+
+      setData(results);
+      setLoading(false);
+    }
+
+    if (benchmarks.length > 0) fetchAll();
+  }, [benchmarks]);
+
+  return { data, loading };
+}
