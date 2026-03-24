@@ -7,7 +7,8 @@ import {
   CartesianGrid,
   Tooltip,
 } from "recharts";
-import type { PortfolioName, NavDataPoint } from "@/pages/Dashboard";
+import type { PortfolioName } from "@/lib/constants";
+import type { NavDataPoint } from "@/lib/utils";
 
 interface NavChartProps {
   portfolio: PortfolioName;

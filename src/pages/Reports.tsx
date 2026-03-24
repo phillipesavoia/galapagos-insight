@@ -3,11 +3,12 @@ import { useReactToPrint } from "react-to-print";
 import { Download } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
-import type { NavDataPoint, PortfolioName } from "@/pages/Dashboard";
+import { filterByPeriod, type NavDataPoint } from "@/lib/utils";
+import { PORTFOLIOS, type PortfolioName } from "@/lib/constants";
 import type { Period } from "@/components/dashboard/PeriodFilter";
 import { ReportPreview } from "@/components/reports/ReportPreview";
 
-const portfolios: PortfolioName[] = ["Conservative", "Income", "Balanced", "Growth", "Liquidity", "Bond Portfolio"];
+const portfolios: readonly PortfolioName[] = PORTFOLIOS;
 const periods: { label: string; value: Period }[] = [
   { label: "1 Mês", value: "1M" },
   { label: "YTD", value: "YTD" },
@@ -15,19 +16,6 @@ const periods: { label: string; value: Period }[] = [
   { label: "Máximo", value: "Máx" },
 ];
 
-function filterByPeriod(data: NavDataPoint[], period: Period): NavDataPoint[] {
-  if (data.length === 0 || period === "Máx") return data;
-  const lastDate = new Date(data[data.length - 1].date);
-  let cutoff: Date;
-  if (period === "YTD") {
-    cutoff = new Date(lastDate.getFullYear(), 0, 1);
-  } else {
-    const months = period === "1M" ? 1 : period === "3M" ? 3 : 12;
-    cutoff = new Date(lastDate);
-    cutoff.setMonth(cutoff.getMonth() - months);
-  }
-  return data.filter((d) => d.date >= cutoff.toISOString().slice(0, 10));
-}
 
 export default function Reports() {
   const [clientName, setClientName] = useState("");

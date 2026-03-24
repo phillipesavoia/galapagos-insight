@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { TrendingDown, TrendingUp, Activity, BarChart3 } from "lucide-react";
-import type { NavDataPoint } from "@/pages/Dashboard";
+import type { NavDataPoint } from "@/lib/utils";
 
 const RISK_FREE_RATE = 0.045;
 const TRADING_DAYS = 252;

@@ -1,4 +1,4 @@
-import type { PortfolioName } from "@/pages/Dashboard";
+import type { PortfolioName } from "@/lib/constants";
 
 interface Holding {
   ticker: string;

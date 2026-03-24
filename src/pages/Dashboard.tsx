@@ -4,16 +4,8 @@ import { Layout } from "@/components/Layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PortfolioTab } from "@/components/dashboard/PortfolioTab";
 import { supabase } from "@/integrations/supabase/client";
-
-const portfolios = ["Conservative", "Income", "Balanced", "Growth", "Liquidity", "Bond Portfolio"] as const;
-export type PortfolioName = (typeof portfolios)[number];
-
-export interface NavDataPoint {
-  date: string;
-  nav: number;
-  daily_return: number | null;
-  ytd_return: number | null;
-}
+import { PORTFOLIOS } from "@/lib/constants";
+import type { NavDataPoint } from "@/lib/utils";
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<string>("Conservative");
@@ -64,7 +56,7 @@ export default function Dashboard() {
         <div className="flex-1 overflow-y-auto px-6 py-4">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="bg-secondary/50 border border-border">
-              {portfolios.map((p) => (
+              {PORTFOLIOS.map((p) => (
                 <TabsTrigger
                   key={p}
                   value={p}
@@ -75,7 +67,7 @@ export default function Dashboard() {
               ))}
             </TabsList>
 
-            {portfolios.map((p) => (
+            {PORTFOLIOS.map((p) => (
               <TabsContent key={p} value={p} className="mt-5">
                 <PortfolioTab portfolio={p} navData={navData} loading={loading} period={period} onPeriodChange={setPeriod} />
               </TabsContent>

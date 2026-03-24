@@ -7,8 +7,8 @@ const publicNavItems = [
   { title: "Dashboard", label: "Dashboard", url: "/dashboard", icon: TrendingUp },
   { title: "Advisor Chat", label: "Advisor Chat", url: "/chat", icon: MessageSquare },
   { title: "Performance Analítica", label: "Performance Analítica", url: "/analytics", icon: BarChart3 },
-  { title: "Gerar Documentos", label: "Gerar Documentos", url: "/generator", icon: FileText },
-  { title: "Gerador de Relatórios", label: "Gerador de Relatórios", url: "/reports", icon: ClipboardList },
+  { title: "Cartas & Documentos", label: "Cartas & Documentos", url: "/generator", icon: FileText },
+  { title: "Relatório de Portfólio", label: "Relatório de Portfólio", url: "/reports", icon: ClipboardList },
 ];
 
 const adminNavItems = [
