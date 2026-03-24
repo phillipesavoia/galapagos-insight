@@ -15,23 +15,6 @@ interface PortfolioTabProps {
   onPeriodChange: (p: Period) => void;
 }
 
-function filterByPeriod(data: NavDataPoint[], period: Period): NavDataPoint[] {
-  if (data.length === 0 || period === "Máx") return data;
-
-  const lastDate = new Date(data[data.length - 1].date);
-  let cutoff: Date;
-
-  if (period === "YTD") {
-    cutoff = new Date(lastDate.getFullYear(), 0, 1); // Jan 1st of last data year
-  } else {
-    const months = period === "1M" ? 1 : period === "3M" ? 3 : 12;
-    cutoff = new Date(lastDate);
-    cutoff.setMonth(cutoff.getMonth() - months);
-  }
-
-  const cutoffStr = cutoff.toISOString().slice(0, 10);
-  return data.filter((d) => d.date >= cutoffStr);
-}
 
 export function PortfolioTab({ portfolio, navData, loading, period, onPeriodChange }: PortfolioTabProps) {
   const filtered = useMemo(() => filterByPeriod(navData, period), [navData, period]);
