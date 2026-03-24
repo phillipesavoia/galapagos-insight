@@ -1,5 +1,6 @@
 import { Area, AreaChart, ResponsiveContainer } from "recharts";
 import { cn } from "@/lib/utils";
+import { BLOOMBERG_TO_YAHOO } from "@/hooks/usePortfolioMarketData";
 
 export interface MarketCardProps {
   title: string;
