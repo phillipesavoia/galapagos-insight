@@ -108,7 +108,7 @@ export default function Library() {
       if (data.success) {
         toast({
           title: "Relatório gerado com sucesso",
-          description: `${data.name} — ${data.chunk_count} seções indexadas.`,
+          description: `${data.name} — gerado com sucesso.`,
         });
         setTimeout(() => fetchDocuments(), 2000);
       } else {
