@@ -1,0 +1,2 @@
+ALTER TABLE public.documents DROP CONSTRAINT documents_type_check;
+ALTER TABLE public.documents ADD CONSTRAINT documents_type_check CHECK (type = ANY (ARRAY['factsheet'::text, 'carta_mensal'::text, 'apresentacao'::text, 'outro'::text, 'relatorio'::text]));
