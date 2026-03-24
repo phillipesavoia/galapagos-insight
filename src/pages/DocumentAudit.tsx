@@ -306,25 +306,15 @@ export default function DocumentAudit() {
   const callAutoFetch = async (asset: { id: string; ticker: string; isin: string | null; name: string }) => {
     setFetchingAssets(prev => ({ ...prev, [asset.id]: "loading" }));
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(
-        `https://unqdafdzbtgpwlgkepqh.supabase.co/functions/v1/auto-fetch-factsheet`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session?.access_token}`,
-            apikey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVucWRhZmR6YnRncHdsZ2tlcHFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MDQwNjUsImV4cCI6MjA4OTA4MDA2NX0.YOC-K2Rp6Ns9e4-zKmG6MJh1oIVRtGC3fVBvy5uXZcY",
-          },
-          body: JSON.stringify({
-            asset_id: asset.id,
-            ticker: asset.ticker,
-            isin: asset.isin,
-            name: asset.name,
-          }),
-        }
-      );
-      const data = await res.json();
+      const { data, error: invokeError } = await supabase.functions.invoke('auto-fetch-factsheet', {
+        body: {
+          asset_id: asset.id,
+          ticker: asset.ticker,
+          isin: asset.isin,
+          name: asset.name,
+        },
+      });
+      if (invokeError) throw invokeError;
       const status = data.status as "processing" | "not_found" | "manual" | "skipped" | "error";
       if (status === "processing") {
         setFetchingAssets(prev => ({ ...prev, [asset.id]: "success" }));
