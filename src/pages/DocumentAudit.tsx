@@ -346,8 +346,7 @@ export default function DocumentAudit() {
       const status = data.status as "processing" | "not_found" | "manual" | "skipped" | "error";
       if (status === "processing") {
         setFetchingAssets(prev => ({ ...prev, [asset.id]: "success" }));
-        toast({ title: `Buscando factsheet: ${asset.name}`, description: "Indexando em background..." });
-        setTimeout(() => fetchData(), 8000);
+        toast({ title: `Buscando factsheet: ${asset.name}`, description: "A lista atualizará automaticamente quando concluído." });
       } else if (status === "skipped") {
         setFetchingAssets(prev => ({ ...prev, [asset.id]: "skipped" }));
         toast({ title: "Factsheet recente já existe", description: data.reason });
