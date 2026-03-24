@@ -292,6 +292,36 @@ export type Database = {
         }
         Relationships: []
       }
+      generated_reports: {
+        Row: {
+          content: string | null
+          created_at: string | null
+          id: string
+          name: string
+          period: string | null
+          portfolio_name: string | null
+          user_id: string | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string | null
+          id?: string
+          name: string
+          period?: string | null
+          portfolio_name?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string | null
+          id?: string
+          name?: string
+          period?: string | null
+          portfolio_name?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       model_allocations: {
         Row: {
           asset_class: string
