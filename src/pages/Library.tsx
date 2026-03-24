@@ -108,7 +108,7 @@ export default function Library() {
       if (data.success) {
         toast({
           title: "Relatório gerado com sucesso",
-          description: `${data.name} — ${data.chunk_count} seções indexadas.`,
+          description: `${data.name} — gerado com sucesso.`,
         });
         setTimeout(() => fetchDocuments(), 2000);
       } else {
@@ -128,7 +128,9 @@ export default function Library() {
     setGeneratingReport(false);
   };
 
-  const reports = filtered.filter(d => d.type === "relatorio");
+  const reports = filtered.filter(d => 
+    d.type === "relatorio" || d.type === "Relatorio" || d.type === "report"
+  );
   const presentations = filtered.filter(d => d.type === "apresentacao");
   const others = filtered.filter(d => d.type !== "relatorio" && d.type !== "apresentacao");
 
