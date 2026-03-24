@@ -116,8 +116,12 @@ ESTRUTURA OBRIGATÓRIA — siga exatamente esta ordem:
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-opus-4-5",
-        max_tokens: 8000,
+        model: "claude-sonnet-4-6",
+        max_tokens: 16000,
+        thinking: {
+          type: "enabled",
+          budget_tokens: 5000,
+        },
         system: systemPrompt,
         messages: [{
           role: "user",
