@@ -257,7 +257,39 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { query, filter_type, filter_fund, session_id } = await req.json();
+    const { query, filter_type, filter_fund, session_id, free_search } = await req.json();
+    const isFreeSearch = free_search === true;
+
+    // Detect period intent from query
+    // e.g. "dezembro 2025" → "2025-12", "março de 2026" → "2026-03", "atual" → most recent
+    function detectPeriodFromQuery(q: string): string | null {
+      const lower = q.toLowerCase();
+      const monthMap: Record<string, string> = {
+        "janeiro": "01", "fevereiro": "02", "março": "03", "marco": "03",
+        "abril": "04", "maio": "05", "junho": "06", "julho": "07",
+        "agosto": "08", "setembro": "09", "outubro": "10",
+        "novembro": "11", "dezembro": "12",
+        "jan": "01", "fev": "02", "mar": "03", "abr": "04",
+        "mai": "05", "jun": "06", "jul": "07", "ago": "08",
+        "set": "09", "out": "10", "nov": "11", "dez": "12",
+      };
+      for (const [monthName, monthNum] of Object.entries(monthMap)) {
+        const regex = new RegExp(`${monthName}[^\\d]*(\\d{4})|${monthName}\\s*/\\s*(\\d{4})|(\\d{4})\\s*[/-]\\s*${monthName}`, "i");
+        const match = lower.match(regex);
+        if (match) {
+          const year = match[1] || match[2] || match[3];
+          if (year) return `${year}-${monthNum}`;
+        }
+      }
+      // e.g. "2025-12" or "12/2025"
+      const isoMatch = lower.match(/(\d{4})-(\d{2})/);
+      if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}`;
+      const brMatch = lower.match(/(\d{2})\/(\d{4})/);
+      if (brMatch) return `${brMatch[2]}-${brMatch[1]}`;
+      return null;
+    }
+
+    const queriedPeriod = detectPeriodFromQuery(query);
     if (!query) return new Response(JSON.stringify({ error: "query required" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
