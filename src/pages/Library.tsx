@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { Layout } from "@/components/Layout";
 import { Search, Plus, Upload, Trash2, Loader2, FileText, Zap } from "lucide-react";
 import { useDocuments } from "@/hooks/useDocuments";
