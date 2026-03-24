@@ -70,7 +70,7 @@ export default function Library() {
   const handleGenerateReport = async () => {
     setGeneratingReport(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      
       const { data: presentations } = await supabase
         .from("documents")
         .select("id, name")
@@ -88,23 +88,14 @@ export default function Library() {
         return;
       }
 
-      const res = await fetch(
-        "https://unqdafdzbtgpwlgkepqh.supabase.co/functions/v1/generate-report",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session?.access_token || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVucWRhZmR6YnRncHdsZ2tlcHFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MDQwNjUsImV4cCI6MjA4OTA4MDA2NX0.YOC-K2Rp6Ns9e4-zKmG6MJh1oIVRtGC3fVBvy5uXZcY"}`,
-            apikey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVucWRhZmR6YnRncHdsZ2tlcHFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MDQwNjUsImV4cCI6MjA4OTA4MDA2NX0.YOC-K2Rp6Ns9e4-zKmG6MJh1oIVRtGC3fVBvy5uXZcY",
-          },
-          body: JSON.stringify({
-            document_ids: presentations.map(p => p.id),
-            period: reportPeriod,
-          }),
-        }
-      );
+      const { data, error: invokeError } = await supabase.functions.invoke('generate-report', {
+        body: {
+          document_ids: presentations.map(p => p.id),
+          period: reportPeriod,
+        },
+      });
 
-      const data = await res.json();
+      if (invokeError) throw invokeError;
       if (data.success) {
         toast({
           title: "Relatório gerado com sucesso",
