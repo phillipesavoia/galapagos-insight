@@ -544,7 +544,33 @@ Deno.serve(async (req) => {
       { role: "user", content: userMessageContent },
     ];
 
-    const systemPrompt = `Você é o Advisor Intelligence da Galapagos Capital Advisory (Miami).
+    // Fetch most recent report period for reference
+    const { data: latestReport } = await serviceClient
+      .from("documents")
+      .select("period, name")
+      .eq("type", "relatorio")
+      .eq("status", "indexed")
+      .order("period", { ascending: false })
+      .limit(1);
+
+    const latestReportPeriod = latestReport?.[0]?.period || null;
+    const latestReportName = latestReport?.[0]?.name || null;
+
+    const systemPrompt = `${latestReportPeriod ? `
+───────────────────────────────────────
+RELATÓRIO MENSAL MAIS RECENTE DISPONÍVEL
+───────────────────────────────────────
+Período: ${latestReportPeriod}
+Nome: ${latestReportName}
+Quando um advisor fizer perguntas sobre a gestão atual sem especificar período,
+use como referência o relatório do período ${latestReportPeriod}.
+Quando o advisor especificar um período diferente (ex: "em dezembro/2025", 
+"no fechamento do ano"), busque informações do relatório daquele período.
+Perguntas sobre composição atual, mudanças táticas recentes, macro atual → 
+use sempre o relatório mais recente (${latestReportPeriod}).
+Perguntas históricas ("como estava em X mês") → use o relatório do período mencionado.
+
+` : ""}Você é o Advisor Intelligence da Galapagos Capital Advisory (Miami).
 
 Seu papel é apoiar os assessores internos com análises precisas sobre
 
