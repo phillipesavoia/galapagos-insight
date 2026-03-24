@@ -101,7 +101,7 @@ export default function Library() {
           title: "Relatório gerado com sucesso",
           description: `${data.name} — gerado com sucesso.`,
         });
-        setTimeout(() => fetchDocuments(), 2000);
+        // Realtime will pick up the new document automatically
       } else {
         toast({
           title: "Erro ao gerar relatório",

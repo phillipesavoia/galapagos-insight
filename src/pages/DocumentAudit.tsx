@@ -187,6 +187,34 @@ export default function DocumentAudit() {
 
   useEffect(() => { fetchData(); }, []);
 
+  // Realtime subscription for document changes
+  useEffect(() => {
+    const channel = supabase
+      .channel("audit-documents")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "documents" },
+        (payload) => {
+          setDocuments((prev) =>
+            prev.map((doc) =>
+              doc.id === payload.new.id ? { ...doc, ...(payload.new as Doc) } : doc
+            )
+          );
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "documents" },
+        () => {
+          fetchData();
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   // Summary stats
   const stats = useMemo(() => {
     const indexed = documents.filter(d => d.status === "indexed").length;
@@ -318,8 +346,7 @@ export default function DocumentAudit() {
       const status = data.status as "processing" | "not_found" | "manual" | "skipped" | "error";
       if (status === "processing") {
         setFetchingAssets(prev => ({ ...prev, [asset.id]: "success" }));
-        toast({ title: `Buscando factsheet: ${asset.name}`, description: "Indexando em background..." });
-        setTimeout(() => fetchData(), 8000);
+        toast({ title: `Buscando factsheet: ${asset.name}`, description: "A lista atualizará automaticamente quando concluído." });
       } else if (status === "skipped") {
         setFetchingAssets(prev => ({ ...prev, [asset.id]: "skipped" }));
         toast({ title: "Factsheet recente já existe", description: data.reason });
