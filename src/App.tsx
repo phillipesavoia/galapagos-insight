@@ -14,6 +14,7 @@ import Library from "./pages/Library";
 import NavUpload from "./pages/NavUpload";
 import AssetKnowledge from "./pages/AssetKnowledge";
 import DocumentAudit from "./pages/DocumentAudit";
+import AdminUsers from "./pages/AdminUsers";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
