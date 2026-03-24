@@ -335,6 +335,54 @@ ${fullText.substring(0, 3000)}`,
     if (updateError) throw new Error(`Failed to update document: ${updateError.message}`);
 
     console.log("Ingestion complete!");
+
+    // Check if paired presentation for same period exists → trigger report
+    const docPeriod = period || new Date().toISOString().slice(0, 7);
+    const { data: pairedDocs } = await supabase
+      .from("documents")
+      .select("id, name, type")
+      .eq("period", docPeriod)
+      .eq("type", "apresentacao")
+      .eq("status", "indexed");
+
+    const hasMercadologica = (pairedDocs || []).some(d =>
+      d.name.toLowerCase().includes("mercadol") ||
+      d.name.toLowerCase().includes("mercadológica") ||
+      d.name.toLowerCase().includes("mercadologica")
+    );
+
+    const hasICMeeting = (pairedDocs || []).some(d =>
+      d.name.toLowerCase().includes("ic meeting") ||
+      d.name.toLowerCase().includes("ic_meeting") ||
+      d.name.toLowerCase().includes("comitê") ||
+      d.name.toLowerCase().includes("comite")
+    );
+
+    if (hasMercadologica && hasICMeeting) {
+      // Check if report already exists for this period
+      const { data: existingReport } = await supabase
+        .from("documents")
+        .select("id")
+        .eq("type", "relatorio")
+        .eq("period", docPeriod)
+        .limit(1);
+
+      if (!existingReport || existingReport.length === 0) {
+        console.log(`Both presentations indexed for ${docPeriod} — triggering report generation`);
+        const docIds = (pairedDocs || []).map(d => d.id);
+        // Fire generate-report async
+        const reportUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/generate-report`;
+        fetch(reportUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+            apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
+          },
+          body: JSON.stringify({ document_ids: docIds, period: docPeriod }),
+        }).catch(err => console.error("Failed to trigger generate-report:", err));
+      }
+    }
     return new Response(
       JSON.stringify({
         success: true,
