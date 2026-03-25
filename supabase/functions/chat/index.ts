@@ -494,139 +494,89 @@ Deno.serve(async (req) => {
     let assetKnowledgeContext = "";
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const serviceClient = createClient(supabaseUrl, serviceRoleKey);
-    
     const queryLower = query.toLowerCase();
     const queryUpper = query.toUpperCase();
-    const { data: allAssets } = await serviceClient.from("asset_knowledge").select("*");
-    
+    const { data: allAssets } = await serviceClient
+      .from("asset_knowledge")
+      .select("*")
+      .order("name");
+
     if (allAssets && allAssets.length > 0) {
-      // Detect portfolio names mentioned in query
-      const portfolioNames = ["conservative", "income", "balanced", "growth", "liquidity", "bond", "bonds"];
+      const portfolioNames = ["conservative", "income", "balanced", "growth", "liquidity", "bond"];
       const mentionedPortfolios = portfolioNames.filter(p => queryLower.includes(p));
-      
-      // Detect asset class mentions
-      const assetClassKeywords: Record<string, string[]> = {
-        "Fixed Income": ["fixed income", "renda fixa", "bonds", "bond", "títulos", "titulos", "crédito", "credito"],
-        "Equities": ["equities", "equity", "ações", "acoes", "renda variável", "renda variavel", "stocks"],
-        "Alternatives": ["alternatives", "alternativos", "hedge", "real estate"],
-        "Commodities": ["commodities", "commodity", "ouro", "gold"],
-        "Cash & Equivalents": ["cash", "caixa", "money market", "liquidez"],
-      };
-      const mentionedClasses: string[] = [];
-      for (const [cls, keywords] of Object.entries(assetClassKeywords)) {
-        if (keywords.some(k => queryLower.includes(k))) {
-          mentionedClasses.push(cls);
-        }
-      }
-      
-      // Detect broad composition/allocation queries
-      const isCompositionQuery = /compos|aloca|peso|holding|portf[oó]lio|model|exposição|exposicao|quebra|breakdown|listagem|listar ativos|todos os ativos|ativos do/i.test(query);
-      
-      // Build matched assets set
+      const isLookThroughQuery = /amc|look.?through|abrir|detalh|completa|completo|quebr|todos os ativos|composicao|composição|alocacao|alocação|peso|holding|portf/i.test(query);
+
       let matchedAssets: any[];
-      
-      if (mentionedPortfolios.length > 0 || mentionedClasses.length > 0 || isCompositionQuery) {
-        // Broad query: include ALL assets for mentioned portfolios/classes
-        matchedAssets = allAssets.filter((a: any) => {
-          // If specific portfolios mentioned, include assets in those portfolios
-          if (mentionedPortfolios.length > 0) {
-            const assetPortfolios = (a.portfolios || []).map((p: string) => p.toLowerCase());
-            const weightPortfolios = a.weight_pct ? Object.keys(a.weight_pct).map(k => k.toLowerCase()) : [];
-            const allPortfolios = [...new Set([...assetPortfolios, ...weightPortfolios])];
-            const portfolioMatch = mentionedPortfolios.some(mp => 
-              allPortfolios.some(ap => ap.includes(mp) || mp.includes(ap))
-            );
-            if (portfolioMatch) return true;
-          }
-          
-          // If specific asset classes mentioned, include assets in those classes
-          if (mentionedClasses.length > 0) {
-            if (mentionedClasses.some(mc => a.asset_class.toLowerCase().includes(mc.toLowerCase()))) return true;
-          }
-          
-          // If generic composition query with no specific filter, include all
-          if (isCompositionQuery && mentionedPortfolios.length === 0 && mentionedClasses.length === 0) return true;
-          
-          return false;
-        });
-        console.log(`Asset Knowledge: broad query detected (portfolios: [${mentionedPortfolios}], classes: [${mentionedClasses}], composition: ${isCompositionQuery}) — matched ${matchedAssets.length} assets`);
+
+      if (isLookThroughQuery || mentionedPortfolios.length > 0) {
+        if (mentionedPortfolios.length > 0) {
+          matchedAssets = allAssets.filter((a: any) => {
+            const assetPortfolios = [...(a.portfolios || []), ...Object.keys(a.weight_pct || {})].map((p: string) => p.toLowerCase());
+            return mentionedPortfolios.some(mp => assetPortfolios.some(ap => ap.includes(mp)));
+          });
+        } else {
+          matchedAssets = allAssets;
+        }
+        console.log(`Asset Knowledge: look-through query — ${matchedAssets.length} assets`);
       } else {
-        // Narrow query: match by ticker/name/ISIN
         matchedAssets = allAssets.filter((a: any) => {
-          const tickerMatch = queryUpper.includes(a.ticker.toUpperCase());
+          const tickerMatch = queryUpper.includes(a.ticker?.toUpperCase() || "");
           const isinMatch = a.isin && queryUpper.includes(a.isin.toUpperCase());
-          const nameMatch = queryLower.includes(a.name.toLowerCase());
-          const nameWords = a.name.split(/\s+/).filter((w: string) => w.length >= 3);
+          const nameMatch = a.name && queryLower.includes(a.name.toLowerCase());
+          const nameWords = (a.name || "").split(/\s+/).filter((w: string) => w.length >= 4);
           const partialMatch = nameWords.some((w: string) => queryLower.includes(w.toLowerCase()));
           return tickerMatch || isinMatch || nameMatch || partialMatch;
         });
-        console.log(`Asset Knowledge: narrow query — matched ${matchedAssets.length} assets`);
-      }
-      
-      // Force full context for composition queries
-      const forceFullContext = isCompositionQuery || 
-        /look.?through|abrir|detalh|explo|quebr|listar|todos os ativos|composicao completa|composição completa/i.test(query);
-
-      // For composition queries, include ALL assets of the mentioned portfolio
-      if (forceFullContext && mentionedPortfolios.length > 0) {
-        matchedAssets = allAssets.filter((a: any) => {
-          const assetPortfolios = (a.portfolios || []).map((p: string) => p.toLowerCase());
-          const weightPortfolios = a.weight_pct ? Object.keys(a.weight_pct).map(k => k.toLowerCase()) : [];
-          const allPortfolioNames = [...new Set([...assetPortfolios, ...weightPortfolios])];
-          return mentionedPortfolios.some(mp =>
-            allPortfolioNames.some(ap => ap.includes(mp) || mp.includes(ap))
-          );
-        });
-        console.log(`Force full context: ${matchedAssets.length} assets for portfolios [${mentionedPortfolios}]`);
+        console.log(`Asset Knowledge: narrow query — ${matchedAssets.length} assets`);
       }
 
-      // Limit assets for non-composition queries
-      const assetsToFormat = forceFullContext 
-        ? matchedAssets  // no limit for look-through
-        : matchedAssets.slice(0, 30);  // limit for normal queries
+      if (matchedAssets.length > 0) {
+        const topLevel = matchedAssets.filter((a: any) => !a.amc_parent);
+        const children = matchedAssets.filter((a: any) => a.amc_parent);
 
-      if (assetsToFormat.length > 0) {
-        // Separar AMCs (nível 1) dos filhos (nível 2)
-        const amcAssets = assetsToFormat.filter((a: any) => !a.amc_parent);
-        const childAssets = assetsToFormat.filter((a: any) => a.amc_parent);
-
-        // Formatar cada ativo
-        const formatAsset = (a: any, indent = false) => {
-          const prefix = indent ? "  ↳ " : "";
-          const portfolios = a.portfolios?.length > 0 ? `\n${prefix}Portfólios: ${a.portfolios.join(", ")}` : "";
-          const weights = a.weight_pct && Object.keys(a.weight_pct).length > 0
-            ? `\n${prefix}Pesos por Portfólio: ${Object.entries(a.weight_pct).map(([k, v]: [string, any]) => `${k}: ${v}%`).join(", ")}`
-            : "";
-          const amcInfo = a.amc_parent ? `\n${prefix}Dentro do AMC: ${a.amc_parent}` : "";
-          const asOfDate = a.as_of_date ? `\n${prefix}📅 Data Base: ${a.as_of_date}` : "";
-          return `${prefix}[${indent ? "LOOK-THROUGH" : "ASSET DICTIONARY"} — ${a.ticker}${a.isin ? ` | ISIN: ${a.isin}` : ""}]\n${prefix}Nome: ${a.name}\n${prefix}Classe: ${a.asset_class}${portfolios}${weights}${amcInfo}${asOfDate}\n${prefix}Tese: ${a.official_thesis || "—"}`;
+        const formatWeight = (a: any, portfolio?: string) => {
+          if (!a.weight_pct || Object.keys(a.weight_pct).length === 0) return "";
+          if (portfolio) {
+            const w = a.weight_pct[portfolio];
+            return w ? ` [${w}% no ${portfolio}]` : "";
+          }
+          return "\n  Pesos: " + Object.entries(a.weight_pct).map(([k, v]) => `${k}: ${v}%`).join(", ");
         };
 
-        // Montar contexto hierárquico: AMC + filhos agrupados
-        const formattedAssets: string[] = [];
-        for (const amc of amcAssets) {
-          formattedAssets.push(formatAsset(amc, false));
-          const children = childAssets.filter((c: any) => c.amc_parent === amc.ticker);
-          if (children.length > 0) {
-            formattedAssets.push(`  --- Composição interna do ${amc.name} (look-through) ---`);
-            for (const child of children.sort((x: any, y: any) => {
-              const wx = Math.max(...Object.values(x.weight_pct || {}).map(Number));
-              const wy = Math.max(...Object.values(y.weight_pct || {}).map(Number));
-              return wy - wx;
-            })) {
-              formattedAssets.push(formatAsset(child, true));
+        const sections: string[] = [];
+        for (const asset of topLevel) {
+          const isAMC = children.some((c: any) => c.amc_parent === asset.ticker);
+          const header = `[${isAMC ? "AMC" : "ATIVO"} — ${asset.ticker}${asset.isin ? ` | ${asset.isin}` : ""}]`;
+          const weights = formatWeight(asset);
+          let section = `${header}\nNome: ${asset.name}\nClasse: ${asset.asset_class}${weights}\nTese: ${asset.official_thesis || "—"}`;
+
+          if (isAMC) {
+            const amcChildren = children
+              .filter((c: any) => c.amc_parent === asset.ticker)
+              .sort((x: any, y: any) => {
+                const wx = Math.max(0, ...Object.values(x.weight_pct || {}).map(Number));
+                const wy = Math.max(0, ...Object.values(y.weight_pct || {}).map(Number));
+                return wy - wx;
+              });
+
+            section += `\n\n  === COMPOSIÇÃO INTERNA DO ${asset.name.toUpperCase()} (LOOK-THROUGH) ===`;
+            for (const child of amcChildren) {
+              const cWeights = formatWeight(child);
+              section += `\n  ↳ [${child.ticker}] ${child.name} | ${child.asset_class}${cWeights}`;
             }
+            section += `\n  === FIM DO LOOK-THROUGH ===`;
           }
+
+          sections.push(section);
         }
 
-        // Adicionar filhos órfãos (cujo AMC pai não está no matchedAssets)
-        const amcTickers = new Set(amcAssets.map((a: any) => a.ticker));
-        const orphanChildren = childAssets.filter((c: any) => !amcTickers.has(c.amc_parent));
-        for (const child of orphanChildren) {
-          formattedAssets.push(formatAsset(child, false));
+        const topTickers = new Set(topLevel.map((a: any) => a.ticker));
+        const orphans = children.filter((c: any) => !topTickers.has(c.amc_parent));
+        for (const o of orphans) {
+          sections.push(`[ATIVO (dentro de AMC) — ${o.ticker}]\nNome: ${o.name}\nClasse: ${o.asset_class}\nDentro do AMC: ${o.amc_parent}${formatWeight(o)}`);
         }
 
-        assetKnowledgeContext = formattedAssets.join("\n\n---\n\n");
+        assetKnowledgeContext = sections.join("\n\n---\n\n");
       }
     }
 
