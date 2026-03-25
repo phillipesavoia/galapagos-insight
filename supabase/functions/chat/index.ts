@@ -564,15 +564,47 @@ Deno.serve(async (req) => {
       }
       
       if (matchedAssets.length > 0) {
-        // Format with portfolio-specific weights clearly
-        assetKnowledgeContext = matchedAssets.map((a: any) => {
-          const portfolios = a.portfolios?.length > 0 ? `\nPortfólios: ${a.portfolios.join(", ")}` : "";
+        // Separar AMCs (nível 1) dos filhos (nível 2)
+        const amcAssets = matchedAssets.filter((a: any) => !a.amc_parent);
+        const childAssets = matchedAssets.filter((a: any) => a.amc_parent);
+
+        // Formatar cada ativo
+        const formatAsset = (a: any, indent = false) => {
+          const prefix = indent ? "  ↳ " : "";
+          const portfolios = a.portfolios?.length > 0 ? `\n${prefix}Portfólios: ${a.portfolios.join(", ")}` : "";
           const weights = a.weight_pct && Object.keys(a.weight_pct).length > 0
-            ? `\nPesos por Portfólio: ${Object.entries(a.weight_pct).map(([k, v]) => `${k}: ${v}%`).join(", ")}`
+            ? `\n${prefix}Pesos por Portfólio: ${Object.entries(a.weight_pct).map(([k, v]: [string, any]) => `${k}: ${v}%`).join(", ")}`
             : "";
-          const asOfDate = a.as_of_date ? `\n📅 Data Base (As of Date): ${a.as_of_date}` : "";
-          return `[ASSET DICTIONARY — ${a.ticker}${a.isin ? ` | ISIN: ${a.isin}` : ""}]\nNome: ${a.name}\nClasse: ${a.asset_class}\nPerfil de Risco: ${a.risk_profile}${portfolios}${weights}${asOfDate}\nTese Oficial da Gestão: ${a.official_thesis}`;
-        }).join("\n\n---\n\n");
+          const amcInfo = a.amc_parent ? `\n${prefix}Dentro do AMC: ${a.amc_parent}` : "";
+          const asOfDate = a.as_of_date ? `\n${prefix}📅 Data Base: ${a.as_of_date}` : "";
+          return `${prefix}[${indent ? "LOOK-THROUGH" : "ASSET DICTIONARY"} — ${a.ticker}${a.isin ? ` | ISIN: ${a.isin}` : ""}]\n${prefix}Nome: ${a.name}\n${prefix}Classe: ${a.asset_class}${portfolios}${weights}${amcInfo}${asOfDate}\n${prefix}Tese: ${a.official_thesis || "—"}`;
+        };
+
+        // Montar contexto hierárquico: AMC + filhos agrupados
+        const formattedAssets: string[] = [];
+        for (const amc of amcAssets) {
+          formattedAssets.push(formatAsset(amc, false));
+          const children = childAssets.filter((c: any) => c.amc_parent === amc.ticker);
+          if (children.length > 0) {
+            formattedAssets.push(`  --- Composição interna do ${amc.name} (look-through) ---`);
+            for (const child of children.sort((x: any, y: any) => {
+              const wx = Math.max(...Object.values(x.weight_pct || {}).map(Number));
+              const wy = Math.max(...Object.values(y.weight_pct || {}).map(Number));
+              return wy - wx;
+            })) {
+              formattedAssets.push(formatAsset(child, true));
+            }
+          }
+        }
+
+        // Adicionar filhos órfãos (cujo AMC pai não está no matchedAssets)
+        const amcTickers = new Set(amcAssets.map((a: any) => a.ticker));
+        const orphanChildren = childAssets.filter((c: any) => !amcTickers.has(c.amc_parent));
+        for (const child of orphanChildren) {
+          formattedAssets.push(formatAsset(child, false));
+        }
+
+        assetKnowledgeContext = formattedAssets.join("\n\n---\n\n");
       }
     }
 
