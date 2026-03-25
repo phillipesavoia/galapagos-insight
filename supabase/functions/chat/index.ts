@@ -806,7 +806,16 @@ Deno.serve(async (req) => {
     const documentContext = context || "";
     const assetDictionaryContext = assetKnowledgeContext || "";
 
-    const systemPrompt = `${latestReportPeriod ? `
+    const systemPrompt = `INSTRUÇÃO CRÍTICA: Cada mensagem do usuário deve ser respondida com base nos dados fornecidos NESTA requisição. Nunca reutilize dados de mensagens anteriores para responder perguntas sobre composição, pesos, ou alocações — sempre use os dados do Asset Dictionary fornecidos abaixo, que são frescos e completos para esta query.
+
+Se o usuário pedir composição detalhada ou look-through:
+1. Use EXCLUSIVAMENTE os dados do Asset Dictionary desta requisição
+2. Liste TODOS os ativos encontrados, agrupados por AMC
+3. Mostre os pesos de cada ativo no portfólio mencionado
+4. Use renderizar_pie_chart para nível 1 (AMCs diretos)
+5. Use renderizar_grafico_barras para os maiores holdings do look-through
+
+${latestReportPeriod ? `
 ───────────────────────────────────────
 RELATÓRIO MENSAL MAIS RECENTE: ${latestReportPeriod} — ${latestReportName}
 Quando o advisor perguntar sobre gestão atual sem especificar período, use este como referência.
