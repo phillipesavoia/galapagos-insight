@@ -93,6 +93,16 @@ function renderToolCall(tc: ToolCallData, idx: number) {
       />
     );
   }
+  if (tc.tool === "renderizar_pie_chart" && tc.input) {
+    return (
+      <InlinePieChart
+        key={idx}
+        title={tc.input.title || ""}
+        data={tc.input.data || []}
+        donut={tc.input.donut}
+      />
+    );
+  }
   return null;
 }
 
