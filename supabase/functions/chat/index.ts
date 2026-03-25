@@ -868,7 +868,11 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
         async function processStream(
           claudeRes: Response,
           handleServerTool: boolean,
-        ): Promise<{ needsToolResult: boolean; toolId: string; toolName: string; toolInput: any; contentBlocks: any[] } | null> {
+        ): Promise<{ 
+          serverToolCall: { id: string; name: string; input: any } | null;
+          clientToolCalls: { id: string; name: string; input: any }[];
+          contentBlocks: any[];
+        }> {
           const reader = claudeRes.body!.getReader();
           const decoder = new TextDecoder();
           let buffer = "";
@@ -876,6 +880,7 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
           let currentToolName = "";
           let toolInputJson = "";
           let serverToolCall: { id: string; name: string; input: any } | null = null;
+          const clientToolCalls: { id: string; name: string; input: any }[] = [];
           const contentBlocks: any[] = [];
 
           while (true) {
@@ -916,10 +921,9 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
                     const toolInput = JSON.parse(toolInputJson);
                     
                     if (handleServerTool && currentToolName === "fetch_live_asset_data") {
-                      // Server-side tool — don't emit to client yet
                       serverToolCall = { id: currentToolId, name: currentToolName, input: toolInput };
                     } else {
-                      // Client-side tool — emit to frontend
+                      // Client-side tool — emit to frontend AND track for continuation
                       controller.enqueue(
                         encoder.encode(`data: ${JSON.stringify({
                           type: "tool_call",
@@ -927,6 +931,7 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
                           input: toolInput,
                         })}\n\n`)
                       );
+                      clientToolCalls.push({ id: currentToolId, name: currentToolName, input: toolInput });
                     }
                   } catch (e) {
                     console.error("Failed to parse tool input JSON:", e, toolInputJson);
@@ -941,47 +946,110 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
             }
           }
 
-          if (serverToolCall) {
-            return {
-              needsToolResult: true,
-              toolId: serverToolCall.id,
-              toolName: serverToolCall.name,
-              toolInput: serverToolCall.input,
-              contentBlocks,
-            };
+          return { serverToolCall, clientToolCalls, contentBlocks };
+        }
+
+        // Build continuation messages with tool results and call Claude again
+        async function continueWithToolResults(
+          prevMessages: any[],
+          assistantContent: any[],
+          toolResults: { id: string; name: string; input: any }[],
+          isServerTool: boolean,
+          serverData?: any,
+        ) {
+          const assistantBlocks = [
+            ...assistantContent,
+            ...toolResults.map(t => ({ type: "tool_use", id: t.id, name: t.name, input: t.input })),
+          ];
+          const userBlocks = toolResults.map(t => ({
+            type: "tool_result",
+            tool_use_id: t.id,
+            content: isServerTool ? JSON.stringify(serverData) : "Renderizado com sucesso no frontend.",
+          }));
+
+          const contMessages = [
+            ...prevMessages,
+            { role: "assistant", content: assistantBlocks },
+            { role: "user", content: userBlocks },
+          ];
+
+          const contRes = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": anthropicKey,
+              "anthropic-version": "2023-06-01",
+            },
+            body: JSON.stringify({
+              model: "claude-sonnet-4-20250514",
+              max_tokens: 8192,
+              temperature: 0,
+              stream: true,
+              system: systemPrompt,
+              tools: TOOLS,
+              messages: contMessages,
+            }),
+          });
+
+          if (!contRes.ok) {
+            const errText = await contRes.text();
+            console.error("Continuation error:", errText);
+            return;
           }
-          return null;
+
+          return { response: contRes, messages: contMessages };
         }
 
         try {
-          const toolResult = await processStream(initialClaudeRes, true);
+          let currentMessages = [...claudeMessages];
+          let result = await processStream(initialClaudeRes, true);
+          let iterations = 0;
+          const MAX_ITERATIONS = 5; // safety limit
 
-          if (toolResult?.needsToolResult && toolResult.toolName === "fetch_live_asset_data") {
-            // Execute the market data fetch server-side
-            console.log(`Executing fetch_live_asset_data for ticker: ${toolResult.toolInput.ticker}`);
-            const marketData = await fetchLiveMarketData(
-              toolResult.toolInput.ticker,
-              toolResult.toolInput.isin || null,
-            );
-
-            // Send tool result back to Claude for final response
-            const continuationMessages = [
-              ...claudeMessages,
-              {
-                role: "assistant",
-                content: [
-                  { type: "tool_use", id: toolResult.toolId, name: "fetch_live_asset_data", input: toolResult.toolInput },
-                ],
-              },
-              {
-                role: "user",
-                content: [
-                  { type: "tool_result", tool_use_id: toolResult.toolId, content: JSON.stringify(marketData) },
-                ],
-              },
+          // Loop: keep continuing as long as Claude stops for tool calls
+          while (iterations < MAX_ITERATIONS) {
+            iterations++;
+            const allToolCalls = [
+              ...(result.serverToolCall ? [result.serverToolCall] : []),
+              ...result.clientToolCalls,
             ];
 
-            const continuationRes = await fetch("https://api.anthropic.com/v1/messages", {
+            if (allToolCalls.length === 0) break; // no tools called, we're done
+
+            // Handle server-side tool first
+            let serverData: any = null;
+            if (result.serverToolCall && result.serverToolCall.name === "fetch_live_asset_data") {
+              console.log(`Executing fetch_live_asset_data for ticker: ${result.serverToolCall.input.ticker}`);
+              serverData = await fetchLiveMarketData(
+                result.serverToolCall.input.ticker,
+                result.serverToolCall.input.isin || null,
+              );
+            }
+
+            // Build assistant content blocks for ALL tool calls
+            const assistantContent: any[] = [];
+            const userContent: any[] = [];
+
+            for (const tc of allToolCalls) {
+              assistantContent.push({ type: "tool_use", id: tc.id, name: tc.name, input: tc.input });
+              userContent.push({
+                type: "tool_result",
+                tool_use_id: tc.id,
+                content: tc.name === "fetch_live_asset_data" 
+                  ? JSON.stringify(serverData) 
+                  : "Renderizado com sucesso no frontend.",
+              });
+            }
+
+            const contMessages = [
+              ...currentMessages,
+              { role: "assistant", content: assistantContent },
+              { role: "user", content: userContent },
+            ];
+
+            console.log(`Continuation ${iterations}: sending ${allToolCalls.length} tool results back to Claude`);
+
+            const contRes = await fetch("https://api.anthropic.com/v1/messages", {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -995,16 +1063,22 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
                 stream: true,
                 system: systemPrompt,
                 tools: TOOLS,
-                messages: continuationMessages,
+                messages: contMessages,
               }),
             });
 
-            if (!continuationRes.ok) {
-              const errText = await continuationRes.text();
+            if (!contRes.ok) {
+              const errText = await contRes.text();
               console.error("Continuation error:", errText);
-            } else {
-              await processStream(continuationRes, false);
+              break;
             }
+
+            currentMessages = contMessages;
+            result = await processStream(contRes, true);
+          }
+
+          if (iterations >= MAX_ITERATIONS) {
+            console.warn("Hit max tool call iterations");
           }
 
           // Send sources as final event
