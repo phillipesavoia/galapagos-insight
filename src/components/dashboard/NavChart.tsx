@@ -28,12 +28,16 @@ interface NavChartProps {
   data: NavDataPoint[];
   loading: boolean;
   hideHeader?: boolean;
+  selectedBenchmark?: string;
+  onBenchmarkChange?: (b: string) => void;
 }
 
-export function NavChart({ portfolio, data, loading, hideHeader }: NavChartProps) {
+export function NavChart({ portfolio, data, loading, hideHeader, selectedBenchmark: externalBenchmark, onBenchmarkChange }: NavChartProps) {
   const isEmpty = data.length === 0;
 
-  const [selectedBenchmark, setSelectedBenchmark] = useState("");
+  const [internalBenchmark, setInternalBenchmark] = useState("");
+  const selectedBenchmark = externalBenchmark ?? internalBenchmark;
+  const setSelectedBenchmark = onBenchmarkChange ?? setInternalBenchmark;
   const [benchmarkData, setBenchmarkData] = useState<{ date: string; value: number }[]>([]);
   const [loadingBenchmark, setLoadingBenchmark] = useState(false);
 
