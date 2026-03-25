@@ -182,7 +182,7 @@ export function RiskMetrics({ data, loading, benchmarkData = [], benchmarkLabel 
                 <>
                   <span className="text-muted-foreground/30">/</span>
                   <div className="flex items-baseline gap-1">
-                    <span className={`text-sm font-medium tabular-nums ${c.bmColor}`}>
+                    <span className={`text-xl font-semibold tabular-nums ${c.bmColor}`}>
                       {c.bmValue}
                     </span>
                     <span className="text-[10px] text-muted-foreground/50">bm</span>
