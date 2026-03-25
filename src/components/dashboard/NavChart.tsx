@@ -178,8 +178,8 @@ export function NavChart({ portfolio, data, loading, hideHeader }: NavChartProps
                 return d.toLocaleDateString("pt-BR");
               }}
               formatter={(value: number, name: string) => [
-                `US$ ${value.toFixed(2)}`,
-                name === "benchmark" ? selectedBenchmark : "NAV",
+                `${value >= 100 ? "+" : ""}${(value - 100).toFixed(2)}%`,
+                name === "benchmark" ? selectedBenchmark : "Portfólio",
               ]}
             />
             <Line
