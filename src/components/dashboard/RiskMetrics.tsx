@@ -9,6 +9,8 @@ const TRADING_DAYS = 252;
 interface RiskMetricsProps {
   data: NavDataPoint[];
   loading: boolean;
+  benchmarkData?: { date: string; value: number }[];
+  benchmarkLabel?: string;
 }
 
 function computeMetrics(data: NavDataPoint[]) {
@@ -44,7 +46,7 @@ function computeMetrics(data: NavDataPoint[]) {
     if (dd < maxDD) maxDD = dd;
   }
 
-  const accumulatedReturn = ((lastNav / firstNav) - 1);
+  const accumulatedReturn = (lastNav / firstNav) - 1;
 
   return {
     volatility: annualizedVol,
@@ -54,8 +56,55 @@ function computeMetrics(data: NavDataPoint[]) {
   };
 }
 
-export function RiskMetrics({ data, loading }: RiskMetricsProps) {
+function computeBenchmarkMetrics(bmData: { date: string; value: number }[]) {
+  if (bmData.length < 2) return null;
+
+  // Compute daily returns from normalized values
+  const dailyReturns: number[] = [];
+  for (let i = 1; i < bmData.length; i++) {
+    const ret = ((bmData[i].value - bmData[i - 1].value) / bmData[i - 1].value) * 100;
+    dailyReturns.push(ret);
+  }
+
+  if (dailyReturns.length < 2) return null;
+
+  const mean = dailyReturns.reduce((s, r) => s + r, 0) / dailyReturns.length;
+  const variance =
+    dailyReturns.reduce((s, r) => s + (r - mean) ** 2, 0) / (dailyReturns.length - 1);
+  const dailyStd = Math.sqrt(variance) / 100;
+  const annualizedVol = dailyStd * Math.sqrt(TRADING_DAYS);
+
+  const firstVal = bmData[0].value;
+  const lastVal = bmData[bmData.length - 1].value;
+  const firstDate = new Date(bmData[0].date);
+  const lastDate = new Date(bmData[bmData.length - 1].date);
+  const years =
+    (lastDate.getTime() - firstDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+  const cagr = years > 0 ? (lastVal / firstVal) ** (1 / years) - 1 : 0;
+
+  const sharpe = annualizedVol > 0 ? (cagr - RISK_FREE_RATE) / annualizedVol : 0;
+
+  let peak = bmData[0].value;
+  let maxDD = 0;
+  for (const d of bmData) {
+    if (d.value > peak) peak = d.value;
+    const dd = (d.value - peak) / peak;
+    if (dd < maxDD) maxDD = dd;
+  }
+
+  const accumulatedReturn = (lastVal / firstVal) - 1;
+
+  return {
+    volatility: annualizedVol,
+    sharpe,
+    maxDrawdown: maxDD,
+    accumulatedReturn,
+  };
+}
+
+export function RiskMetrics({ data, loading, benchmarkData = [], benchmarkLabel }: RiskMetricsProps) {
   const metrics = useMemo(() => computeMetrics(data), [data]);
+  const bmMetrics = useMemo(() => computeBenchmarkMetrics(benchmarkData), [benchmarkData]);
 
   if (loading) {
     return (
@@ -80,26 +129,34 @@ export function RiskMetrics({ data, loading }: RiskMetricsProps) {
     {
       label: "Retorno Acumulado",
       value: `${returnPrefix}${(metrics.accumulatedReturn * 100).toFixed(2)}%`,
+      bmValue: bmMetrics ? `${bmMetrics.accumulatedReturn >= 0 ? "+" : ""}${(bmMetrics.accumulatedReturn * 100).toFixed(2)}%` : null,
       icon: isPositive ? TrendingUp : TrendingDown,
       color: isPositive ? "text-green-500" : "text-destructive",
+      bmColor: bmMetrics ? (bmMetrics.accumulatedReturn >= 0 ? "text-green-500/60" : "text-destructive/60") : "",
     },
     {
       label: "Volatilidade Anualizada",
       value: `${(metrics.volatility * 100).toFixed(2)}%`,
+      bmValue: bmMetrics ? `${(bmMetrics.volatility * 100).toFixed(2)}%` : null,
       icon: Activity,
       color: "text-amber-400",
+      bmColor: "text-amber-400/60",
     },
     {
       label: "Índice Sharpe",
       value: metrics.sharpe.toFixed(2),
+      bmValue: bmMetrics ? bmMetrics.sharpe.toFixed(2) : null,
       icon: BarChart3,
       color: "text-primary",
+      bmColor: "text-primary/60",
     },
     {
       label: "Max Drawdown",
       value: `${(metrics.maxDrawdown * 100).toFixed(2)}%`,
+      bmValue: bmMetrics ? `${(bmMetrics.maxDrawdown * 100).toFixed(2)}%` : null,
       icon: TrendingDown,
       color: "text-destructive",
+      bmColor: "text-destructive/60",
     },
   ];
 
@@ -111,13 +168,25 @@ export function RiskMetrics({ data, loading }: RiskMetricsProps) {
             <div className={`mt-0.5 ${c.color}`}>
               <c.icon className="h-5 w-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase">
                 {c.label}
               </p>
-              <p className={`text-2xl font-semibold mt-1 tabular-nums ${c.label === "Retorno Acumulado" ? c.color : "text-foreground"}`}>
-                {c.value}
-              </p>
+              <div className="flex items-baseline gap-2 mt-1">
+                <p className={`text-2xl font-semibold tabular-nums ${c.label === "Retorno Acumulado" ? c.color : "text-foreground"}`}>
+                  {c.value}
+                </p>
+                {c.bmValue && (
+                  <span className={`text-xs tabular-nums ${c.bmColor}`} title={benchmarkLabel}>
+                    / {c.bmValue}
+                  </span>
+                )}
+              </div>
+              {c.bmValue && (
+                <p className="text-[10px] text-muted-foreground/50 mt-0.5">
+                  Portfólio / {benchmarkLabel}
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
