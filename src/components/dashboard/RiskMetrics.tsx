@@ -147,8 +147,8 @@ export function RiskMetrics({ data, loading, benchmarkData = [], benchmarkLabel 
       value: metrics.sharpe.toFixed(2),
       bmValue: bmMetrics ? bmMetrics.sharpe.toFixed(2) : null,
       icon: BarChart3,
-      color: "text-primary",
-      bmColor: "text-primary/60",
+      color: metrics.sharpe >= 0 ? "text-primary" : "text-destructive",
+      bmColor: bmMetrics ? (bmMetrics.sharpe >= 0 ? "text-primary/60" : "text-destructive/60") : "",
     },
     {
       label: "Max Drawdown",
@@ -164,30 +164,28 @@ export function RiskMetrics({ data, loading, benchmarkData = [], benchmarkLabel 
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
       {cards.map((c) => (
         <Card key={c.label} className="border-border bg-card">
-          <CardContent className="p-5 flex items-start gap-4">
-            <div className={`mt-0.5 ${c.color}`}>
+          <CardContent className="p-5 flex flex-col items-center text-center">
+            <div className={`mb-2 ${c.color}`}>
               <c.icon className="h-5 w-5" />
             </div>
-            <div className="min-w-0">
-              <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase">
-                {c.label}
-              </p>
-              <div className="mt-1.5 space-y-0.5">
-                <div className="flex items-baseline justify-between">
-                  <span className="text-[11px] text-muted-foreground">Portfólio</span>
-                  <span className={`text-xl font-semibold tabular-nums ${c.label === "Retorno Acumulado" ? c.color : "text-foreground"}`}>
-                    {c.value}
+            <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase">
+              {c.label}
+            </p>
+            <div className="mt-1.5 w-full space-y-0.5">
+              <div className="flex items-baseline justify-center gap-2">
+                <span className="text-[11px] text-muted-foreground">Portfólio</span>
+                <span className={`text-xl font-semibold tabular-nums ${c.label === "Retorno Acumulado" || c.label === "Índice Sharpe" ? c.color : "text-foreground"}`}>
+                  {c.value}
+                </span>
+              </div>
+              {c.bmValue && (
+                <div className="flex items-baseline justify-center gap-2">
+                  <span className="text-[11px] text-muted-foreground/60">{benchmarkLabel}</span>
+                  <span className={`text-sm font-medium tabular-nums ${c.bmColor}`}>
+                    {c.bmValue}
                   </span>
                 </div>
-                {c.bmValue && (
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-[11px] text-muted-foreground/60">{benchmarkLabel}</span>
-                    <span className={`text-sm font-medium tabular-nums ${c.bmColor}`}>
-                      {c.bmValue}
-                    </span>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           </CardContent>
         </Card>
