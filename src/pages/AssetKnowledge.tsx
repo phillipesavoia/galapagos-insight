@@ -95,6 +95,7 @@ export default function AssetKnowledge() {
   const [importProgress, setImportProgress] = useState(0);
   const [droppedFileName, setDroppedFileName] = useState("");
   const [selectedPortfolio, setSelectedPortfolio] = useState("");
+  const [view, setView] = useState<"cards" | "matriz">("cards");
   const [referenceDate, setReferenceDate] = useState<Date | undefined>(undefined);
 
   const fetchAssets = async () => {
