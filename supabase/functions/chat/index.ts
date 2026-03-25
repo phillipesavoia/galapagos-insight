@@ -563,7 +563,30 @@ Deno.serve(async (req) => {
         console.log(`Asset Knowledge: narrow query — matched ${matchedAssets.length} assets`);
       }
       
-      if (matchedAssets.length > 0) {
+      // Force full context for composition queries with history
+      const hasHistory = claudeMessages !== undefined; // will be defined later, but logic applies to asset matching
+      const forceFullContext = isCompositionQuery || 
+        /look.?through|abrir|detalh|explo|quebr|listar|todos os ativos|composicao completa|composição completa/i.test(query);
+
+      // For composition queries, include ALL assets of the mentioned portfolio
+      if (forceFullContext && mentionedPortfolios.length > 0) {
+        matchedAssets = allAssets.filter((a: any) => {
+          const assetPortfolios = (a.portfolios || []).map((p: string) => p.toLowerCase());
+          const weightPortfolios = a.weight_pct ? Object.keys(a.weight_pct).map(k => k.toLowerCase()) : [];
+          const allPortfolioNames = [...new Set([...assetPortfolios, ...weightPortfolios])];
+          return mentionedPortfolios.some(mp =>
+            allPortfolioNames.some(ap => ap.includes(mp) || mp.includes(ap))
+          );
+        });
+        console.log(`Force full context: ${matchedAssets.length} assets for portfolios [${mentionedPortfolios}]`);
+      }
+
+      // Limit assets for non-composition queries
+      const assetsToFormat = forceFullContext 
+        ? matchedAssets  // no limit for look-through
+        : matchedAssets.slice(0, 30);  // limit for normal queries
+
+      if (assetsToFormat.length > 0) {
         // Separar AMCs (nível 1) dos filhos (nível 2)
         const amcAssets = matchedAssets.filter((a: any) => !a.amc_parent);
         const childAssets = matchedAssets.filter((a: any) => a.amc_parent);
