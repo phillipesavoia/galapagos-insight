@@ -1,6 +1,7 @@
 import { Layout } from "@/components/Layout";
 import { MarketCard } from "@/components/dashboard/MarketCard";
 import { usePortfolioMarketData, useBenchmarkMarketData } from "@/hooks/usePortfolioMarketData";
+import { PORTFOLIOS } from "@/lib/constants";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
