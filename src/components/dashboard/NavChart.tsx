@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import {
   ResponsiveContainer,
   LineChart,
@@ -10,7 +10,6 @@ import {
 } from "recharts";
 import type { PortfolioName } from "@/lib/constants";
 import type { NavDataPoint } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
 
 const BENCHMARK_OPTIONS = [
   { label: "Nenhum", value: "" },
@@ -30,50 +29,25 @@ interface NavChartProps {
   hideHeader?: boolean;
   selectedBenchmark?: string;
   onBenchmarkChange?: (b: string) => void;
+  benchmarkData?: { date: string; value: number }[];
+  loadingBenchmark?: boolean;
 }
 
-export function NavChart({ portfolio, data, loading, hideHeader, selectedBenchmark: externalBenchmark, onBenchmarkChange }: NavChartProps) {
+export function NavChart({
+  portfolio,
+  data,
+  loading,
+  hideHeader,
+  selectedBenchmark: externalBenchmark,
+  onBenchmarkChange,
+  benchmarkData = [],
+  loadingBenchmark = false,
+}: NavChartProps) {
   const isEmpty = data.length === 0;
 
   const [internalBenchmark, setInternalBenchmark] = useState("");
   const selectedBenchmark = externalBenchmark ?? internalBenchmark;
   const setSelectedBenchmark = onBenchmarkChange ?? setInternalBenchmark;
-  const [benchmarkData, setBenchmarkData] = useState<{ date: string; value: number }[]>([]);
-  const [loadingBenchmark, setLoadingBenchmark] = useState(false);
-
-  useEffect(() => {
-    if (!selectedBenchmark) {
-      setBenchmarkData([]);
-      return;
-    }
-    const fetchBenchmark = async () => {
-      setLoadingBenchmark(true);
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const res = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/market-proxy`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${session?.access_token}`,
-              "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            },
-            body: JSON.stringify({ tickers: [selectedBenchmark], range: "1y" }),
-          }
-        );
-        const result = await res.json();
-        const d = result[selectedBenchmark];
-        if (d?.history) {
-          setBenchmarkData(d.history);
-        }
-      } catch (e) {
-        console.warn("Benchmark fetch failed:", e);
-      }
-      setLoadingBenchmark(false);
-    };
-    fetchBenchmark();
-  }, [selectedBenchmark]);
 
   // Normalize NAV to base 100
   const normalizedData = useMemo(() => {
@@ -86,18 +60,12 @@ export function NavChart({ portfolio, data, loading, hideHeader, selectedBenchma
     }));
   }, [data]);
 
-  // Merge normalized data with benchmark, re-normalizing benchmark to same start date
+  // Merge normalized data with benchmark
   const mergedData = useMemo(() => {
     if (normalizedData.length === 0) return [];
-    const firstDate = normalizedData[0].date;
-    // Find the benchmark value closest to (or on) the first portfolio date
-    const bmAtStart = benchmarkData.find((b) => b.date >= firstDate);
-    const bmBase = bmAtStart?.value || null;
-
     return normalizedData.map((point) => {
       const bm = benchmarkData.find((b) => b.date === point.date);
-      const reNormalized = bm && bmBase ? parseFloat(((bm.value / bmBase) * 100).toFixed(2)) : null;
-      return { ...point, benchmark: reNormalized };
+      return { ...point, benchmark: bm?.value ?? null };
     });
   }, [normalizedData, benchmarkData]);
 
