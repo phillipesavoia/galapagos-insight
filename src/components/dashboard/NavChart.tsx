@@ -71,14 +71,24 @@ export function NavChart({ portfolio, data, loading, hideHeader }: NavChartProps
     fetchBenchmark();
   }, [selectedBenchmark]);
 
-  // Merge NAV data with benchmark data by date
-  const mergedData = data.map((point) => {
-    const bm = benchmarkData.find((b) => b.date === point.date);
-    return {
-      ...point,
-      benchmark: bm?.value ?? null,
-    };
-  });
+  // Normalize NAV to base 100
+  const normalizedData = useMemo(() => {
+    if (!data || data.length === 0) return [];
+    const firstNav = data[0]?.nav;
+    if (!firstNav || firstNav === 0) return [];
+    return data.map(d => ({
+      ...d,
+      normalizedNav: parseFloat(((d.nav / firstNav) * 100).toFixed(4)),
+    }));
+  }, [data]);
+
+  // Merge normalized data with benchmark
+  const mergedData = useMemo(() => {
+    return normalizedData.map((point) => {
+      const bm = benchmarkData.find((b) => b.date === point.date);
+      return { ...point, benchmark: bm?.value ?? null };
+    });
+  }, [normalizedData, benchmarkData]);
 
   return (
     <div className={hideHeader ? "" : "rounded-xl border border-border bg-card p-5"}>
