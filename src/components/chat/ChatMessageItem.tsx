@@ -302,25 +302,6 @@ export function ChatMessageItem({
                 <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
               </button>
             </div>
-            {isLastMessage && !isLoading && (
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {[
-                  "Quais são os principais destaques do último factsheet?",
-                  "Resuma a apresentação mais recente dos portfólios",
-                  "Qual a performance reportada no factsheet do Growth?",
-                  "O que mudou na alocação segundo a última apresentação?",
-                ].map((q, i) => (
-                  <button
-                    key={i}
-                    onClick={() => onSend(q)}
-                    disabled={isLoading}
-                    className="max-w-xs truncate rounded-full border border-border bg-secondary px-2.5 py-1 text-[11px] text-foreground transition-colors hover:bg-accent disabled:opacity-50"
-                  >
-                    {q}
-                  </button>
-                ))}
-              </div>
-            )}
           </>
         )}
       </div>
