@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   ResponsiveContainer,
   LineChart,
@@ -71,14 +71,24 @@ export function NavChart({ portfolio, data, loading, hideHeader }: NavChartProps
     fetchBenchmark();
   }, [selectedBenchmark]);
 
-  // Merge NAV data with benchmark data by date
-  const mergedData = data.map((point) => {
-    const bm = benchmarkData.find((b) => b.date === point.date);
-    return {
-      ...point,
-      benchmark: bm?.value ?? null,
-    };
-  });
+  // Normalize NAV to base 100
+  const normalizedData = useMemo(() => {
+    if (!data || data.length === 0) return [];
+    const firstNav = data[0]?.nav;
+    if (!firstNav || firstNav === 0) return [];
+    return data.map(d => ({
+      ...d,
+      normalizedNav: parseFloat(((d.nav / firstNav) * 100).toFixed(4)),
+    }));
+  }, [data]);
+
+  // Merge normalized data with benchmark
+  const mergedData = useMemo(() => {
+    return normalizedData.map((point) => {
+      const bm = benchmarkData.find((b) => b.date === point.date);
+      return { ...point, benchmark: bm?.value ?? null };
+    });
+  }, [normalizedData, benchmarkData]);
 
   return (
     <div className={hideHeader ? "" : "rounded-xl border border-border bg-card p-5"}>
@@ -86,7 +96,7 @@ export function NavChart({ portfolio, data, loading, hideHeader }: NavChartProps
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-sm font-semibold text-foreground">
-              NAV Diário — {portfolio}
+              Retorno Acumulado — {portfolio}
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
               {isEmpty && !loading ? "Nenhum dado disponível" : "Evolução YTD"}
@@ -95,7 +105,7 @@ export function NavChart({ portfolio, data, loading, hideHeader }: NavChartProps
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-primary" />
-              NAV
+              Portfólio
             </span>
             {selectedBenchmark && (
               <span className="flex items-center gap-1.5">
@@ -153,7 +163,7 @@ export function NavChart({ portfolio, data, loading, hideHeader }: NavChartProps
               axisLine={false}
               tickLine={false}
               domain={["dataMin - 1", "dataMax + 1"]}
-              tickFormatter={(v: number) => `US$ ${v.toFixed(2)}`}
+              tickFormatter={(v: number) => `${v >= 100 ? "+" : ""}${(v - 100).toFixed(1)}%`}
             />
             <Tooltip
               contentStyle={{
@@ -168,14 +178,14 @@ export function NavChart({ portfolio, data, loading, hideHeader }: NavChartProps
                 return d.toLocaleDateString("pt-BR");
               }}
               formatter={(value: number, name: string) => [
-                `US$ ${value.toFixed(2)}`,
-                name === "benchmark" ? selectedBenchmark : "NAV",
+                `${value >= 100 ? "+" : ""}${(value - 100).toFixed(2)}%`,
+                name === "benchmark" ? selectedBenchmark : "Portfólio",
               ]}
             />
             <Line
               type="monotone"
-              dataKey="nav"
-              name="NAV"
+              dataKey="normalizedNav"
+              name="Portfólio"
               stroke="hsl(160 84% 39%)"
               strokeWidth={2}
               dot={false}
