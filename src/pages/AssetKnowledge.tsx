@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ interface Asset {
   risk_profile: string;
   portfolios: string[];
   weight_pct: Record<string, number>;
+  amc_parent: string | null;
 }
 
 interface ParsedRow {
@@ -94,6 +95,7 @@ export default function AssetKnowledge() {
   const [importProgress, setImportProgress] = useState(0);
   const [droppedFileName, setDroppedFileName] = useState("");
   const [selectedPortfolio, setSelectedPortfolio] = useState("");
+  const [view, setView] = useState<"cards" | "matriz">("cards");
   const [referenceDate, setReferenceDate] = useState<Date | undefined>(undefined);
 
   const fetchAssets = async () => {
@@ -397,6 +399,35 @@ export default function AssetKnowledge() {
     fetchAssets();
   };
 
+  // AMC groups for matrix view
+  const amcGroups = useMemo(() => {
+    const amcAssets = assets.filter(a =>
+      !a.amc_parent &&
+      Object.keys(a.weight_pct || {}).length > 0 &&
+      assets.some(child => child.amc_parent === a.ticker)
+    );
+    return amcAssets.map(amc => ({
+      amc,
+      children: assets
+        .filter(child => child.amc_parent === amc.ticker)
+        .sort((a, b) => {
+          const wa = Math.max(...PORTFOLIO_OPTIONS.map(p => (a.weight_pct as any)?.[p] ?? 0));
+          const wb = Math.max(...PORTFOLIO_OPTIONS.map(p => (b.weight_pct as any)?.[p] ?? 0));
+          return wb - wa;
+        }),
+    }));
+  }, [assets]);
+
+  // Direct assets: no amc_parent, has weight, not AMCs
+  const directAssets = useMemo(() => {
+    const amcTickers = new Set(amcGroups.map(g => g.amc.ticker));
+    return assets.filter(a =>
+      !a.amc_parent &&
+      !amcTickers.has(a.ticker) &&
+      Object.values(a.weight_pct || {}).some(v => (v as number) > 0)
+    );
+  }, [assets, amcGroups]);
+
   const validCount = parsedRows.filter((r) => r.valid).length;
   const invalidCount = parsedRows.filter((r) => !r.valid).length;
   const uniqueTickers = new Set(parsedRows.filter((r) => r.valid).map((r) => r.ticker)).size;
@@ -411,7 +442,29 @@ export default function AssetKnowledge() {
             <BookOpen className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-bold text-foreground">Asset Dictionary</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <div className="flex gap-2">
+              <button
+                onClick={() => setView("cards")}
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  view === "cards"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent/10"
+                }`}
+              >
+                Ativos
+              </button>
+              <button
+                onClick={() => setView("matriz")}
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  view === "matriz"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent/10"
+                }`}
+              >
+                Matriz de Alocação
+              </button>
+            </div>
             <Button onClick={openNew} className="gap-2">
               <Plus className="h-4 w-4" /> Novo Ativo
             </Button>
@@ -485,12 +538,114 @@ export default function AssetKnowledge() {
           </div>
         </div>
 
-        {/* Assets table */}
+        {/* Assets table / Matrix */}
         {loading ? (
           <div className="text-sm text-muted-foreground">Carregando...</div>
         ) : assets.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <p>Nenhum ativo cadastrado. Faça upload das planilhas dos modelos acima.</p>
+          </div>
+        ) : view === "matriz" ? (
+          <div className="border rounded-lg p-6 overflow-x-auto">
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left py-2 pr-4 font-medium text-muted-foreground w-64 sticky left-0 bg-background">Investimento</th>
+                  <th className="text-left py-2 pr-2 font-medium text-muted-foreground w-24">Classe</th>
+                  {PORTFOLIO_OPTIONS.map(p => (
+                    <th key={p} className="text-right py-2 px-3 font-medium text-muted-foreground whitespace-nowrap">{p}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {amcGroups.map(({ amc, children }) => (
+                  <React.Fragment key={amc.id}>
+                    <tr className="border-b border-border/30 bg-muted/10">
+                      <td className="py-2 pr-4 font-medium text-foreground sticky left-0 bg-muted/10">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-medium">AMC</span>
+                          {amc.name}
+                        </div>
+                      </td>
+                      <td className="py-2 pr-2 text-muted-foreground">{amc.asset_class}</td>
+                      {PORTFOLIO_OPTIONS.map(p => {
+                        const w = (amc.weight_pct as Record<string, number>)?.[p];
+                        return (
+                          <td key={p} className="py-2 px-3 text-right">
+                            {w ? (
+                              <span className="text-foreground font-medium">{w.toFixed(1)}%</span>
+                            ) : (
+                              <span className="text-muted-foreground/40">—</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                    {children.map(child => (
+                      <tr key={child.id} className="border-b border-border/20 hover:bg-muted/5">
+                        <td className="py-1.5 pr-4 pl-6 text-muted-foreground sticky left-0 bg-background hover:bg-muted/5">
+                          <div className="flex flex-col">
+                            <span className="font-mono text-[10px] text-primary">{child.ticker}</span>
+                            <span>{child.name}</span>
+                          </div>
+                        </td>
+                        <td className="py-1.5 pr-2 text-muted-foreground">{child.asset_class}</td>
+                        {PORTFOLIO_OPTIONS.map(p => {
+                          const w = (child.weight_pct as Record<string, number>)?.[p];
+                          return (
+                            <td key={p} className="py-1.5 px-3 text-right">
+                              {w ? (
+                                <span className="text-foreground">{w.toFixed(2)}%</span>
+                              ) : (
+                                <span className="text-muted-foreground/30">—</span>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                ))}
+                {directAssets.map(asset => (
+                  <tr key={asset.id} className="border-b border-border/20 hover:bg-muted/5">
+                    <td className="py-1.5 pr-4 text-muted-foreground sticky left-0 bg-background hover:bg-muted/5">
+                      <div className="flex flex-col">
+                        <span className="font-mono text-[10px] text-primary">{asset.ticker}</span>
+                        <span>{asset.name}</span>
+                      </div>
+                    </td>
+                    <td className="py-1.5 pr-2 text-muted-foreground">{asset.asset_class}</td>
+                    {PORTFOLIO_OPTIONS.map(p => {
+                      const w = (asset.weight_pct as Record<string, number>)?.[p];
+                      return (
+                        <td key={p} className="py-1.5 px-3 text-right">
+                          {w ? (
+                            <span className="text-foreground">{w.toFixed(2)}%</span>
+                          ) : (
+                            <span className="text-muted-foreground/30">—</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+                <tr className="border-t-2 border-border bg-muted/20 font-semibold">
+                  <td className="py-2.5 pr-4 text-foreground sticky left-0 bg-muted/20" colSpan={2}>Total</td>
+                  {PORTFOLIO_OPTIONS.map(p => {
+                    const total = assets
+                      .filter(a => !a.amc_parent)
+                      .reduce((sum, a) => sum + ((a.weight_pct as Record<string, number>)?.[p] ?? 0), 0);
+                    return (
+                      <td key={p} className="py-2.5 px-3 text-right">
+                        <span className={total > 0 ? (Math.abs(total - 100) < 1 ? "text-green-500" : "text-yellow-500") : "text-muted-foreground/40"}>
+                          {total > 0 ? `${total.toFixed(1)}%` : "—"}
+                        </span>
+                      </td>
+                    );
+                  })}
+                </tr>
+              </tbody>
+            </table>
           </div>
         ) : (
           <div className="border rounded-lg">
