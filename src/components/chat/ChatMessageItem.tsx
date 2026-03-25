@@ -3,6 +3,7 @@ import remarkGfm from "remark-gfm";
 import { ChevronDown, ChevronRight, ThumbsUp, ThumbsDown, RefreshCw, Copy } from "lucide-react";
 import { InlineBarChart } from "@/components/chat/InlineBarChart";
 import { FlashFactsheet } from "@/components/chat/FlashFactsheet";
+import InlineReturnsTable from "@/components/chat/InlineReturnsTable";
 import type { ChatMessage, ToolCallData } from "@/hooks/useChatMessages";
 
 function extractFollowUps(content: string): { cleanContent: string; followUps: string[] } {
@@ -65,6 +66,17 @@ function renderToolCall(tc: ToolCallData, idx: number) {
         weightsByPortfolio={tc.input.weightsByPortfolio}
         radarMetrics={tc.input.radarMetrics || []}
         thesis={tc.input.thesis || ""}
+      />
+    );
+  }
+  if (tc.tool === "renderizar_tabela_retornos" && tc.input) {
+    return (
+      <InlineReturnsTable
+        key={idx}
+        title={tc.input.title || ""}
+        columns={tc.input.columns || []}
+        rows={tc.input.rows || []}
+        colorize={tc.input.colorize}
       />
     );
   }
