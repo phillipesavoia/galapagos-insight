@@ -81,6 +81,17 @@ function renderToolCall(tc: ToolCallData, idx: number) {
       />
     );
   }
+  if (tc.tool === "renderizar_grafico_linha" && tc.input) {
+    return (
+      <InlineLineChart
+        key={idx}
+        title={tc.input.title || ""}
+        data={tc.input.data || []}
+        lines={tc.input.lines || []}
+        yAxisLabel={tc.input.yAxisLabel}
+      />
+    );
+  }
   return null;
 }
 
