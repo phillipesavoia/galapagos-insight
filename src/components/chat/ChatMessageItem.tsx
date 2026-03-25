@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, ThumbsUp, ThumbsDown, RefreshCw, Copy } from
 import { InlineBarChart } from "@/components/chat/InlineBarChart";
 import { FlashFactsheet } from "@/components/chat/FlashFactsheet";
 import InlineReturnsTable from "@/components/chat/InlineReturnsTable";
+import InlineLineChart from "@/components/chat/InlineLineChart";
 import type { ChatMessage, ToolCallData } from "@/hooks/useChatMessages";
 
 function extractFollowUps(content: string): { cleanContent: string; followUps: string[] } {
@@ -77,6 +78,17 @@ function renderToolCall(tc: ToolCallData, idx: number) {
         columns={tc.input.columns || []}
         rows={tc.input.rows || []}
         colorize={tc.input.colorize}
+      />
+    );
+  }
+  if (tc.tool === "renderizar_grafico_linha" && tc.input) {
+    return (
+      <InlineLineChart
+        key={idx}
+        title={tc.input.title || ""}
+        data={tc.input.data || []}
+        lines={tc.input.lines || []}
+        yAxisLabel={tc.input.yAxisLabel}
       />
     );
   }
