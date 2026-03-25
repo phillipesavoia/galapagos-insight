@@ -13,10 +13,12 @@ interface PortfolioTabProps {
   loading: boolean;
   period: Period;
   onPeriodChange: (p: Period) => void;
+  selectedBenchmark: string;
+  onBenchmarkChange: (b: string) => void;
 }
 
 
-export function PortfolioTab({ portfolio, navData, loading, period, onPeriodChange }: PortfolioTabProps) {
+export function PortfolioTab({ portfolio, navData, loading, period, onPeriodChange, selectedBenchmark, onBenchmarkChange }: PortfolioTabProps) {
   const filtered = useMemo(() => filterByPeriod(navData, period), [navData, period]);
 
   return (
@@ -35,7 +37,7 @@ export function PortfolioTab({ portfolio, navData, loading, period, onPeriodChan
           </div>
           <PeriodFilter value={period} onChange={onPeriodChange} />
         </div>
-        <NavChart portfolio={portfolio} data={filtered} loading={loading} hideHeader />
+        <NavChart portfolio={portfolio} data={filtered} loading={loading} hideHeader selectedBenchmark={selectedBenchmark} onBenchmarkChange={onBenchmarkChange} />
       </div>
       <RiskMetrics data={filtered} loading={loading} />
       <MonthlyReturnsTable data={navData} loading={loading} />
