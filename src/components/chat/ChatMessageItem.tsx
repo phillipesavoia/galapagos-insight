@@ -5,6 +5,7 @@ import { InlineBarChart } from "@/components/chat/InlineBarChart";
 import { FlashFactsheet } from "@/components/chat/FlashFactsheet";
 import InlineReturnsTable from "@/components/chat/InlineReturnsTable";
 import InlineLineChart from "@/components/chat/InlineLineChart";
+import InlinePieChart from "@/components/chat/InlinePieChart";
 import type { ChatMessage, ToolCallData } from "@/hooks/useChatMessages";
 
 function extractFollowUps(content: string): { cleanContent: string; followUps: string[] } {
@@ -89,6 +90,16 @@ function renderToolCall(tc: ToolCallData, idx: number) {
         data={tc.input.data || []}
         lines={tc.input.lines || []}
         yAxisLabel={tc.input.yAxisLabel}
+      />
+    );
+  }
+  if (tc.tool === "renderizar_pie_chart" && tc.input) {
+    return (
+      <InlinePieChart
+        key={idx}
+        title={tc.input.title || ""}
+        data={tc.input.data || []}
+        donut={tc.input.donut}
       />
     );
   }
