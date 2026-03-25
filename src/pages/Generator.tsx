@@ -9,24 +9,92 @@ import html2pdf from "html2pdf.js";
 const tabs = ["Carta Mensal", "Resumo de Fundo", "Comparativo"] as const;
 type Tab = (typeof tabs)[number];
 
+interface AssetOption {
+  ticker: string;
+  name: string;
+  fund_name: string;
+}
+
+interface AssetGroup {
+  label: string;
+  assets: AssetOption[];
+}
+
+const GROUP_LABELS = ["todos", "Model Portfolios", "AMCs Galapagos", "UCITS / ETFs", "Fundos"] as const;
+
 export default function Generator() {
   const previewRef = useRef<HTMLDivElement>(null);
   const [fundNames, setFundNames] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>("Carta Mensal");
   const [clientName, setClientName] = useState("Ricardo Almeida");
 
+  const [assetGroups, setAssetGroups] = useState<AssetGroup[]>([]);
+  const [selectedGroup, setSelectedGroup] = useState<string>("todos");
+
   useEffect(() => {
-    const fetchFunds = async () => {
-      const { data } = await supabase
+    const fetchGroups = async () => {
+      const { data: docs } = await supabase
         .from("documents")
-        .select("fund_name")
+        .select("fund_name, type")
         .eq("status", "indexed")
         .not("fund_name", "is", null);
-      const names = [...new Set(data?.map((d) => d.fund_name).filter(Boolean))] as string[];
-      setFundNames(names);
+
+      const { data: assets } = await supabase
+        .from("asset_knowledge")
+        .select("ticker, name, asset_class, portfolios, amc_parent")
+        .order("name");
+
+      const docNames = new Set((docs || []).map(d => d.fund_name).filter(Boolean));
+
+      const modelPortfolios = ["Conservative", "Income", "Balanced", "Growth", "Liquidity", "Bond Portfolio"];
+
+      const amcs = (assets || []).filter(a =>
+        a.name?.toLowerCase().includes("amc") ||
+        ["XS3065236278", "XS3064438362", "XS2793259743", "XS2838974942"].includes(a.ticker)
+      );
+
+      const amcTickers = new Set(amcs.map(a => a.ticker));
+
+      const ucits = (assets || []).filter(a =>
+        !amcTickers.has(a.ticker) &&
+        (a.ticker?.includes("LN") || a.ticker?.includes("ID") || a.ticker?.includes("LX") || a.ticker?.includes("SW"))
+      );
+
+      const ucitsTickers = new Set(ucits.map(a => a.ticker));
+
+      const funds = (assets || []).filter(a =>
+        !amcTickers.has(a.ticker) &&
+        !ucitsTickers.has(a.ticker) &&
+        a.asset_class !== "Cash" &&
+        !a.ticker?.includes("CORP") &&
+        !a.ticker?.includes("INDEX")
+      );
+
+      const toOption = (a: { ticker: string; name: string }): AssetOption => ({
+        ticker: a.ticker,
+        name: a.name,
+        fund_name: a.name,
+      });
+
+      setAssetGroups([
+        { label: "Model Portfolios", assets: modelPortfolios.map(p => ({ ticker: p, name: p, fund_name: p })) },
+        { label: "AMCs Galapagos", assets: amcs.map(toOption) },
+        { label: "UCITS / ETFs", assets: ucits.map(toOption) },
+        { label: "Fundos", assets: funds.map(toOption) },
+      ]);
+
+      setFundNames([...new Set((docs || []).map(d => d.fund_name).filter(Boolean) as string[])]);
     };
-    fetchFunds();
+    fetchGroups();
   }, []);
+
+  const filteredOptions = useMemo(() => {
+    if (selectedGroup === "todos") {
+      return assetGroups.flatMap(g => g.assets);
+    }
+    return assetGroups.find(g => g.label === selectedGroup)?.assets || [];
+  }, [assetGroups, selectedGroup]);
+
   const [period, setPeriod] = useState("2025-02");
   const [selectedFunds, setSelectedFunds] = useState<string[]>([]);
   const [tone, setTone] = useState("Neutro");
@@ -285,6 +353,29 @@ export default function Generator() {
     "Comparativo": "Gerar Comparativo",
   };
 
+  const categoryFilter = (
+    <div>
+      <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+        Categoria
+      </label>
+      <div className="flex flex-wrap gap-1.5">
+        {GROUP_LABELS.map(g => (
+          <button
+            key={g}
+            onClick={() => setSelectedGroup(g)}
+            className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+              selectedGroup === g
+                ? "bg-primary text-primary-foreground border-primary"
+                : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+            }`}
+          >
+            {g === "todos" ? "Todos" : g}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <Layout>
       <div className="p-6">
@@ -318,6 +409,7 @@ export default function Generator() {
                   <label className="block text-sm font-medium text-foreground mb-1.5">Período</label>
                   <input type="month" value={period} onChange={(e) => setPeriod(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 [color-scheme:dark]" />
                 </div>
+                {categoryFilter}
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">Fundos em destaque</label>
                   <div className="flex flex-wrap gap-1.5 mb-2">
@@ -328,10 +420,26 @@ export default function Generator() {
                       </span>
                     ))}
                   </div>
-                  <select onChange={(e) => { if (e.target.value && !selectedFunds.includes(e.target.value)) setSelectedFunds((p) => [...p, e.target.value]); e.target.value = ""; }} className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-sm text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50" defaultValue="">
-                    <option value="" disabled>Adicionar fundo...</option>
-                    {fundNames.filter((f) => !selectedFunds.includes(f)).map((f) => (<option key={f} value={f}>{f}</option>))}
-                  </select>
+                  <div className="space-y-1 max-h-48 overflow-y-auto bg-secondary border border-border rounded-lg p-2">
+                    {filteredOptions.filter(opt => !selectedFunds.includes(opt.fund_name)).map(opt => (
+                      <label key={opt.ticker} className="flex items-center gap-2 text-sm cursor-pointer hover:text-foreground py-0.5 text-muted-foreground">
+                        <input
+                          type="checkbox"
+                          checked={selectedFunds.includes(opt.fund_name)}
+                          onChange={e => {
+                            if (e.target.checked) {
+                              setSelectedFunds(prev => [...prev, opt.fund_name]);
+                            } else {
+                              setSelectedFunds(prev => prev.filter(f => f !== opt.fund_name));
+                            }
+                          }}
+                          className="rounded"
+                        />
+                        <span className="font-mono text-[10px] text-primary">{opt.ticker}</span>
+                        <span className="truncate">{opt.name}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">Tom desejado</label>
@@ -350,10 +458,12 @@ export default function Generator() {
 
             {activeTab === "Resumo de Fundo" && (
               <>
+                {categoryFilter}
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">Fundo</label>
                   <select value={fundB} onChange={(e) => setFundB(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50">
-                    {fundNames.map((f) => <option key={f} value={f}>{f}</option>)}
+                    <option value="">Selecione um investimento...</option>
+                    {filteredOptions.map((opt) => <option key={opt.ticker} value={opt.fund_name}>{opt.name}</option>)}
                   </select>
                 </div>
                 <div>
@@ -373,23 +483,26 @@ export default function Generator() {
 
             {activeTab === "Comparativo" && (
               <>
+                {categoryFilter}
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">Fundo A</label>
                   <select value={fundC1} onChange={(e) => setFundC1(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50">
-                    {fundNames.map((f) => <option key={f} value={f}>{f}</option>)}
+                    <option value="">Selecione um investimento...</option>
+                    {filteredOptions.map((opt) => <option key={opt.ticker} value={opt.fund_name}>{opt.name}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">Fundo B</label>
                   <select value={fundC2} onChange={(e) => setFundC2(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50">
-                    {fundNames.map((f) => <option key={f} value={f}>{f}</option>)}
+                    <option value="">Selecione um investimento...</option>
+                    {filteredOptions.map((opt) => <option key={opt.ticker} value={opt.fund_name}>{opt.name}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">Fundo C (opcional)</label>
                   <select value={fundC3} onChange={(e) => setFundC3(e.target.value)} className="w-full bg-secondary border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50">
                     <option value="">+ Adicionar</option>
-                    {fundNames.map((f) => <option key={f} value={f}>{f}</option>)}
+                    {filteredOptions.map((opt) => <option key={opt.ticker} value={opt.fund_name}>{opt.name}</option>)}
                   </select>
                 </div>
                 <div>
