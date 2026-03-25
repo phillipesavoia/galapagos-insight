@@ -25,7 +25,7 @@ export function PortfolioTab({ portfolio, navData, loading, period, onPeriodChan
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-sm font-semibold text-foreground">
-              NAV Diário — {portfolio}
+              Retorno Acumulado — {portfolio}
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
               {filtered.length === 0 && !loading
