@@ -9,7 +9,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const { tickers } = await req.json();
+    const { tickers, range = "1mo" } = await req.json();
     if (!tickers || !Array.isArray(tickers)) {
       return new Response(JSON.stringify({ error: "tickers array required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
     for (const ticker of tickers.slice(0, 20)) {
       try {
         const res = await fetch(
-          `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1mo`,
+          `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=${range}`,
           { headers: { "User-Agent": "Mozilla/5.0" } }
         );
         if (!res.ok) { results[ticker] = null; continue; }
@@ -55,6 +55,15 @@ Deno.serve(async (req) => {
         const chartPrevClose = meta.chartPreviousClose || closes[0] || price;
         const changeYTD = ((price - chartPrevClose) / chartPrevClose) * 100;
 
+        // Normalized history (base 100) for benchmark overlay
+        const firstClose = closes.find((c: number | null) => c != null) || 1;
+        const history = timestamps
+          .map((t: number, i: number) => ({
+            date: new Date(t * 1000).toISOString().slice(0, 10),
+            value: closes[i] != null ? parseFloat(((closes[i] / firstClose) * 100).toFixed(2)) : null,
+          }))
+          .filter((d: any) => d.value !== null);
+
         results[ticker] = {
           lastPrice: parseFloat(price.toFixed(2)),
           currency: meta.currency || "USD",
@@ -62,6 +71,7 @@ Deno.serve(async (req) => {
           changeMTD: parseFloat(changeMTD.toFixed(2)),
           changeYTD: parseFloat(changeYTD.toFixed(2)),
           sparklineData: sparklineData.slice(-30),
+          history,
         };
       } catch (e) {
         results[ticker] = null;
