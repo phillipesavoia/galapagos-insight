@@ -69,6 +69,17 @@ function renderToolCall(tc: ToolCallData, idx: number) {
       />
     );
   }
+  if (tc.tool === "renderizar_tabela_retornos" && tc.input) {
+    return (
+      <InlineReturnsTable
+        key={idx}
+        title={tc.input.title || ""}
+        columns={tc.input.columns || []}
+        rows={tc.input.rows || []}
+        colorize={tc.input.colorize}
+      />
+    );
+  }
   return null;
 }
 
