@@ -563,8 +563,7 @@ Deno.serve(async (req) => {
         console.log(`Asset Knowledge: narrow query — matched ${matchedAssets.length} assets`);
       }
       
-      // Force full context for composition queries with history
-      const hasHistory = claudeMessages !== undefined; // will be defined later, but logic applies to asset matching
+      // Force full context for composition queries
       const forceFullContext = isCompositionQuery || 
         /look.?through|abrir|detalh|explo|quebr|listar|todos os ativos|composicao completa|composição completa/i.test(query);
 
