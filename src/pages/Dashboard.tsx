@@ -10,6 +10,7 @@ import type { NavDataPoint } from "@/lib/utils";
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<string>("Conservative");
   const [period, setPeriod] = useState<Period>("YTD");
+  const [selectedBenchmark, setSelectedBenchmark] = useState("");
   const [navData, setNavData] = useState<NavDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
 
