@@ -332,6 +332,95 @@ Exemplos de quando usar:
       required: ["ticker"],
     },
   },
+  {
+    name: "renderizar_tabela_retornos",
+    description: "Renderiza uma tabela formatada de retornos mensais e anuais. Use quando o usuário pedir histórico de retornos, performance mensal, tabela de resultados ou comparativo de períodos.",
+    input_schema: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Título da tabela" },
+        rows: {
+          type: "array",
+          description: "Array de linhas. Cada linha tem 'label' e campos numéricos para cada período.",
+          items: {
+            type: "object",
+            properties: {
+              label: { type: "string" },
+            },
+            additionalProperties: true,
+          },
+        },
+        columns: {
+          type: "array",
+          description: "Colunas da tabela (ex: ['Jan', 'Fev', 'Mar', ..., 'Ano'])",
+          items: { type: "string" },
+        },
+        colorize: { type: "boolean", description: "Se true, colore positivo em verde e negativo em vermelho" },
+      },
+      required: ["title", "rows", "columns"],
+    },
+  },
+  {
+    name: "renderizar_grafico_linha",
+    description: "Renderiza um gráfico de linha para evolução temporal. Use para mostrar NAV acumulado, performance ao longo do tempo, ou comparação de múltiplas séries históricas.",
+    input_schema: {
+      type: "object",
+      properties: {
+        title: { type: "string" },
+        data: {
+          type: "array",
+          description: "Array de pontos com 'date' (YYYY-MM-DD) e campos numéricos para cada série",
+          items: {
+            type: "object",
+            properties: {
+              date: { type: "string" },
+            },
+            additionalProperties: true,
+          },
+        },
+        lines: {
+          type: "array",
+          description: "Definição das linhas do gráfico",
+          items: {
+            type: "object",
+            properties: {
+              dataKey: { type: "string" },
+              label: { type: "string" },
+              color: { type: "string" },
+            },
+            required: ["dataKey", "label"],
+          },
+        },
+        yAxisLabel: { type: "string" },
+      },
+      required: ["title", "data", "lines"],
+    },
+  },
+  {
+    name: "renderizar_pie_chart",
+    description: "Renderiza um pie chart ou donut chart de composição. Use para mostrar alocação por classe de ativo, distribuição por portfólio, ou breakdown de qualquer composição percentual.",
+    input_schema: {
+      type: "object",
+      properties: {
+        title: { type: "string" },
+        data: {
+          type: "array",
+          description: "Array de fatias com 'name' e 'value' (percentual)",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              value: { type: "number" },
+              color: { type: "string", description: "Cor hex opcional" },
+            },
+            required: ["name", "value"],
+          },
+        },
+        donut: { type: "boolean", description: "Se true, renderiza como donut chart" },
+      },
+      required: ["title", "data"],
+    },
+  },
 ];
 
 Deno.serve(async (req) => {
