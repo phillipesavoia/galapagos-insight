@@ -49,6 +49,7 @@ export type Database = {
       }
       asset_knowledge: {
         Row: {
+          amc_parent: string | null
           as_of_date: string | null
           asset_class: string
           created_at: string
@@ -63,6 +64,7 @@ export type Database = {
           weight_pct: Json | null
         }
         Insert: {
+          amc_parent?: string | null
           as_of_date?: string | null
           asset_class: string
           created_at?: string
@@ -77,6 +79,7 @@ export type Database = {
           weight_pct?: Json | null
         }
         Update: {
+          amc_parent?: string | null
           as_of_date?: string | null
           asset_class?: string
           created_at?: string
