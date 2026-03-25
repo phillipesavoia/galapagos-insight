@@ -163,7 +163,7 @@ export function NavChart({ portfolio, data, loading, hideHeader }: NavChartProps
               axisLine={false}
               tickLine={false}
               domain={["dataMin - 1", "dataMax + 1"]}
-              tickFormatter={(v: number) => `US$ ${v.toFixed(2)}`}
+              tickFormatter={(v: number) => `${v >= 100 ? "+" : ""}${(v - 100).toFixed(1)}%`}
             />
             <Tooltip
               contentStyle={{
