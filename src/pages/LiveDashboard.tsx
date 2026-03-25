@@ -1,6 +1,7 @@
 import { Layout } from "@/components/Layout";
 import { MarketCard } from "@/components/dashboard/MarketCard";
 import { usePortfolioMarketData, useBenchmarkMarketData } from "@/hooks/usePortfolioMarketData";
+import { PORTFOLIOS } from "@/lib/constants";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -124,7 +125,7 @@ export default function LiveDashboard() {
               Nenhum dado de NAV encontrado na base.
             </p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {portfolios.map((p) => (
                 <MarketCard
                   key={p.name}
@@ -136,6 +137,23 @@ export default function LiveDashboard() {
                   changeYTD={p.changeYTD}
                   sparklineData={p.sparklineData}
                 />
+              ))}
+              {PORTFOLIOS.filter(n => !portfolios.some(p => p.name === n)).map((name) => (
+                <div
+                  key={name}
+                  className="rounded-xl border border-dashed border-border bg-card/50 p-5 flex flex-col justify-between min-h-[140px]"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{name}</p>
+                    <p className="text-[10px] text-muted-foreground font-mono mt-0.5">Model Portfolio</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-3">
+                    NAV não disponível — faça upload em{" "}
+                    <a href="/admin/nav-upload" className="text-primary hover:underline">
+                      Nav Upload
+                    </a>
+                  </p>
+                </div>
               ))}
             </div>
           )}
