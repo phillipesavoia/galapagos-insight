@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import {
   ResponsiveContainer,
   LineChart,
@@ -9,6 +10,18 @@ import {
 } from "recharts";
 import type { PortfolioName } from "@/lib/constants";
 import type { NavDataPoint } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+
+const BENCHMARK_OPTIONS = [
+  { label: "Nenhum", value: "" },
+  { label: "S&P 500 (^SP500TR)", value: "^SP500TR" },
+  { label: "US Agg (AGG)", value: "AGG" },
+  { label: "MSCI World (URTH)", value: "URTH" },
+  { label: "NASDAQ 100 (^NDX)", value: "^NDX" },
+  { label: "EM Markets (EEM)", value: "EEM" },
+  { label: "High Yield (HYG)", value: "HYG" },
+  { label: "T-Bills (BIL)", value: "BIL" },
+];
 
 interface NavChartProps {
   portfolio: PortfolioName;
@@ -19,6 +32,53 @@ interface NavChartProps {
 
 export function NavChart({ portfolio, data, loading, hideHeader }: NavChartProps) {
   const isEmpty = data.length === 0;
+
+  const [selectedBenchmark, setSelectedBenchmark] = useState("");
+  const [benchmarkData, setBenchmarkData] = useState<{ date: string; value: number }[]>([]);
+  const [loadingBenchmark, setLoadingBenchmark] = useState(false);
+
+  useEffect(() => {
+    if (!selectedBenchmark) {
+      setBenchmarkData([]);
+      return;
+    }
+    const fetchBenchmark = async () => {
+      setLoadingBenchmark(true);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/market-proxy`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${session?.access_token}`,
+              "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            },
+            body: JSON.stringify({ tickers: [selectedBenchmark], range: "1y" }),
+          }
+        );
+        const result = await res.json();
+        const d = result[selectedBenchmark];
+        if (d?.history) {
+          setBenchmarkData(d.history);
+        }
+      } catch (e) {
+        console.warn("Benchmark fetch failed:", e);
+      }
+      setLoadingBenchmark(false);
+    };
+    fetchBenchmark();
+  }, [selectedBenchmark]);
+
+  // Merge NAV data with benchmark data by date
+  const mergedData = data.map((point) => {
+    const bm = benchmarkData.find((b) => b.date === point.date);
+    return {
+      ...point,
+      benchmark: bm?.value ?? null,
+    };
+  });
 
   return (
     <div className={hideHeader ? "" : "rounded-xl border border-border bg-card p-5"}>
@@ -37,9 +97,34 @@ export function NavChart({ portfolio, data, loading, hideHeader }: NavChartProps
               <span className="h-2 w-2 rounded-full bg-primary" />
               NAV
             </span>
+            {selectedBenchmark && (
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-amber-500" />
+                {selectedBenchmark}
+              </span>
+            )}
           </div>
         </div>
       )}
+
+      {/* Benchmark selector */}
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-xs text-muted-foreground">Benchmark:</span>
+        <select
+          value={selectedBenchmark}
+          onChange={(e) => setSelectedBenchmark(e.target.value)}
+          className="text-xs bg-background border border-border rounded-md px-2 py-1 text-foreground"
+        >
+          {BENCHMARK_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        {loadingBenchmark && (
+          <span className="text-xs text-muted-foreground">Carregando...</span>
+        )}
+      </div>
 
       {loading ? (
         <div className="h-[280px] flex items-center justify-center text-sm text-muted-foreground">
@@ -51,7 +136,7 @@ export function NavChart({ portfolio, data, loading, hideHeader }: NavChartProps
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={280}>
-          <LineChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+          <LineChart data={mergedData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(240 10% 16%)" />
             <XAxis
               dataKey="date"
@@ -82,7 +167,10 @@ export function NavChart({ portfolio, data, loading, hideHeader }: NavChartProps
                 const d = new Date(v);
                 return d.toLocaleDateString("pt-BR");
               }}
-              formatter={(value: number) => [`US$ ${value.toFixed(2)}`, "NAV"]}
+              formatter={(value: number, name: string) => [
+                `US$ ${value.toFixed(2)}`,
+                name === "benchmark" ? selectedBenchmark : "NAV",
+              ]}
             />
             <Line
               type="monotone"
@@ -93,6 +181,18 @@ export function NavChart({ portfolio, data, loading, hideHeader }: NavChartProps
               dot={false}
               activeDot={{ r: 4, fill: "hsl(160 84% 39%)" }}
             />
+            {benchmarkData.length > 0 && (
+              <Line
+                type="monotone"
+                dataKey="benchmark"
+                name="benchmark"
+                stroke="#f59e0b"
+                strokeWidth={1.5}
+                dot={false}
+                strokeDasharray="4 4"
+                connectNulls
+              />
+            )}
           </LineChart>
         </ResponsiveContainer>
       )}
