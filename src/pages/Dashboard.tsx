@@ -70,7 +70,7 @@ export default function Dashboard() {
 
             {PORTFOLIOS.map((p) => (
               <TabsContent key={p} value={p} className="mt-5">
-                <PortfolioTab portfolio={p} navData={navData} loading={loading} period={period} onPeriodChange={setPeriod} />
+                <PortfolioTab portfolio={p} navData={navData} loading={loading} period={period} onPeriodChange={setPeriod} selectedBenchmark={selectedBenchmark} onBenchmarkChange={setSelectedBenchmark} />
               </TabsContent>
             ))}
           </Tabs>
