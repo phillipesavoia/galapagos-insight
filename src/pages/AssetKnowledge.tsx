@@ -442,7 +442,29 @@ export default function AssetKnowledge() {
             <BookOpen className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-bold text-foreground">Asset Dictionary</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <div className="flex gap-2">
+              <button
+                onClick={() => setView("cards")}
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  view === "cards"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent/10"
+                }`}
+              >
+                Ativos
+              </button>
+              <button
+                onClick={() => setView("matriz")}
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  view === "matriz"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent/10"
+                }`}
+              >
+                Matriz de Alocação
+              </button>
+            </div>
             <Button onClick={openNew} className="gap-2">
               <Plus className="h-4 w-4" /> Novo Ativo
             </Button>
