@@ -184,8 +184,8 @@ export function NavChart({ portfolio, data, loading, hideHeader }: NavChartProps
             />
             <Line
               type="monotone"
-              dataKey="nav"
-              name="NAV"
+              dataKey="normalizedNav"
+              name="Portfólio"
               stroke="hsl(160 84% 39%)"
               strokeWidth={2}
               dot={false}
