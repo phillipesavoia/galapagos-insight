@@ -29,6 +29,7 @@ interface Asset {
   risk_profile: string;
   portfolios: string[];
   weight_pct: Record<string, number>;
+  amc_parent: string | null;
 }
 
 interface ParsedRow {
