@@ -18,7 +18,7 @@ interface PortfolioTabProps {
 }
 
 
-export function PortfolioTab({ portfolio, navData, loading, period, onPeriodChange }: PortfolioTabProps) {
+export function PortfolioTab({ portfolio, navData, loading, period, onPeriodChange, selectedBenchmark, onBenchmarkChange }: PortfolioTabProps) {
   const filtered = useMemo(() => filterByPeriod(navData, period), [navData, period]);
 
   return (
