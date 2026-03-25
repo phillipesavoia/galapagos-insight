@@ -86,11 +86,18 @@ export function NavChart({ portfolio, data, loading, hideHeader, selectedBenchma
     }));
   }, [data]);
 
-  // Merge normalized data with benchmark
+  // Merge normalized data with benchmark, re-normalizing benchmark to same start date
   const mergedData = useMemo(() => {
+    if (normalizedData.length === 0) return [];
+    const firstDate = normalizedData[0].date;
+    // Find the benchmark value closest to (or on) the first portfolio date
+    const bmAtStart = benchmarkData.find((b) => b.date >= firstDate);
+    const bmBase = bmAtStart?.value || null;
+
     return normalizedData.map((point) => {
       const bm = benchmarkData.find((b) => b.date === point.date);
-      return { ...point, benchmark: bm?.value ?? null };
+      const reNormalized = bm && bmBase ? parseFloat(((bm.value / bmBase) * 100).toFixed(2)) : null;
+      return { ...point, benchmark: reNormalized };
     });
   }, [normalizedData, benchmarkData]);
 
