@@ -164,14 +164,16 @@ export function RiskMetrics({ data, loading, benchmarkData = [], benchmarkLabel 
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
       {cards.map((c) => (
         <Card key={c.label} className="border-border bg-card">
-          <CardContent className="p-5 flex flex-col items-center text-center">
-            <div className={`mb-2 ${c.color}`}>
-              <c.icon className="h-5 w-5" />
+          <CardContent className="p-5 pt-4 pb-5 flex flex-col items-center text-center justify-between min-h-[120px]">
+            <div>
+              <div className={`mb-1.5 flex justify-center ${c.color}`}>
+                <c.icon className="h-5 w-5" />
+              </div>
+              <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase">
+                {c.label}
+              </p>
             </div>
-            <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase">
-              {c.label}
-            </p>
-            <div className="mt-1.5 flex items-baseline justify-center gap-3">
+            <div className="flex items-baseline justify-center gap-3">
               <div className="flex items-baseline gap-1">
                 <span className={`text-xl font-semibold tabular-nums ${c.label === "Retorno Acumulado" || c.label === "Índice Sharpe" ? c.color : "text-foreground"}`}>
                   {c.value}
