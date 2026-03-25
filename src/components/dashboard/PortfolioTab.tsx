@@ -13,6 +13,8 @@ interface PortfolioTabProps {
   loading: boolean;
   period: Period;
   onPeriodChange: (p: Period) => void;
+  selectedBenchmark: string;
+  onBenchmarkChange: (b: string) => void;
 }
 
 
