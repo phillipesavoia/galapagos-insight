@@ -399,6 +399,35 @@ export default function AssetKnowledge() {
     fetchAssets();
   };
 
+  // AMC groups for matrix view
+  const amcGroups = useMemo(() => {
+    const amcAssets = assets.filter(a =>
+      !a.amc_parent &&
+      Object.keys(a.weight_pct || {}).length > 0 &&
+      assets.some(child => child.amc_parent === a.ticker)
+    );
+    return amcAssets.map(amc => ({
+      amc,
+      children: assets
+        .filter(child => child.amc_parent === amc.ticker)
+        .sort((a, b) => {
+          const wa = Math.max(...PORTFOLIO_OPTIONS.map(p => (a.weight_pct as any)?.[p] ?? 0));
+          const wb = Math.max(...PORTFOLIO_OPTIONS.map(p => (b.weight_pct as any)?.[p] ?? 0));
+          return wb - wa;
+        }),
+    }));
+  }, [assets]);
+
+  // Direct assets: no amc_parent, has weight, not AMCs
+  const directAssets = useMemo(() => {
+    const amcTickers = new Set(amcGroups.map(g => g.amc.ticker));
+    return assets.filter(a =>
+      !a.amc_parent &&
+      !amcTickers.has(a.ticker) &&
+      Object.values(a.weight_pct || {}).some(v => (v as number) > 0)
+    );
+  }, [assets, amcGroups]);
+
   const validCount = parsedRows.filter((r) => r.valid).length;
   const invalidCount = parsedRows.filter((r) => !r.valid).length;
   const uniqueTickers = new Set(parsedRows.filter((r) => r.valid).map((r) => r.ticker)).size;
