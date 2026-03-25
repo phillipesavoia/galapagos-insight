@@ -3,6 +3,7 @@ import remarkGfm from "remark-gfm";
 import { ChevronDown, ChevronRight, ThumbsUp, ThumbsDown, RefreshCw, Copy } from "lucide-react";
 import { InlineBarChart } from "@/components/chat/InlineBarChart";
 import { FlashFactsheet } from "@/components/chat/FlashFactsheet";
+import InlineReturnsTable from "@/components/chat/InlineReturnsTable";
 import type { ChatMessage, ToolCallData } from "@/hooks/useChatMessages";
 
 function extractFollowUps(content: string): { cleanContent: string; followUps: string[] } {
