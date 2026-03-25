@@ -172,21 +172,22 @@ export function RiskMetrics({ data, loading, benchmarkData = [], benchmarkLabel 
               <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase">
                 {c.label}
               </p>
-              <div className="flex items-baseline gap-2 mt-1">
-                <p className={`text-2xl font-semibold tabular-nums ${c.label === "Retorno Acumulado" ? c.color : "text-foreground"}`}>
-                  {c.value}
-                </p>
-                {c.bmValue && (
-                  <span className={`text-xs tabular-nums ${c.bmColor}`} title={benchmarkLabel}>
-                    / {c.bmValue}
+              <div className="mt-1.5 space-y-0.5">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[11px] text-muted-foreground">Portfólio</span>
+                  <span className={`text-xl font-semibold tabular-nums ${c.label === "Retorno Acumulado" ? c.color : "text-foreground"}`}>
+                    {c.value}
                   </span>
+                </div>
+                {c.bmValue && (
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-[11px] text-muted-foreground/60">{benchmarkLabel}</span>
+                    <span className={`text-sm font-medium tabular-nums ${c.bmColor}`}>
+                      {c.bmValue}
+                    </span>
+                  </div>
                 )}
               </div>
-              {c.bmValue && (
-                <p className="text-[10px] text-muted-foreground/50 mt-0.5">
-                  Portfólio / {benchmarkLabel}
-                </p>
-              )}
             </div>
           </CardContent>
         </Card>
