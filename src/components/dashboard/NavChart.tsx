@@ -96,7 +96,7 @@ export function NavChart({ portfolio, data, loading, hideHeader }: NavChartProps
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-sm font-semibold text-foreground">
-              NAV Diário — {portfolio}
+              Retorno Acumulado — {portfolio}
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
               {isEmpty && !loading ? "Nenhum dado disponível" : "Evolução YTD"}
