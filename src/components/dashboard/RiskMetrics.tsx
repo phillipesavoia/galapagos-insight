@@ -147,8 +147,8 @@ export function RiskMetrics({ data, loading, benchmarkData = [], benchmarkLabel 
       value: metrics.sharpe.toFixed(2),
       bmValue: bmMetrics ? bmMetrics.sharpe.toFixed(2) : null,
       icon: BarChart3,
-      color: "text-primary",
-      bmColor: "text-primary/60",
+      color: metrics.sharpe >= 0 ? "text-primary" : "text-destructive",
+      bmColor: bmMetrics ? (bmMetrics.sharpe >= 0 ? "text-primary/60" : "text-destructive/60") : "",
     },
     {
       label: "Max Drawdown",
