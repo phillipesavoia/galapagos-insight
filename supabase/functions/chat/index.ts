@@ -588,8 +588,8 @@ Deno.serve(async (req) => {
 
       if (assetsToFormat.length > 0) {
         // Separar AMCs (nível 1) dos filhos (nível 2)
-        const amcAssets = matchedAssets.filter((a: any) => !a.amc_parent);
-        const childAssets = matchedAssets.filter((a: any) => a.amc_parent);
+        const amcAssets = assetsToFormat.filter((a: any) => !a.amc_parent);
+        const childAssets = assetsToFormat.filter((a: any) => a.amc_parent);
 
         // Formatar cada ativo
         const formatAsset = (a: any, indent = false) => {
