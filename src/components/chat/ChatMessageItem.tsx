@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, ThumbsUp, ThumbsDown, RefreshCw, Copy } from
 import { InlineBarChart } from "@/components/chat/InlineBarChart";
 import { FlashFactsheet } from "@/components/chat/FlashFactsheet";
 import InlineReturnsTable from "@/components/chat/InlineReturnsTable";
+import InlineLineChart from "@/components/chat/InlineLineChart";
 import type { ChatMessage, ToolCallData } from "@/hooks/useChatMessages";
 
 function extractFollowUps(content: string): { cleanContent: string; followUps: string[] } {
