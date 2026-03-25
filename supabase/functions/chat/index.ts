@@ -843,7 +843,7 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
-        max_tokens: 4096,
+        max_tokens: 8192,
         temperature: 0,
         stream: true,
         system: systemPrompt,
