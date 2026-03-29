@@ -533,36 +533,80 @@ Deno.serve(async (req) => {
       if (matchedAssets.length > 0) {
         const topLevel = matchedAssets.filter((a: any) => !a.amc_parent);
         const children = matchedAssets.filter((a: any) => a.amc_parent);
+        // Also fetch ALL children from allAssets (not just matchedAssets) for full look-through
+        const allChildren = (allAssets || []).filter((a: any) => a.amc_parent);
 
-        const formatWeight = (a: any, portfolio?: string) => {
+        const formatWeight = (a: any) => {
           if (!a.weight_pct || Object.keys(a.weight_pct).length === 0) return "";
-          if (portfolio) {
-            const w = a.weight_pct[portfolio];
-            return w ? ` [${w}% no ${portfolio}]` : "";
-          }
           return "\n  Pesos: " + Object.entries(a.weight_pct).map(([k, v]) => `${k}: ${v}%`).join(", ");
         };
 
+        // Determine which portfolios to compute look-through for
+        const portfolioNames = ["Conservative", "Income", "Balanced", "Growth", "Liquidity", "Bond Portfolio"];
+        const relevantPortfolios = mentionedPortfolios.length > 0
+          ? portfolioNames.filter(p => mentionedPortfolios.some(mp => p.toLowerCase().includes(mp)))
+          : portfolioNames;
+
         const sections: string[] = [];
+
+        // --- LEVEL 1: Direct holdings per portfolio ---
         for (const asset of topLevel) {
-          const isAMC = children.some((c: any) => c.amc_parent === asset.ticker);
+          const amcChildren = allChildren
+            .filter((c: any) => c.amc_parent === asset.ticker)
+            .sort((x: any, y: any) => {
+              const wx = Math.max(0, ...Object.values(x.weight_pct || {}).map(Number));
+              const wy = Math.max(0, ...Object.values(y.weight_pct || {}).map(Number));
+              return wy - wx;
+            });
+          const isAMC = amcChildren.length > 0;
           const header = `[${isAMC ? "AMC" : "ATIVO"} — ${asset.ticker}${asset.isin ? ` | ${asset.isin}` : ""}]`;
           const weights = formatWeight(asset);
           let section = `${header}\nNome: ${asset.name}\nClasse: ${asset.asset_class}${weights}\nTese: ${asset.official_thesis || "—"}`;
 
           if (isAMC) {
-            const amcChildren = children
-              .filter((c: any) => c.amc_parent === asset.ticker)
-              .sort((x: any, y: any) => {
-                const wx = Math.max(0, ...Object.values(x.weight_pct || {}).map(Number));
-                const wy = Math.max(0, ...Object.values(y.weight_pct || {}).map(Number));
-                return wy - wx;
-              });
-
             section += `\n\n  === COMPOSIÇÃO INTERNA DO ${asset.name.toUpperCase()} (LOOK-THROUGH) ===`;
             for (const child of amcChildren) {
               const cWeights = formatWeight(child);
               section += `\n  ↳ [${child.ticker}] ${child.name} | ${child.asset_class}${cWeights}`;
+            }
+
+            // --- SCALED LOOK-THROUGH per portfolio ---
+            for (const pName of relevantPortfolios) {
+              const parentWeight = Number((asset.weight_pct as any)?.[pName] || 0);
+              if (parentWeight <= 0) continue;
+
+              const scaledChildren = amcChildren
+                .map((c: any) => {
+                  const childWeight = Number((c.weight_pct as any)?.[pName] || 0);
+                  if (childWeight <= 0) return null;
+                  const scaledWeight = (parentWeight * childWeight) / 100;
+                  return { ticker: c.ticker, name: c.name, asset_class: c.asset_class, childWeight, scaledWeight };
+                })
+                .filter(Boolean)
+                .sort((a: any, b: any) => b.scaledWeight - a.scaledWeight);
+
+              if (scaledChildren.length > 0) {
+                section += `\n\n  --- LOOK-THROUGH ESCALADO para ${pName} (AMC peso: ${parentWeight}%) ---`;
+                for (const sc of scaledChildren as any[]) {
+                  section += `\n  ↳ ${sc.ticker} | ${sc.name} | Peso dentro AMC: ${sc.childWeight}% | Peso no portfólio (escalado): ${sc.scaledWeight.toFixed(2)}%`;
+                }
+
+                // --- LEVEL 2: Check if any child is itself an AMC ---
+                for (const sc of scaledChildren as any[]) {
+                  const level2Children = allChildren.filter((c: any) => c.amc_parent === sc.ticker);
+                  if (level2Children.length > 0) {
+                    section += `\n\n    === LEVEL 2: COMPOSIÇÃO INTERNA DE ${sc.ticker} (dentro de ${asset.ticker}) ===`;
+                    for (const l2 of level2Children) {
+                      const l2Weight = Number((l2.weight_pct as any)?.[pName] || 0);
+                      if (l2Weight <= 0) continue;
+                      const l2Scaled = (sc.scaledWeight * l2Weight) / 100;
+                      section += `\n    ↳↳ ${l2.ticker} | ${l2.name} | Peso L2 dentro sub-AMC: ${l2Weight}% | Peso no portfólio (escalado L2): ${l2Scaled.toFixed(2)}%`;
+                    }
+                    section += `\n    === FIM LEVEL 2 ===`;
+                  }
+                }
+                section += `\n  --- FIM LOOK-THROUGH ${pName} ---`;
+              }
             }
             section += `\n  === FIM DO LOOK-THROUGH ===`;
           }
@@ -570,6 +614,7 @@ Deno.serve(async (req) => {
           sections.push(section);
         }
 
+        // Orphan children (whose parent AMC isn't in matchedAssets)
         const topTickers = new Set(topLevel.map((a: any) => a.ticker));
         const orphans = children.filter((c: any) => !topTickers.has(c.amc_parent));
         for (const o of orphans) {
