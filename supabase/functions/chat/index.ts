@@ -495,6 +495,22 @@ Exemplos de quando usar:
   },
 ];
 
+// --- Intent detection for model routing ---
+function shouldUseOpus(query: string): boolean {
+  const lower = query.toLowerCase();
+  const opusPatterns = [
+    /\bmemo\b/, /\bic\b/, /\bcomit[eê]\b/, /an[aá]lise\s*formal/, /due\s*diligence/,
+    /apresenta[cç][aã]o/, /relat[oó]rio/, /\bprepare\b/, /\belabore\b/, /\bmonte\b/,
+    /\bstress\b/, /cen[aá]rio/, /simula[cç][aã]o/,
+  ];
+  if (opusPatterns.some(p => p.test(lower))) return true;
+  // Multi-fund comparison (3+ fund names)
+  const portfolioNames = ["conservative", "income", "balanced", "growth", "liquidity", "bond"];
+  const mentioned = portfolioNames.filter(p => lower.includes(p));
+  if (mentioned.length > 2) return true;
+  return false;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
