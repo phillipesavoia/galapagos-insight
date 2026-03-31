@@ -18,6 +18,7 @@ export interface ChatMessage {
   content: string;
   sources?: ChatSource[];
   toolCalls?: ToolCallData[];
+  modelUsed?: "sonnet" | "opus";
 }
 
 export function useChatMessages() {

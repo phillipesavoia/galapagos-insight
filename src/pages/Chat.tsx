@@ -166,7 +166,7 @@ export default function Chat() {
         throw new Error(`HTTP ${resp.status}`);
       }
 
-      setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "", sources: [], toolCalls: [] }]);
+      setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "", sources: [], toolCalls: [], modelUsed: undefined }]);
 
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
@@ -188,7 +188,14 @@ export default function Chat() {
 
           try {
             const event = JSON.parse(jsonStr);
-            if (event.type === "delta" && event.text) {
+            if (event.type === "model_used" && event.model) {
+              const model = event.model as "sonnet" | "opus";
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId ? { ...m, modelUsed: model } : m
+                )
+              );
+            } else if (event.type === "delta" && event.text) {
               fullContent += event.text;
               const snap = fullContent;
               const tcSnap = [...toolCalls];

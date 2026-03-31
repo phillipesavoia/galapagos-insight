@@ -495,6 +495,22 @@ Exemplos de quando usar:
   },
 ];
 
+// --- Intent detection for model routing ---
+function shouldUseOpus(query: string): boolean {
+  const lower = query.toLowerCase();
+  const opusPatterns = [
+    /\bmemo\b/, /\bic\b/, /\bcomit[eê]\b/, /an[aá]lise\s*formal/, /due\s*diligence/,
+    /apresenta[cç][aã]o/, /relat[oó]rio/, /\bprepare\b/, /\belabore\b/, /\bmonte\b/,
+    /\bstress\b/, /cen[aá]rio/, /simula[cç][aã]o/,
+  ];
+  if (opusPatterns.some(p => p.test(lower))) return true;
+  // Multi-fund comparison (3+ fund names)
+  const portfolioNames = ["conservative", "income", "balanced", "growth", "liquidity", "bond"];
+  const mentioned = portfolioNames.filter(p => lower.includes(p));
+  if (mentioned.length > 2) return true;
+  return false;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -956,6 +972,12 @@ PESQUISA WEB DE FUNDOS (pesquisar_informacoes_fundo):
 
 Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevantes sob "💡 Explorar mais:".`;
 
+    // --- Model routing ---
+    const useOpus = shouldUseOpus(query);
+    const selectedModel = useOpus ? "claude-opus-4-0-20250514" : "claude-sonnet-4-20250514";
+    const modelLabel = useOpus ? "opus" : "sonnet";
+    console.log(`Model selected: ${selectedModel} (${modelLabel})`);
+
     // First Claude call — may produce tool_use blocks
     const initialClaudeRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -965,7 +987,7 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: selectedModel,
         max_tokens: 8192,
         temperature: 0,
         stream: true,
@@ -987,6 +1009,10 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
+        // Emit model_used event before streaming begins
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ type: "model_used", model: modelLabel })}\n\n`)
+        );
         // Helper to process a Claude SSE stream
         async function processStream(
           claudeRes: Response,
@@ -1113,7 +1139,7 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
               "anthropic-version": "2023-06-01",
             },
             body: JSON.stringify({
-              model: "claude-sonnet-4-20250514",
+              model: selectedModel,
               max_tokens: 8192,
               temperature: 0,
               stream: true,
@@ -1199,7 +1225,7 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
                 "anthropic-version": "2023-06-01",
               },
               body: JSON.stringify({
-                model: "claude-sonnet-4-20250514",
+                model: selectedModel,
                 max_tokens: 8192,
                 temperature: 0,
                 stream: true,

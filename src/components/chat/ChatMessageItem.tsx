@@ -136,6 +136,18 @@ export function ChatMessageItem({
             : "text-foreground"
         }`}
       >
+        {msg.role === "assistant" && msg.modelUsed && (
+          <span
+            className={`inline-flex items-center justify-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold tracking-wide mb-1.5 ${
+              msg.modelUsed === "opus"
+                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                : "bg-muted text-muted-foreground"
+            }`}
+            title={msg.modelUsed === "opus" ? "Claude Opus" : "Claude Sonnet"}
+          >
+            {msg.modelUsed === "opus" ? "O" : "S"}
+          </span>
+        )}
         {msg.role === "assistant" ? (
           <>
             {msg.content && (() => {
