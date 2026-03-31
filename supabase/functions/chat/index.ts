@@ -1146,14 +1146,23 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
 
             if (allToolCalls.length === 0) break; // no tools called, we're done
 
-            // Handle server-side tool first
-            let serverData: any = null;
-            if (result.serverToolCall && result.serverToolCall.name === "fetch_live_asset_data") {
-              console.log(`Executing fetch_live_asset_data for ticker: ${result.serverToolCall.input.ticker}`);
-              serverData = await fetchLiveMarketData(
-                result.serverToolCall.input.ticker,
-                result.serverToolCall.input.isin || null,
-              );
+            // Handle server-side tools
+            const serverToolResults: Record<string, any> = {};
+            if (result.serverToolCall) {
+              if (result.serverToolCall.name === "fetch_live_asset_data") {
+                console.log(`Executing fetch_live_asset_data for ticker: ${result.serverToolCall.input.ticker}`);
+                serverToolResults[result.serverToolCall.id] = await fetchLiveMarketData(
+                  result.serverToolCall.input.ticker,
+                  result.serverToolCall.input.isin || null,
+                );
+              } else if (result.serverToolCall.name === "pesquisar_informacoes_fundo") {
+                console.log(`Executing web search for: ${result.serverToolCall.input.asset_name}`);
+                const searchResult = await executeWebSearch(
+                  result.serverToolCall.input.query,
+                  result.serverToolCall.input.asset_name,
+                );
+                serverToolResults[result.serverToolCall.id] = { status: "success", results: searchResult };
+              }
             }
 
             // Build assistant content blocks for ALL tool calls
@@ -1162,11 +1171,12 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
 
             for (const tc of allToolCalls) {
               assistantContent.push({ type: "tool_use", id: tc.id, name: tc.name, input: tc.input });
+              const isServerTool = tc.name === "fetch_live_asset_data" || tc.name === "pesquisar_informacoes_fundo";
               userContent.push({
                 type: "tool_result",
                 tool_use_id: tc.id,
-                content: tc.name === "fetch_live_asset_data" 
-                  ? JSON.stringify(serverData) 
+                content: isServerTool
+                  ? JSON.stringify(serverToolResults[tc.id] || {})
                   : "Renderizado com sucesso no frontend.",
               });
             }
