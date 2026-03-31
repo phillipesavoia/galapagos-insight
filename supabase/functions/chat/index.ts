@@ -1225,7 +1225,7 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
                 "anthropic-version": "2023-06-01",
               },
               body: JSON.stringify({
-                model: "claude-sonnet-4-20250514",
+                model: selectedModel,
                 max_tokens: 8192,
                 temperature: 0,
                 stream: true,
