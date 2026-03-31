@@ -972,6 +972,12 @@ PESQUISA WEB DE FUNDOS (pesquisar_informacoes_fundo):
 
 Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevantes sob "💡 Explorar mais:".`;
 
+    // --- Model routing ---
+    const useOpus = shouldUseOpus(query);
+    const selectedModel = useOpus ? "claude-opus-4-0-20250514" : "claude-sonnet-4-20250514";
+    const modelLabel = useOpus ? "opus" : "sonnet";
+    console.log(`Model selected: ${selectedModel} (${modelLabel})`);
+
     // First Claude call — may produce tool_use blocks
     const initialClaudeRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -981,7 +987,7 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: selectedModel,
         max_tokens: 8192,
         temperature: 0,
         stream: true,
