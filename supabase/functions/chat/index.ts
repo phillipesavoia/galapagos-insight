@@ -868,9 +868,20 @@ Deno.serve(async (req) => {
     }
     userMessageContent += `\nPergunta: ${query}`;
 
+    // Split user message into RAG context (cacheable) and query (unique per request)
+    const ragContext = userMessageContent.slice(0, userMessageContent.lastIndexOf("\nPergunta: "));
+    const userQuery = userMessageContent.slice(userMessageContent.lastIndexOf("\nPergunta: "));
+    
+    const userContentBlocks = ragContext
+      ? [
+          { type: "text", text: ragContext, cache_control: { type: "ephemeral" } },
+          { type: "text", text: userQuery },
+        ]
+      : [{ type: "text", text: userMessageContent }];
+
     const claudeMessages = [
       ...historyMessages,
-      { role: "user", content: userMessageContent },
+      { role: "user", content: userContentBlocks },
     ];
 
     // Fetch most recent report period for reference
@@ -985,13 +996,14 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
         "Content-Type": "application/json",
         "x-api-key": anthropicKey,
         "anthropic-version": "2023-06-01",
+        "anthropic-beta": "prompt-caching-2024-07-31",
       },
       body: JSON.stringify({
         model: selectedModel,
         max_tokens: 8192,
         temperature: 0,
         stream: true,
-        system: systemPrompt,
+        system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
         tools: TOOLS,
         messages: claudeMessages,
       }),
@@ -1137,13 +1149,14 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
               "Content-Type": "application/json",
               "x-api-key": anthropicKey,
               "anthropic-version": "2023-06-01",
+              "anthropic-beta": "prompt-caching-2024-07-31",
             },
             body: JSON.stringify({
               model: selectedModel,
               max_tokens: 8192,
               temperature: 0,
               stream: true,
-              system: systemPrompt,
+              system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
               tools: TOOLS,
               messages: contMessages,
             }),
@@ -1223,13 +1236,14 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
                 "Content-Type": "application/json",
                 "x-api-key": anthropicKey,
                 "anthropic-version": "2023-06-01",
+                "anthropic-beta": "prompt-caching-2024-07-31",
               },
               body: JSON.stringify({
                 model: selectedModel,
                 max_tokens: 8192,
                 temperature: 0,
                 stream: true,
-                system: systemPrompt,
+                system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
                 tools: TOOLS,
                 messages: contMessages,
               }),
