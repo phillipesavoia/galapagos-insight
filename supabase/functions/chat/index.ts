@@ -974,7 +974,7 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
 
     // --- Model routing ---
     const useOpus = shouldUseOpus(query);
-    const selectedModel = useOpus ? "claude-opus-4-0-20250514" : "claude-sonnet-4-20250514";
+    const selectedModel = useOpus ? "claude-opus-4-6" : "claude-sonnet-4-6";
     const modelLabel = useOpus ? "opus" : "sonnet";
     console.log(`Model selected: ${selectedModel} (${modelLabel})`);
 
