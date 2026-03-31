@@ -138,6 +138,7 @@ export default function Chat() {
     setMessages((prev) => [...prev, newMsg]);
     setInput("");
     setIsLoading(true);
+    setWebSearching(null);
 
     const filter_type = filterType;
 
