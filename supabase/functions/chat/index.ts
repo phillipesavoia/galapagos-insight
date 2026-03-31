@@ -1053,6 +1053,7 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
                           })}\n\n`)
                         );
                       }
+                    } else {
                       // Client-side tool — emit to frontend AND track for continuation
                       controller.enqueue(
                         encoder.encode(`data: ${JSON.stringify({
