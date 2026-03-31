@@ -181,6 +181,47 @@ async function fetchLiveMarketData(ticker: string, isin: string | null): Promise
   };
 }
 
+// --- Web Search via Tavily ---
+async function executeWebSearch(searchQuery: string, assetName: string): Promise<string> {
+  const tavilyKey = Deno.env.get("TAVILY_API_KEY");
+  if (!tavilyKey) {
+    return `[Erro: TAVILY_API_KEY não configurada. Pesquisa web indisponível.]`;
+  }
+  try {
+    const scopedQuery = `${searchQuery} ${assetName} fund OR ETF OR performance OR NAV site:bloomberg.com OR site:ft.com OR site:morningstar.com OR site:reuters.com`;
+    const res = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: tavilyKey,
+        query: scopedQuery,
+        search_depth: "basic",
+        max_results: 5,
+        include_answer: true,
+      }),
+    });
+    if (!res.ok) {
+      console.warn("Tavily search failed:", res.status);
+      return `[Pesquisa web retornou erro HTTP ${res.status}]`;
+    }
+    const data = await res.json();
+    let output = "";
+    if (data.answer) {
+      output += `**Resumo:** ${data.answer}\n\n`;
+    }
+    if (data.results && data.results.length > 0) {
+      output += "**Fontes encontradas:**\n";
+      for (const r of data.results.slice(0, 5)) {
+        output += `- [${r.title}](${r.url})\n  ${r.content?.slice(0, 200) || ""}\n`;
+      }
+    }
+    return output || "[Nenhum resultado encontrado na pesquisa web]";
+  } catch (e) {
+    console.error("Web search error:", e);
+    return `[Erro na pesquisa web: ${e}]`;
+  }
+}
+
 const TOOLS = [
   {
     name: "renderizar_grafico_barras",
