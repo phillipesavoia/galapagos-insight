@@ -213,6 +213,8 @@ export default function Chat() {
                   m.id === assistantId ? { ...m, sources } : m
                 )
               );
+            } else if (event.type === "web_search") {
+              setWebSearching(event.asset_name || "fundo");
             }
           } catch {
             // partial JSON, ignore
