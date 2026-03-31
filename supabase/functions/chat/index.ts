@@ -464,19 +464,20 @@ Exemplos de quando usar:
   },
   {
     name: "pesquisar_informacoes_fundo",
-    description: `Use esta ferramenta para pesquisar informações EXTERNAS e recentes sobre um fundo ou ativo que FAZ PARTE dos portfólios Galapagos. 
+    description: `Use esta ferramenta para pesquisar informações EXTERNAS e recentes sobre QUALQUER fundo, ativo, ticker, ETF, BDC, ISIN, gestora ou instrumento financeiro — inclusive candidatos a investimento que ainda NÃO fazem parte dos portfólios Galapagos.
 
 REGRAS OBRIGATÓRIAS:
-- SOMENTE use para ativos que existem no Asset Dictionary / inventário de ativos dos portfólios Galapagos.
-- NUNCA use para ativos, empresas ou temas que NÃO fazem parte dos portfólios.
-- Use quando o usuário perguntar sobre notícias recentes, performance atualizada, captação, mudanças de gestor, estratégia de mercado de um ativo do portfólio.
-- Combine os resultados da pesquisa com os dados internos (Asset Dictionary + documentos indexados) na resposta.
+- Use para QUALQUER consulta relacionada a instrumentos financeiros, fundos ou ativos — estejam ou não nos portfólios.
+- NUNCA use para temas não relacionados a investimentos (clima, esportes, conhecimento geral, etc.).
+- Use quando o usuário perguntar sobre notícias recentes, performance, captação, mudanças de gestor, estratégia de mercado, análise de um fundo/ativo.
+- Combine os resultados da pesquisa com os dados internos (Asset Dictionary + documentos indexados) quando o ativo fizer parte dos portfólios.
 
 Exemplos de quando usar:
 - "Quais as últimas notícias sobre o DTLA?"
 - "O que aconteceu recentemente com o fundo EMGA?"
 - "Qual a performance recente do HYG?"
-- "Tem alguma notícia sobre o iShares $ Treasury Bond 20+yr?"`,
+- "Me fale sobre o ARK Innovation ETF"
+- "Quero saber mais sobre o fundo XP Macro antes de investir"`,
     input_schema: {
       type: "object",
       properties: {
@@ -948,10 +949,10 @@ VISUALIZAÇÕES — use as tools para enriquecer respostas:
 Use visualizações sempre que agregarem valor à análise. Não peça permissão — simplesmente chame a tool adequada junto com o texto explicativo.
 
 PESQUISA WEB DE FUNDOS (pesquisar_informacoes_fundo):
-- Use esta ferramenta SOMENTE para pesquisar informações externas sobre fundos e ativos que EXISTEM no inventário de ativos dos portfólios Galapagos.
-- Antes de usar, VERIFIQUE se o ativo está na lista do inventário fornecido no contexto. Se NÃO estiver, NÃO pesquise.
-- Para QUALQUER tema fora dos documentos indexados e fora dos ativos do portfólio, responda: "Esta informação não está disponível nos documentos do Galapagos Connect."
-- Combine os resultados da pesquisa web com os dados internos (Asset Dictionary + documentos) — sempre identifique a origem: 📚 Base interna / 🌐 Pesquisa externa.
+- Você pode usar pesquisar_informacoes_fundo para pesquisar QUALQUER fundo, ativo, ticker ou instrumento financeiro — inclusive candidatos a investimento que ainda não fazem parte dos portfólios.
+- Para qualquer outro tema NÃO relacionado a investimentos, responda: "Esta informação não está disponível nos documentos do Galapagos Connect."
+- Quando o ativo pesquisado fizer parte dos portfólios, combine os resultados da pesquisa web com os dados internos (Asset Dictionary + documentos) — identifique a origem: 📚 Base interna / 🌐 Pesquisa externa.
+- Quando o ativo NÃO fizer parte dos portfólios, apresente os resultados da pesquisa web e indique claramente que o ativo não está nos portfólios atuais.
 
 Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevantes sob "💡 Explorar mais:".`;
 
