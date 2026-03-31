@@ -1042,9 +1042,17 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
                   try {
                     const toolInput = JSON.parse(toolInputJson);
                     
-                    if (handleServerTool && currentToolName === "fetch_live_asset_data") {
+                    if (handleServerTool && (currentToolName === "fetch_live_asset_data" || currentToolName === "pesquisar_informacoes_fundo")) {
                       serverToolCall = { id: currentToolId, name: currentToolName, input: toolInput };
-                    } else {
+                      // Emit web_search SSE event for frontend indicator
+                      if (currentToolName === "pesquisar_informacoes_fundo") {
+                        controller.enqueue(
+                          encoder.encode(`data: ${JSON.stringify({
+                            type: "web_search",
+                            asset_name: toolInput.asset_name || toolInput.query,
+                          })}\n\n`)
+                        );
+                      }
                       // Client-side tool — emit to frontend AND track for continuation
                       controller.enqueue(
                         encoder.encode(`data: ${JSON.stringify({
