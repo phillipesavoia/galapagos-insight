@@ -42,6 +42,7 @@ export default function Chat() {
   } = useChatMessages();
 
   const [menuOpenSession, setMenuOpenSession] = useState<string | null>(null);
+  const [webSearching, setWebSearching] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [expandedSources, setExpandedSources] = useState<Record<string, boolean>>({});
   const [showHistory, setShowHistory] = useState(true);
