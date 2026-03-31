@@ -181,6 +181,47 @@ async function fetchLiveMarketData(ticker: string, isin: string | null): Promise
   };
 }
 
+// --- Web Search via Tavily ---
+async function executeWebSearch(searchQuery: string, assetName: string): Promise<string> {
+  const tavilyKey = Deno.env.get("TAVILY_API_KEY");
+  if (!tavilyKey) {
+    return `[Erro: TAVILY_API_KEY não configurada. Pesquisa web indisponível.]`;
+  }
+  try {
+    const scopedQuery = `${searchQuery} ${assetName} fund OR ETF OR performance OR NAV site:bloomberg.com OR site:ft.com OR site:morningstar.com OR site:reuters.com`;
+    const res = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: tavilyKey,
+        query: scopedQuery,
+        search_depth: "basic",
+        max_results: 5,
+        include_answer: true,
+      }),
+    });
+    if (!res.ok) {
+      console.warn("Tavily search failed:", res.status);
+      return `[Pesquisa web retornou erro HTTP ${res.status}]`;
+    }
+    const data = await res.json();
+    let output = "";
+    if (data.answer) {
+      output += `**Resumo:** ${data.answer}\n\n`;
+    }
+    if (data.results && data.results.length > 0) {
+      output += "**Fontes encontradas:**\n";
+      for (const r of data.results.slice(0, 5)) {
+        output += `- [${r.title}](${r.url})\n  ${r.content?.slice(0, 200) || ""}\n`;
+      }
+    }
+    return output || "[Nenhum resultado encontrado na pesquisa web]";
+  } catch (e) {
+    console.error("Web search error:", e);
+    return `[Erro na pesquisa web: ${e}]`;
+  }
+}
+
 const TOOLS = [
   {
     name: "renderizar_grafico_barras",
@@ -419,6 +460,36 @@ Exemplos de quando usar:
         donut: { type: "boolean", description: "Se true, renderiza como donut chart" },
       },
       required: ["title", "data"],
+    },
+  },
+  {
+    name: "pesquisar_informacoes_fundo",
+    description: `Use esta ferramenta para pesquisar informações EXTERNAS e recentes sobre um fundo ou ativo que FAZ PARTE dos portfólios Galapagos. 
+
+REGRAS OBRIGATÓRIAS:
+- SOMENTE use para ativos que existem no Asset Dictionary / inventário de ativos dos portfólios Galapagos.
+- NUNCA use para ativos, empresas ou temas que NÃO fazem parte dos portfólios.
+- Use quando o usuário perguntar sobre notícias recentes, performance atualizada, captação, mudanças de gestor, estratégia de mercado de um ativo do portfólio.
+- Combine os resultados da pesquisa com os dados internos (Asset Dictionary + documentos indexados) na resposta.
+
+Exemplos de quando usar:
+- "Quais as últimas notícias sobre o DTLA?"
+- "O que aconteceu recentemente com o fundo EMGA?"
+- "Qual a performance recente do HYG?"
+- "Tem alguma notícia sobre o iShares $ Treasury Bond 20+yr?"`,
+    input_schema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "A query de pesquisa a ser executada (ex: 'DTLA iShares Treasury Bond 20yr recent performance news')",
+        },
+        asset_name: {
+          type: "string",
+          description: "Nome do fundo ou ativo sendo pesquisado (ex: 'iShares $ Treasury Bond 20+yr UCITS ETF')",
+        },
+      },
+      required: ["query", "asset_name"],
     },
   },
 ];
@@ -876,6 +947,12 @@ VISUALIZAÇÕES — use as tools para enriquecer respostas:
 
 Use visualizações sempre que agregarem valor à análise. Não peça permissão — simplesmente chame a tool adequada junto com o texto explicativo.
 
+PESQUISA WEB DE FUNDOS (pesquisar_informacoes_fundo):
+- Use esta ferramenta SOMENTE para pesquisar informações externas sobre fundos e ativos que EXISTEM no inventário de ativos dos portfólios Galapagos.
+- Antes de usar, VERIFIQUE se o ativo está na lista do inventário fornecido no contexto. Se NÃO estiver, NÃO pesquise.
+- Para QUALQUER tema fora dos documentos indexados e fora dos ativos do portfólio, responda: "Esta informação não está disponível nos documentos do Galapagos Connect."
+- Combine os resultados da pesquisa web com os dados internos (Asset Dictionary + documentos) — sempre identifique a origem: 📚 Base interna / 🌐 Pesquisa externa.
+
 Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevantes sob "💡 Explorar mais:".`;
 
     // First Claude call — may produce tool_use blocks
@@ -965,8 +1042,17 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
                   try {
                     const toolInput = JSON.parse(toolInputJson);
                     
-                    if (handleServerTool && currentToolName === "fetch_live_asset_data") {
+                    if (handleServerTool && (currentToolName === "fetch_live_asset_data" || currentToolName === "pesquisar_informacoes_fundo")) {
                       serverToolCall = { id: currentToolId, name: currentToolName, input: toolInput };
+                      // Emit web_search SSE event for frontend indicator
+                      if (currentToolName === "pesquisar_informacoes_fundo") {
+                        controller.enqueue(
+                          encoder.encode(`data: ${JSON.stringify({
+                            type: "web_search",
+                            asset_name: toolInput.asset_name || toolInput.query,
+                          })}\n\n`)
+                        );
+                      }
                     } else {
                       // Client-side tool — emit to frontend AND track for continuation
                       controller.enqueue(
@@ -1061,14 +1147,23 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
 
             if (allToolCalls.length === 0) break; // no tools called, we're done
 
-            // Handle server-side tool first
-            let serverData: any = null;
-            if (result.serverToolCall && result.serverToolCall.name === "fetch_live_asset_data") {
-              console.log(`Executing fetch_live_asset_data for ticker: ${result.serverToolCall.input.ticker}`);
-              serverData = await fetchLiveMarketData(
-                result.serverToolCall.input.ticker,
-                result.serverToolCall.input.isin || null,
-              );
+            // Handle server-side tools
+            const serverToolResults: Record<string, any> = {};
+            if (result.serverToolCall) {
+              if (result.serverToolCall.name === "fetch_live_asset_data") {
+                console.log(`Executing fetch_live_asset_data for ticker: ${result.serverToolCall.input.ticker}`);
+                serverToolResults[result.serverToolCall.id] = await fetchLiveMarketData(
+                  result.serverToolCall.input.ticker,
+                  result.serverToolCall.input.isin || null,
+                );
+              } else if (result.serverToolCall.name === "pesquisar_informacoes_fundo") {
+                console.log(`Executing web search for: ${result.serverToolCall.input.asset_name}`);
+                const searchResult = await executeWebSearch(
+                  result.serverToolCall.input.query,
+                  result.serverToolCall.input.asset_name,
+                );
+                serverToolResults[result.serverToolCall.id] = { status: "success", results: searchResult };
+              }
             }
 
             // Build assistant content blocks for ALL tool calls
@@ -1077,11 +1172,12 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
 
             for (const tc of allToolCalls) {
               assistantContent.push({ type: "tool_use", id: tc.id, name: tc.name, input: tc.input });
+              const isServerTool = tc.name === "fetch_live_asset_data" || tc.name === "pesquisar_informacoes_fundo";
               userContent.push({
                 type: "tool_result",
                 tool_use_id: tc.id,
-                content: tc.name === "fetch_live_asset_data" 
-                  ? JSON.stringify(serverData) 
+                content: isServerTool
+                  ? JSON.stringify(serverToolResults[tc.id] || {})
                   : "Renderizado com sucesso no frontend.",
               });
             }

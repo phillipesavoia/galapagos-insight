@@ -42,6 +42,7 @@ export default function Chat() {
   } = useChatMessages();
 
   const [menuOpenSession, setMenuOpenSession] = useState<string | null>(null);
+  const [webSearching, setWebSearching] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [expandedSources, setExpandedSources] = useState<Record<string, boolean>>({});
   const [showHistory, setShowHistory] = useState(true);
@@ -137,6 +138,7 @@ export default function Chat() {
     setMessages((prev) => [...prev, newMsg]);
     setInput("");
     setIsLoading(true);
+    setWebSearching(null);
 
     const filter_type = filterType;
 
@@ -211,6 +213,8 @@ export default function Chat() {
                   m.id === assistantId ? { ...m, sources } : m
                 )
               );
+            } else if (event.type === "web_search") {
+              setWebSearching(event.asset_name || "fundo");
             }
           } catch {
             // partial JSON, ignore
@@ -236,6 +240,7 @@ export default function Chat() {
       });
     } finally {
       setIsLoading(false);
+      setWebSearching(null);
     }
   };
 
@@ -331,9 +336,18 @@ export default function Chat() {
               {isLoading && (
                 <div className="flex justify-start animate-fade-in">
                   <div className="rounded-2xl border border-border bg-card px-4 py-3 flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-primary animate-[pulse_1s_ease-in-out_infinite]" />
-                    <span className="h-2 w-2 rounded-full bg-primary animate-[pulse_1s_ease-in-out_0.2s_infinite]" />
-                    <span className="h-2 w-2 rounded-full bg-primary animate-[pulse_1s_ease-in-out_0.4s_infinite]" />
+                    {webSearching ? (
+                      <>
+                        <span className="text-sm">🔍</span>
+                        <span className="text-xs text-muted-foreground">Pesquisando informações externas sobre {webSearching}...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="h-2 w-2 rounded-full bg-primary animate-[pulse_1s_ease-in-out_infinite]" />
+                        <span className="h-2 w-2 rounded-full bg-primary animate-[pulse_1s_ease-in-out_0.2s_infinite]" />
+                        <span className="h-2 w-2 rounded-full bg-primary animate-[pulse_1s_ease-in-out_0.4s_infinite]" />
+                      </>
+                    )}
                   </div>
                 </div>
               )}
