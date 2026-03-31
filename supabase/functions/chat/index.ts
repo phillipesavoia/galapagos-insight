@@ -1009,6 +1009,10 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
+        // Emit model_used event before streaming begins
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ type: "model_used", model: modelLabel })}\n\n`)
+        );
         // Helper to process a Claude SSE stream
         async function processStream(
           claudeRes: Response,
