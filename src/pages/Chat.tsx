@@ -187,8 +187,15 @@ export default function Chat() {
           if (jsonStr === "[DONE]") continue;
 
           try {
-            const event = JSON.parse(jsonStr);
-            if (event.type === "delta" && event.text) {
+190:             const event = JSON.parse(jsonStr);
+191:             if (event.type === "model_used" && event.model) {
+192:               const model = event.model as "sonnet" | "opus";
+193:               setMessages((prev) =>
+194:                 prev.map((m) =>
+195:                   m.id === assistantId ? { ...m, modelUsed: model } : m
+196:                 )
+197:               );
+198:             } else if (event.type === "delta" && event.text) {
               fullContent += event.text;
               const snap = fullContent;
               const tcSnap = [...toolCalls];
