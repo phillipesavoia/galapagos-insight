@@ -240,6 +240,7 @@ export default function Chat() {
       });
     } finally {
       setIsLoading(false);
+      setWebSearching(null);
     }
   };
 
