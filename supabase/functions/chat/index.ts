@@ -868,9 +868,20 @@ Deno.serve(async (req) => {
     }
     userMessageContent += `\nPergunta: ${query}`;
 
+    // Split user message into RAG context (cacheable) and query (unique per request)
+    const ragContext = userMessageContent.slice(0, userMessageContent.lastIndexOf("\nPergunta: "));
+    const userQuery = userMessageContent.slice(userMessageContent.lastIndexOf("\nPergunta: "));
+    
+    const userContentBlocks = ragContext
+      ? [
+          { type: "text", text: ragContext, cache_control: { type: "ephemeral" } },
+          { type: "text", text: userQuery },
+        ]
+      : [{ type: "text", text: userMessageContent }];
+
     const claudeMessages = [
       ...historyMessages,
-      { role: "user", content: userMessageContent },
+      { role: "user", content: userContentBlocks },
     ];
 
     // Fetch most recent report period for reference
