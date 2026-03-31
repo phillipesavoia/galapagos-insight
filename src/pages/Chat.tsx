@@ -166,7 +166,7 @@ export default function Chat() {
         throw new Error(`HTTP ${resp.status}`);
       }
 
-      setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "", sources: [], toolCalls: [] }]);
+      setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "", sources: [], toolCalls: [], modelUsed: undefined }]);
 
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
