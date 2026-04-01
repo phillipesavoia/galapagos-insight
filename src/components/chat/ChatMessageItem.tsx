@@ -7,6 +7,8 @@ import InlineReturnsTable from "@/components/chat/InlineReturnsTable";
 import InlineLineChart from "@/components/chat/InlineLineChart";
 import InlinePieChart from "@/components/chat/InlinePieChart";
 import type { ChatMessage, ToolCallData } from "@/hooks/useChatMessages";
+import type { ArtifactData } from "@/components/chat/ArtifactPanel";
+import { FileBarChart } from "lucide-react";
 
 function extractFollowUps(content: string): { cleanContent: string; followUps: string[] } {
   const regex = /💡\s*\*{0,2}Explorar mais:?\*{0,2}\s*\n([\s\S]*?)$/;
