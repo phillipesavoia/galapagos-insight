@@ -4,6 +4,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useIsMobile } from "@/hooks/use-mobile";
 
+const GALAPAGOS_LOGO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAZAAAABYCAYAAADbc6GhAAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAAGYktHRAD/AP8A/6C9p5MAAAAJcEhZcwAALiMAAC4jAXilP3YAAAAHdElNRQfqBAERNTXfUZwz";
+
 export interface ArtifactData {
   title: string;
   content: string;
@@ -38,15 +40,11 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
   const handleDownloadPDF = async () => {
     const html2pdf = (await import('html2pdf.js')).default;
 
-    // Convert markdown to HTML
     const htmlContent = artifact.content
-      // Headers
       .replace(/^### (.*$)/gm, "<h3>$1</h3>")
       .replace(/^## (.*$)/gm, "<h2>$1</h2>")
       .replace(/^# (.*$)/gm, "<h1>$1</h1>")
-      // Bold
       .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-      // Tables
       .replace(/(?:^\|.+\|$\n?)+/gm, (block) => {
         const rows = block.trim().split("\n").filter((r) => !/^\|[\s-:|]+\|$/.test(r));
         if (rows.length === 0) return block;
@@ -59,12 +57,10 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
         ).join("");
         return `<table>${thead}<tbody>${bodyRows}</tbody></table>`;
       })
-      // Unordered lists
       .replace(/(?:^- .+$\n?)+/gm, (block) => {
         const items = block.trim().split("\n").map((l) => `<li>${l.replace(/^- /, "")}</li>`).join("");
         return `<ul>${items}</ul>`;
       })
-      // Line breaks
       .replace(/\n/g, "<br>");
 
     const wrapper = document.createElement("div");
@@ -83,7 +79,9 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
           li{margin:2px 0}
           blockquote{border-left:3px solid #173C82;padding-left:16px;color:#64748b;margin:16px 0}
         </style>
+        <div style="background:#173C82;color:white;padding:16px 24px;display:flex;justify-content:space-between;margin-bottom:24px"><span style="font-size:18px;font-weight:bold">Galapagos Capital Advisory</span><span style="font-size:11px;opacity:0.8">Confidencial</span></div>
         ${htmlContent}
+        <div style="margin-top:40px;padding-top:12px;border-top:1px solid #e5e7eb;color:#9ca3af;font-size:10px;text-align:center">Galapagos Capital Advisory LLC — Documento Confidencial — Uso Exclusivo do Cliente</div>
       </div>`;
     document.body.appendChild(wrapper);
 
@@ -108,28 +106,30 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
     <div
       className={`${
         isMobile
-          ? "fixed inset-0 z-50 bg-background"
-          : "w-[520px] shrink-0 border-l border-border bg-background"
+          ? "fixed inset-0 z-50"
+          : "w-[520px] shrink-0 border-l border-[#173C82]/20"
       } flex flex-col animate-in slide-in-from-right duration-300`}
+      style={{ background: "#F4F7FB" }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+      <div className="flex items-center justify-between px-4 py-3" style={{ background: "#173C82" }}>
         <div className="flex items-center gap-2 min-w-0">
-          <span className="inline-flex items-center rounded-md bg-[#173C82]/10 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-[#173C82] dark:text-blue-300 uppercase">
+          <img src={GALAPAGOS_LOGO} alt="Galapagos" className="h-7 mr-3" />
+          <span className="inline-flex items-center rounded-md bg-white/15 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-white uppercase">
             {typeLabel}
           </span>
-          <span className="text-sm font-semibold text-foreground truncate">{artifact.title}</span>
+          <span className="text-sm font-semibold text-white truncate">{artifact.title}</span>
         </div>
         <button
           onClick={onClose}
-          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="rounded-md p-1.5 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
         >
           <X className="h-4 w-4" />
         </button>
       </div>
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto px-5 py-4 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto px-5 py-4 scrollbar-thin" style={{ background: "#F4F7FB" }}>
         <div className="prose prose-sm max-w-none text-foreground [&_h1]:text-[#173C82] [&_h1]:text-[17px] [&_h1]:font-bold [&_h1]:mt-5 [&_h1]:mb-3 [&_h2]:text-[#173C82] [&_h2]:text-[15px] [&_h2]:font-bold [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-[#173C82] [&_h3]:text-[13px] [&_h3]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1 [&_p]:my-2 [&_p]:text-foreground [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-0.5 [&_li]:text-foreground [&_strong]:font-semibold [&_strong]:text-foreground [&_blockquote]:border-l-2 [&_blockquote]:border-[#173C82] [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_code]:text-foreground">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
@@ -142,12 +142,12 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
                 </div>
               ),
               thead: ({ children }) => (
-                <thead className="bg-[#173C82] text-white">
+                <thead style={{ background: "#173C82" }} className="text-white">
                   {children}
                 </thead>
               ),
               th: ({ children }) => (
-                <th className="px-3 py-2 text-left font-mono text-[10px] font-semibold uppercase tracking-widest whitespace-nowrap">
+                <th className="px-3 py-2 text-left font-mono text-[10px] font-semibold uppercase tracking-widest whitespace-nowrap text-white">
                   {children}
                 </th>
               ),
@@ -157,7 +157,7 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
                 </tbody>
               ),
               tr: ({ children }) => (
-                <tr className="even:bg-muted/40 transition-colors hover:bg-accent/30">
+                <tr className="odd:bg-white even:bg-[#F4F7FB] transition-colors hover:bg-accent/30">
                   {children}
                 </tr>
               ),
@@ -174,24 +174,24 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
       </div>
 
       {/* Footer */}
-      <div className="flex items-center gap-2 border-t border-border px-4 py-3">
+      <div className="flex items-center gap-2 px-4 py-3 bg-white" style={{ borderTop: "1px solid #173C82" }}>
         <button
           onClick={handleDownloadPDF}
-          className="flex items-center gap-1.5 rounded-lg border border-[#173C82] px-3 py-1.5 text-xs font-medium text-[#173C82] transition-colors hover:bg-[#173C82] hover:text-white dark:text-blue-300 dark:border-blue-400 dark:hover:bg-blue-500 dark:hover:text-white"
+          className="flex items-center gap-1.5 rounded-lg border border-[#173C82] px-3 py-1.5 text-xs font-medium text-[#173C82] transition-colors hover:bg-[#173C82] hover:text-white"
         >
           <Download className="h-3.5 w-3.5" />
           Download PDF
         </button>
         <button
           onClick={handleDownloadMarkdown}
-          className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="flex items-center gap-1.5 rounded-lg border border-[#173C82] px-3 py-1.5 text-xs font-medium text-[#173C82] transition-colors hover:bg-[#173C82] hover:text-white"
         >
           <FileText className="h-3.5 w-3.5" />
           Download Markdown
         </button>
         <button
           onClick={handleCopy}
-          className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="flex items-center gap-1.5 rounded-lg border border-[#173C82] px-3 py-1.5 text-xs font-medium text-[#173C82] transition-colors hover:bg-[#173C82] hover:text-white"
         >
           {copied ? <Check className="h-3.5 w-3.5" /> : <ClipboardCopy className="h-3.5 w-3.5" />}
           {copied ? "✓ Copiado" : "Copiar"}
