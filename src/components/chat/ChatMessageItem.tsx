@@ -255,7 +255,7 @@ export function ChatMessageItem({
                   className="flex items-center gap-2 rounded-xl bg-[#173C82] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#0071BB]"
                 >
                   <BarChart2 className="h-4 w-4 text-white" />
-                  Ver {msg.artifact.artifact_type === "report" ? "Relatório" : msg.artifact.artifact_type === "analysis" ? "Análise" : "Factsheet"} Completo →
+                  Ver {msg.artifact.artifact_type === "report" ? "Relatório Completo" : msg.artifact.artifact_type === "analysis" ? "Análise Completa" : "Factsheet Completo"} →
                 </button>
               </div>
             )}

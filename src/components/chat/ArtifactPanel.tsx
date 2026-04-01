@@ -61,9 +61,33 @@ function markdownToHtml(md: string): string {
   return html;
 }
 
+function stripPreamble(title: string, content: string): string {
+  const lines = content.split("\n");
+  const preamblePhrases = ["vou montar", "iniciando", "vou preparar", "deixa eu", "vou elaborar", "vou criar", "vou gerar", "vou analisar", "aqui está", "segue abaixo", "preparei"];
+  let startIdx = 0;
+
+  // Skip lines that match the title or are preamble
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    // Skip empty lines at the top
+    if (!trimmed) { startIdx = i + 1; continue; }
+    // Skip H1 that matches the title
+    const h1Match = trimmed.match(/^#\s+(.+)$/);
+    if (h1Match && h1Match[1].trim().toLowerCase() === title.trim().toLowerCase()) { startIdx = i + 1; continue; }
+    // Skip preamble paragraphs
+    const lower = trimmed.toLowerCase();
+    if (preamblePhrases.some(p => lower.includes(p)) && !trimmed.startsWith("##") && !trimmed.startsWith("---")) { startIdx = i + 1; continue; }
+    // Stop at first real content (## header, ---, or non-preamble text)
+    break;
+  }
+
+  return lines.slice(startIdx).join("\n").trim();
+}
+
 function buildFactsheetHtml(title: string, content: string): string {
   const date = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
-  const htmlContent = markdownToHtml(content);
+  const cleanedContent = stripPreamble(title, content);
+  const htmlContent = markdownToHtml(cleanedContent);
 
   return `<!DOCTYPE html>
 <html>
