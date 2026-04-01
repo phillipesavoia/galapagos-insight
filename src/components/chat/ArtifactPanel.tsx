@@ -27,45 +27,67 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
     URL.revokeObjectURL(url);
   };
 
-  const handleDownloadPDF = () => {
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>${artifact.title}</title>
-          <style>
-            body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 40px; color: #1a1a1a; line-height: 1.7; }
-            h1 { color: #173C82; font-size: 22px; border-bottom: 2px solid #173C82; padding-bottom: 8px; }
-            h2 { color: #173C82; font-size: 17px; margin-top: 24px; }
-            h3 { color: #173C82; font-size: 14px; margin-top: 18px; }
-            table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 12px; }
-            th { background: #173C82; color: white; padding: 8px 12px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
-            td { padding: 6px 12px; border-bottom: 1px solid #e5e7eb; }
-            tr:nth-child(even) { background: #f8f9fb; }
-            code { background: #f1f5f9; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
-            blockquote { border-left: 3px solid #173C82; padding-left: 16px; color: #64748b; margin: 16px 0; }
-          </style>
-        </head>
-        <body id="content"></body>
-      </html>
-    `);
-    const container = printWindow.document.getElementById("content");
-    if (container) {
-      // Render markdown as HTML
-      const tempDiv = document.createElement("div");
-      tempDiv.innerHTML = artifact.content
-        .replace(/^### (.*$)/gm, "<h3>$1</h3>")
-        .replace(/^## (.*$)/gm, "<h2>$1</h2>")
-        .replace(/^# (.*$)/gm, "<h1>$1</h1>")
-        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-        .replace(/\n/g, "<br>");
-      container.innerHTML = tempDiv.innerHTML;
-    }
-    printWindow.document.close();
-    setTimeout(() => {
-      printWindow.print();
-    }, 500);
+  const handleDownloadPDF = async () => {
+    const html2pdf = (await import('html2pdf.js')).default;
+
+    // Convert markdown to HTML
+    const htmlContent = artifact.content
+      // Headers
+      .replace(/^### (.*$)/gm, "<h3>$1</h3>")
+      .replace(/^## (.*$)/gm, "<h2>$1</h2>")
+      .replace(/^# (.*$)/gm, "<h1>$1</h1>")
+      // Bold
+      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+      // Tables
+      .replace(/(?:^\|.+\|$\n?)+/gm, (block) => {
+        const rows = block.trim().split("\n").filter((r) => !/^\|[\s-:|]+\|$/.test(r));
+        if (rows.length === 0) return block;
+        const parseRow = (row: string) =>
+          row.split("|").slice(1, -1).map((c) => c.trim());
+        const headerCells = parseRow(rows[0]);
+        const thead = `<thead><tr>${headerCells.map((c) => `<th>${c}</th>`).join("")}</tr></thead>`;
+        const bodyRows = rows.slice(1).map(
+          (r) => `<tr>${parseRow(r).map((c) => `<td>${c}</td>`).join("")}</tr>`
+        ).join("");
+        return `<table>${thead}<tbody>${bodyRows}</tbody></table>`;
+      })
+      // Unordered lists
+      .replace(/(?:^- .+$\n?)+/gm, (block) => {
+        const items = block.trim().split("\n").map((l) => `<li>${l.replace(/^- /, "")}</li>`).join("");
+        return `<ul>${items}</ul>`;
+      })
+      // Line breaks
+      .replace(/\n/g, "<br>");
+
+    const wrapper = document.createElement("div");
+    wrapper.style.cssText = "position:absolute;left:-9999px;top:0;width:210mm;";
+    wrapper.innerHTML = `
+      <div style="font-family:'Helvetica Neue',Arial,sans-serif;color:#1a1a1a;line-height:1.7;font-size:12px;">
+        <style>
+          h1{color:#173C82;font-size:22px;border-bottom:2px solid #173C82;padding-bottom:8px}
+          h2{color:#173C82;font-size:17px;margin-top:24px}
+          h3{color:#173C82;font-size:14px;margin-top:18px}
+          table{width:100%;border-collapse:collapse;margin:16px 0;font-size:11px}
+          th{background:#173C82;color:white;padding:8px 12px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:0.05em}
+          td{padding:6px 12px;border-bottom:1px solid #e5e7eb}
+          tr:nth-child(even){background:#f8f9fb}
+          ul{margin:8px 0;padding-left:20px}
+          li{margin:2px 0}
+          blockquote{border-left:3px solid #173C82;padding-left:16px;color:#64748b;margin:16px 0}
+        </style>
+        ${htmlContent}
+      </div>`;
+    document.body.appendChild(wrapper);
+
+    await html2pdf().set({
+      margin: 20,
+      filename: artifact.title.replace(/\s+/g, "_") + ".pdf",
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+    }).from(wrapper.firstElementChild as HTMLElement).save();
+
+    document.body.removeChild(wrapper);
   };
 
   const typeLabel = {
