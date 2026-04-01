@@ -117,6 +117,7 @@ interface Props {
   onToggleSource: (id: string) => void;
   onSend: (text: string) => void;
   onRegenerate: (content: string) => void;
+  onOpenArtifact?: (artifact: ArtifactData) => void;
 }
 
 export function ChatMessageItem({
