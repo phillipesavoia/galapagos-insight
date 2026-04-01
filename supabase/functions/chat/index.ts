@@ -1061,6 +1061,13 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
               try {
                 const event = JSON.parse(jsonStr);
 
+                if (event.type === "message_start" && event.message?.usage) {
+                  console.log("Claude usage (message_start):", JSON.stringify(event.message.usage));
+                }
+                if (event.type === "message_delta" && event.usage) {
+                  console.log("Claude usage (message_delta):", JSON.stringify(event.usage));
+                }
+
                 if (event.type === "content_block_delta" && event.delta?.type === "text_delta" && event.delta?.text) {
                   controller.enqueue(
                     encoder.encode(`data: ${JSON.stringify({ type: "delta", text: event.delta.text })}\n\n`)
