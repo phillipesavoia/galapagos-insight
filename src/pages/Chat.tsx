@@ -6,6 +6,7 @@ import { useChatSessions } from "@/hooks/useChatSessions";
 import { useChatMessages, type ChatSource, type ToolCallData, type ChatMessage } from "@/hooks/useChatMessages";
 import { ChatMessageItem } from "@/components/chat/ChatMessageItem";
 import { ChatSessionSidebar } from "@/components/chat/ChatSessionSidebar";
+import { ArtifactPanel, type ArtifactData } from "@/components/chat/ArtifactPanel";
 
 const allSuggestions = [
   "Qual foi o drawdown máximo no último trimestre?",
@@ -31,6 +32,34 @@ function getRandomSuggestions(count: number) {
   return shuffled.slice(0, count);
 }
 
+/** Detect if streamed content qualifies as a structured artifact */
+function detectArtifact(content: string): ArtifactData | null {
+  if (!content || content.length < 300) return null;
+
+  const headerCount = (content.match(/^#{1,3}\s+.+$/gm) || []).length;
+  const tableRowCount = (content.match(/^\|.+\|$/gm) || []).length;
+
+  const formalSections = [
+    "resumo executivo", "performance", "composição", "composicao",
+    "análise de risco", "analise de risco", "conclusão", "conclusao",
+    "recomendação", "recomendacao", "metodologia", "cenário", "cenario",
+  ];
+  const lower = content.toLowerCase();
+  const formalHits = formalSections.filter(s => lower.includes(s)).length;
+
+  const isReport = headerCount >= 3 && (tableRowCount >= 4 || formalHits >= 2);
+  const isAnalysis = formalHits >= 3;
+
+  if (!isReport && !isAnalysis) return null;
+
+  // Extract title from first header
+  const firstHeader = content.match(/^#{1,3}\s+(.+)$/m);
+  const title = firstHeader ? firstHeader[1].trim() : "Relatório";
+
+  const artifact_type = isAnalysis ? "analysis" : "report";
+  return { title, content, artifact_type };
+}
+
 export default function Chat() {
   const {
     sessions, setSessions, currentSessionId, setCurrentSessionId,
@@ -48,6 +77,7 @@ export default function Chat() {
   const [showHistory, setShowHistory] = useState(true);
   const [randomSuggestions] = useState(() => getRandomSuggestions(4));
   const [filterType, setFilterType] = useState<string>("all");
+  const [artifactPanel, setArtifactPanel] = useState<ArtifactData | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const isEmpty = messages.length === 0;
@@ -94,6 +124,7 @@ export default function Chat() {
     clearMessages();
     setExpandedSources({});
     setShowHistory(false);
+    setArtifactPanel(null);
   };
 
   const handleClearAllChats = async () => {
@@ -124,6 +155,7 @@ export default function Chat() {
     clearMessages();
     loadSession(sid);
     setShowHistory(false);
+    setArtifactPanel(null);
   };
 
   const handleSend = async (text?: string) => {
@@ -229,6 +261,16 @@ export default function Chat() {
         }
       }
 
+      // After streaming is done, detect artifact from full content
+      const detectedArtifact = detectArtifact(fullContent);
+      if (detectedArtifact) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId ? { ...m, artifact: detectedArtifact } : m
+          )
+        );
+      }
+
       await persistMessage(
         { id: assistantId, role: "assistant", content: fullContent, sources },
         currentSessionId
@@ -267,7 +309,7 @@ export default function Chat() {
           />
         )}
 
-        <div className="flex-1 flex min-w-0 flex-col">
+        <div className={`flex-1 flex min-w-0 flex-col transition-all duration-300`}>
           <div className="h-10 shrink-0 border-b border-border bg-background flex items-center justify-between px-4">
             <div className="flex items-center gap-2">
               <button
@@ -338,6 +380,7 @@ export default function Chat() {
                   onToggleSource={(id) => setExpandedSources((prev) => ({ ...prev, [id]: !prev[id] }))}
                   onSend={(text) => handleSend(text)}
                   onRegenerate={(text) => handleSend(text)}
+                  onOpenArtifact={(artifact) => setArtifactPanel(artifact)}
                 />
               ))}
               {isLoading && (
@@ -392,6 +435,14 @@ export default function Chat() {
             </div>
           </div>
         </div>
+
+        {/* Artifact Panel */}
+        {artifactPanel && (
+          <ArtifactPanel
+            artifact={artifactPanel}
+            onClose={() => setArtifactPanel(null)}
+          />
+        )}
       </div>
     </Layout>
   );
