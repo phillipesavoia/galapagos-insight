@@ -1,6 +1,7 @@
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ChevronDown, ChevronRight, ThumbsUp, ThumbsDown, RefreshCw, Copy } from "lucide-react";
+import { ChevronDown, ChevronRight, ThumbsUp, ThumbsDown, RefreshCw, Copy, Check } from "lucide-react";
 import { InlineBarChart } from "@/components/chat/InlineBarChart";
 import { FlashFactsheet } from "@/components/chat/FlashFactsheet";
 import InlineReturnsTable from "@/components/chat/InlineReturnsTable";
