@@ -2,6 +2,27 @@ import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { ArtifactData } from "@/components/chat/ArtifactPanel";
 
+function detectArtifactFromContent(content: string): ArtifactData | null {
+  if (!content || content.length < 200) return null;
+  const headerCount = (content.match(/^#{1,3}\s+.+$/gm) || []).length;
+  const tableRowCount = (content.match(/^\|.+\|$/gm) || []).length;
+  const formalSections = [
+    "resumo executivo", "performance", "composição", "composicao",
+    "análise de risco", "analise de risco", "conclusão", "conclusao",
+    "recomendação", "recomendacao", "metodologia", "cenário", "cenario",
+    "retorno", "alocação", "alocacao", "carteira", "fundo",
+    "portfólio", "portfolio", "gestão", "gestao", "estratégia", "estrategia",
+  ];
+  const lower = content.toLowerCase();
+  const formalHits = formalSections.filter(s => lower.includes(s)).length;
+  const isArtifact = headerCount >= 2 || tableRowCount >= 3 || formalHits >= 2 || (content.length >= 800 && headerCount >= 1);
+  if (!isArtifact) return null;
+  const firstHeader = content.match(/^#{1,3}\s+(.+)$/m);
+  const title = firstHeader ? firstHeader[1].trim() : "Relatório";
+  const artifact_type = formalHits >= 2 ? "analysis" : "report";
+  return { title, content, artifact_type };
+}
+
 export interface ChatSource {
   name: string;
   period: string;
