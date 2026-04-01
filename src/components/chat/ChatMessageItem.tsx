@@ -330,11 +330,15 @@ export function ChatMessageItem({
                 <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.5} />
               </button>
               <button
-                onClick={() => navigator.clipboard.writeText(msg.content)}
+                onClick={() => handleCopy(msg.id, msg.content)}
                 className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 title="Copiar"
               >
-                <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
+                {copiedId === msg.id ? (
+                  <Check className="h-3.5 w-3.5 text-primary" strokeWidth={1.5} />
+                ) : (
+                  <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
+                )}
               </button>
             </div>
           </>
