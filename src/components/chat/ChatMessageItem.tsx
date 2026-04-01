@@ -1,6 +1,7 @@
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ChevronDown, ChevronRight, ThumbsUp, ThumbsDown, RefreshCw, Copy } from "lucide-react";
+import { ChevronDown, ChevronRight, ThumbsUp, ThumbsDown, RefreshCw, Copy, Check } from "lucide-react";
 import { InlineBarChart } from "@/components/chat/InlineBarChart";
 import { FlashFactsheet } from "@/components/chat/FlashFactsheet";
 import InlineReturnsTable from "@/components/chat/InlineReturnsTable";
@@ -131,6 +132,14 @@ export function ChatMessageItem({
   onRegenerate,
   onOpenArtifact,
 }: Props) {
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopy = (id: string, content: string) => {
+    navigator.clipboard.writeText(content);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
   return (
     <div className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
       <div
@@ -321,11 +330,15 @@ export function ChatMessageItem({
                 <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.5} />
               </button>
               <button
-                onClick={() => navigator.clipboard.writeText(msg.content)}
+                onClick={() => handleCopy(msg.id, msg.content)}
                 className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 title="Copiar"
               >
-                <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
+                {copiedId === msg.id ? (
+                  <Check className="h-3.5 w-3.5 text-primary" strokeWidth={1.5} />
+                ) : (
+                  <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
+                )}
               </button>
             </div>
           </>
