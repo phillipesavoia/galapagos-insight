@@ -7,6 +7,8 @@ import InlineReturnsTable from "@/components/chat/InlineReturnsTable";
 import InlineLineChart from "@/components/chat/InlineLineChart";
 import InlinePieChart from "@/components/chat/InlinePieChart";
 import type { ChatMessage, ToolCallData } from "@/hooks/useChatMessages";
+import type { ArtifactData } from "@/components/chat/ArtifactPanel";
+import { FileBarChart } from "lucide-react";
 
 function extractFollowUps(content: string): { cleanContent: string; followUps: string[] } {
   const regex = /💡\s*\*{0,2}Explorar mais:?\*{0,2}\s*\n([\s\S]*?)$/;
@@ -115,6 +117,7 @@ interface Props {
   onToggleSource: (id: string) => void;
   onSend: (text: string) => void;
   onRegenerate: (content: string) => void;
+  onOpenArtifact?: (artifact: ArtifactData) => void;
 }
 
 export function ChatMessageItem({
@@ -126,6 +129,7 @@ export function ChatMessageItem({
   onToggleSource,
   onSend,
   onRegenerate,
+  onOpenArtifact,
 }: Props) {
   return (
     <div className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -233,6 +237,16 @@ export function ChatMessageItem({
               <div className="mt-2">
                 {msg.toolCalls.map((tc, i) => renderToolCall(tc, i))}
               </div>
+            )}
+
+            {msg.artifact && onOpenArtifact && (
+              <button
+                onClick={() => onOpenArtifact(msg.artifact!)}
+                className="mt-3 flex items-center gap-2 rounded-lg border border-[#173C82] px-3.5 py-2 text-xs font-medium text-[#173C82] transition-colors hover:bg-[#173C82] hover:text-white dark:text-blue-300 dark:border-blue-400 dark:hover:bg-blue-500 dark:hover:text-white"
+              >
+                <FileBarChart className="h-4 w-4" />
+                📊 Ver {msg.artifact.artifact_type === "report" ? "Relatório" : msg.artifact.artifact_type === "analysis" ? "Análise" : "Factsheet"} Completo →
+              </button>
             )}
           </>
         ) : (
