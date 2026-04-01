@@ -17,6 +17,13 @@ interface Props {
 
 export function ArtifactPanel({ artifact, onClose }: Props) {
   const isMobile = useIsMobile();
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(artifact.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const handleDownloadMarkdown = () => {
     const blob = new Blob([artifact.content], { type: "text/markdown" });
