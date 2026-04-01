@@ -1,4 +1,5 @@
-import { X, Download, FileText } from "lucide-react";
+import { useState } from "react";
+import { X, Download, FileText, ClipboardCopy, Check } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useIsMobile } from "@/hooks/use-mobile";
