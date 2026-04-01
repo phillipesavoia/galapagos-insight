@@ -129,6 +129,7 @@ export function ChatMessageItem({
   onToggleSource,
   onSend,
   onRegenerate,
+  onOpenArtifact,
 }: Props) {
   return (
     <div className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
