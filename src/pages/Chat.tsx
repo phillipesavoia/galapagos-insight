@@ -34,7 +34,7 @@ function getRandomSuggestions(count: number) {
 
 /** Detect if streamed content qualifies as a structured artifact */
 function detectArtifact(content: string): ArtifactData | null {
-  if (!content || content.length < 300) return null;
+  if (!content || content.length < 200) return null;
 
   const headerCount = (content.match(/^#{1,3}\s+.+$/gm) || []).length;
   const tableRowCount = (content.match(/^\|.+\|$/gm) || []).length;
@@ -43,20 +43,24 @@ function detectArtifact(content: string): ArtifactData | null {
     "resumo executivo", "performance", "composição", "composicao",
     "análise de risco", "analise de risco", "conclusão", "conclusao",
     "recomendação", "recomendacao", "metodologia", "cenário", "cenario",
+    "retorno", "alocação", "alocacao", "carteira", "fundo",
+    "portfólio", "portfolio", "gestão", "gestao", "estratégia", "estrategia",
   ];
   const lower = content.toLowerCase();
   const formalHits = formalSections.filter(s => lower.includes(s)).length;
 
-  const isReport = headerCount >= 3 && (tableRowCount >= 4 || formalHits >= 2);
-  const isAnalysis = formalHits >= 3;
+  const isArtifact =
+    headerCount >= 2 ||
+    tableRowCount >= 3 ||
+    formalHits >= 2 ||
+    (content.length >= 800 && headerCount >= 1);
 
-  if (!isReport && !isAnalysis) return null;
+  if (!isArtifact) return null;
 
-  // Extract title from first header
   const firstHeader = content.match(/^#{1,3}\s+(.+)$/m);
   const title = firstHeader ? firstHeader[1].trim() : "Relatório";
 
-  const artifact_type = isAnalysis ? "analysis" : "report";
+  const artifact_type = formalHits >= 2 ? "analysis" : "report";
   return { title, content, artifact_type };
 }
 
