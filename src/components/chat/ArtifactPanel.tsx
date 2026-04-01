@@ -85,7 +85,7 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
       image: { type: "jpeg", quality: 0.98 },
       html2canvas: { scale: 2 },
       jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-    }).from(wrapper.firstElementChild).save();
+    }).from(wrapper.firstElementChild as HTMLElement).save();
 
     document.body.removeChild(wrapper);
   };
