@@ -249,13 +249,15 @@ export function ChatMessageItem({
             )}
 
             {msg.artifact && onOpenArtifact && (
-              <button
-                onClick={() => onOpenArtifact(msg.artifact!)}
-                className="mt-3 flex items-center gap-2 rounded-lg border border-[#173C82] px-3.5 py-2 text-xs font-medium text-[#173C82] transition-colors hover:bg-[#173C82] hover:text-white dark:text-blue-300 dark:border-blue-400 dark:hover:bg-blue-500 dark:hover:text-white"
-              >
-                <FileBarChart className="h-4 w-4" />
-                📊 Ver {msg.artifact.artifact_type === "report" ? "Relatório" : msg.artifact.artifact_type === "analysis" ? "Análise" : "Factsheet"} Completo →
-              </button>
+              <div className="mt-4 flex border-l-4 border-[#0071BB] pl-3">
+                <button
+                  onClick={() => onOpenArtifact(msg.artifact!)}
+                  className="flex items-center gap-2 rounded-xl bg-[#173C82] px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#0071BB]"
+                >
+                  <BarChart2 className="h-4 w-4 text-white" />
+                  Ver {msg.artifact.artifact_type === "report" ? "Relatório" : msg.artifact.artifact_type === "analysis" ? "Análise" : "Factsheet"} Completo →
+                </button>
+              </div>
             )}
           </>
         ) : (

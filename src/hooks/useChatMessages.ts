@@ -57,12 +57,17 @@ export function useChatMessages() {
 
     if (data && data.length > 0) {
       setMessages(
-        data.map((row: any) => ({
-          id: row.id,
-          role: row.role as "user" | "assistant",
-          content: row.content || "",
-          sources: row.sources ? (row.sources as any[]) : [],
-        }))
+        data.map((row: any) => {
+          const content = row.content || "";
+          const role = row.role as "user" | "assistant";
+          return {
+            id: row.id,
+            role,
+            content,
+            sources: row.sources ? (row.sources as any[]) : [],
+            artifact: role === "assistant" ? detectArtifactFromContent(content) ?? undefined : undefined,
+          };
+        })
       );
     }
   }, []);
