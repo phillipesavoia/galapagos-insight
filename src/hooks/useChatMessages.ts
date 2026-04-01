@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { ArtifactData } from "@/components/chat/ArtifactPanel";
 
 export interface ChatSource {
   name: string;
@@ -19,6 +20,7 @@ export interface ChatMessage {
   sources?: ChatSource[];
   toolCalls?: ToolCallData[];
   modelUsed?: "sonnet" | "opus";
+  artifact?: ArtifactData;
 }
 
 export function useChatMessages() {
