@@ -1,4 +1,5 @@
-import { X, Download, FileText } from "lucide-react";
+import { useState } from "react";
+import { X, Download, FileText, ClipboardCopy, Check } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -16,6 +17,13 @@ interface Props {
 
 export function ArtifactPanel({ artifact, onClose }: Props) {
   const isMobile = useIsMobile();
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(artifact.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const handleDownloadMarkdown = () => {
     const blob = new Blob([artifact.content], { type: "text/markdown" });
@@ -180,6 +188,13 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
         >
           <FileText className="h-3.5 w-3.5" />
           Download Markdown
+        </button>
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          {copied ? <Check className="h-3.5 w-3.5" /> : <ClipboardCopy className="h-3.5 w-3.5" />}
+          {copied ? "✓ Copiado" : "Copiar"}
         </button>
       </div>
     </div>
