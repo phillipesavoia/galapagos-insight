@@ -304,6 +304,7 @@ if(chartScriptEl){chartScriptEl.addEventListener('load',function(){setTimeout(in
 export function ArtifactPanel({ artifact, onClose }: Props) {
   const isMobile = useIsMobile();
   const [copied, setCopied] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const factsheetHtml = useMemo(
     () => buildFactsheetHtml(artifact.title, artifact.content, artifact.chartCalls),
