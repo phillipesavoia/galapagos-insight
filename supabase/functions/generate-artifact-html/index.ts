@@ -6,6 +6,25 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+let echartsCache: string | null = null;
+
+async function getECharts(): Promise<string> {
+  if (echartsCache) return echartsCache;
+  try {
+    const res = await fetch(
+      'https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js',
+      { signal: AbortSignal.timeout(10000) }
+    );
+    if (res.ok) {
+      echartsCache = await res.text();
+      return echartsCache;
+    }
+  } catch (e) {
+    console.warn('ECharts fetch failed:', e);
+  }
+  return '';
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
