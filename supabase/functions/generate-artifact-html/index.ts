@@ -79,52 +79,73 @@ Deno.serve(async (req) => {
       });
     }
 
-    const systemPrompt = `You are an expert financial report designer for Galapagos Capital Advisory (Miami).
-Generate a complete, self-contained HTML report with inline SVG charts.
+    const systemPrompt = `You are a senior financial report designer for an institutional wealth manager (Galapagos Capital Advisory, Miami). 
+Generate complete, self-contained HTML reports at Bloomberg/FactSet quality level.
 
-BRANDING:
-- Primary navy: #173C82
-- Bright blue: #0071BB
-- Accent blue: #4a9fd4
-- Positive green: #38a169
-- Negative red: #e53e3e
-- Background: #F4F7FB
-- Text: #1a1a2e
+TECHNICAL STACK:
+- Apache ECharts 5 from CDN (https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js)
+- ALWAYS use renderer: 'svg' — this is critical for PDF printing
+- All chart containers must have explicit pixel height (e.g. style="height:280px")
+- Initialize charts with: echarts.init(document.getElementById('id'), null, {renderer: 'svg'})
 
-SVG CHART RULES — CRITICAL:
-- For horizontal bar charts: ALL bars must go LEFT to RIGHT from a fixed origin line. Negative values use red color but still render as a bar going right (use absolute value for width). NEVER let text overlap bars.
-- Bar labels (asset names) go on the LEFT side, values on the RIGHT side of each bar with 8px padding
-- Minimum bar height: 28px per item. Calculate total SVG height = number of items × 32 + 60 (for title + padding)
-- Always set explicit viewBox and width="100%" height="auto" on every SVG
-- Text labels: font-size="12" — never truncate, use full names
-- For donut/pie charts: always include a visible legend below the chart
-- Add page-break-inside: avoid to every chart container div
+DESIGN SYSTEM:
+- Font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif
+- Navy: #173C82 | Blue: #0071BB | Light blue: #4a9fd4
+- Green: #16a34a | Red: #dc2626 | Amber: #d97706
+- Background: #f8fafc | Card: #ffffff | Border: #e2e8f0
+- Text primary: #0f172a | Text secondary: #64748b
 
-PDF PRINT RULES — CRITICAL:
-- Add this to your CSS: @media print { .chart-container { page-break-inside: avoid; break-inside: avoid; } svg { overflow: visible !important; } }
-- Every section card must have: style="page-break-inside: avoid; break-inside: avoid;"
-- Use explicit pixel heights on all SVG elements
+REPORT STRUCTURE (use this exact layout):
+1. Header: full-width navy bar with firm name left, report date/confidential right
+2. Sub-header: bright blue bar with report title and base date
+3. KPI row: 4 metric cards in a flex row, each with colored left border (red/green based on value)
+4. Main content: CSS grid 2-column layout where appropriate
+5. Each section in a white card with box-shadow: 0 1px 3px rgba(0,0,0,0.1), border-radius: 8px, padding: 24px
+6. Footer with confidentiality notice
 
-LAYOUT:
-- Two-column grid for wide sections, single column for tables
-- KPI cards in a row at the top
-- Each section in a white card with subtle shadow
-- Tables: navy headers, alternating rows #F4F7FB/white
-- Font: Helvetica Neue, Arial, sans-serif
-- Include a header bar with Galapagos Capital Advisory branding
-- Include a footer with confidentiality notice
-- The HTML must print perfectly — include @media print styles
+CHART QUALITY RULES:
+- Bar charts: horizontal, sorted by value descending, colored bars (green positive/red negative), value labels inside or right of bar
+- Pie/donut: center label with portfolio name, percentage labels outside, legend below
+- All charts must have: grid lines, axis labels, proper margins
+- Color palette for multi-series: ['#0071BB','#173C82','#16a34a','#dc2626','#d97706','#4a9fd4','#7c3aed']
+
+PRINT/PDF RULES:
+- @media print: all cards break-inside: avoid, colors must print (-webkit-print-color-adjust: exact; print-color-adjust: exact)
+- The window.onload script must initialize ALL ECharts after DOM is ready
+- Add at end of body: <script>window.addEventListener('load', function(){ /* init all charts */ if(location.search.indexOf('print=1')!==-1){setTimeout(function(){window.print()},1500);} });</script>
+- Only trigger print if URL contains '?print=1'
+
+TYPOGRAPHY:
+- Section titles: 15px font-weight:600 color:#173C82 border-bottom: 2px solid #173C82
+- Table headers: 11px uppercase letter-spacing:0.06em background:#173C82 color:white padding:10px 14px
+- Table cells: 13px padding:9px 14px border-bottom:1px solid #e2e8f0
+- Positive values: color:#16a34a font-weight:600
+- Negative values: color:#dc2626 font-weight:600
+- KPI large number: 28px font-weight:700
 - Portuguese language for all UI elements
 
-Return ONLY valid HTML — no markdown, no backticks, no explanation.`;
-    const userMessage = `Generate a branded HTML report. Be concise — maximum 6000 tokens. Prioritize charts and key tables over lengthy text explanations.
+Return ONLY the HTML document starting with <!DOCTYPE html>. No markdown, no backticks, no explanation.`;
+
+    const userMessage = `Generate a professional institutional-quality HTML financial report.
 
 Title: ${title}
 
-Content (in markdown):
-${content}${chartDescriptions}
+Content (markdown with all data):
+${content}
+${chartDescriptions}
 
-Place each chart/table visualization inline within the relevant section of the report (near the content it relates to). The report should flow naturally with text, tables, and charts integrated together.`;
+IMPORTANT INSTRUCTIONS:
+1. Extract ALL numerical data from the content to build proper ECharts charts with SVG renderer
+2. Every chart mentioned in the chartCalls must appear as a proper ECharts chart
+3. KPI cards at the top must show the most important 4 metrics from the content
+4. Use a 2-column grid layout: narrative/tables on left, charts on right where possible
+5. Tables must include ALL rows from the data — do not truncate
+6. Negative performance values: red color. Positive: green. Zero: gray.
+7. The report must look like it came from a Bloomberg terminal or BlackRock report
+8. Include the ECharts CDN script tag in the head
+9. All chart div containers need unique IDs (chart1, chart2, etc.)
+10. Initialize all charts in a single window.onload function at the bottom of body
+11. Be concise — prioritize charts and key tables over lengthy text explanations.`;
 
     const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -135,7 +156,7 @@ Place each chart/table visualization inline within the relevant section of the r
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
-        max_tokens: 10000,
+        max_tokens: 12000,
         stream: true,
         system: systemPrompt,
         messages: [{ role: "user", content: userMessage }],
