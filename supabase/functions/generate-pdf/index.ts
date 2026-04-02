@@ -50,6 +50,19 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Strip ECharts CDN and chart init scripts to avoid API2PDF timeout
+    // Replace chart divs with a "see interactive version" placeholder
+    let pdfHtml = html
+      .replace(/<script[^>]*src[^>]*echarts[^>]*><\/script>/gi, '')
+      .replace(/<script[^>]*>[\s\S]*?echarts[\s\S]*?<\/script>/gi, '')
+      .replace(/<script[^>]*>[\s\S]*?\.setOption\([\s\S]*?<\/script>/gi, '');
+
+    // Replace empty chart divs with styled placeholders
+    pdfHtml = pdfHtml.replace(
+      /<div\s+id="chart\d+"[^>]*style="[^"]*height:\s*\d+px[^"]*"[^>]*><\/div>/gi,
+      '<div style="height:60px;display:flex;align-items:center;justify-content:center;background:#f0f4f8;border-radius:6px;color:#64748b;font-size:11px;font-style:italic;">📊 Gráfico interativo disponível na versão digital</div>'
+    );
+
     const pdfRes = await fetch("https://v2.api2pdf.com/chrome/html", {
       method: "POST",
       headers: {
@@ -57,7 +70,7 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        html,
+        html: pdfHtml,
         inlineHtml: true,
         options: {
           landscape: false,
@@ -67,7 +80,7 @@ Deno.serve(async (req) => {
           marginBottom: "0mm",
           marginLeft: "0mm",
           marginRight: "0mm",
-          delay: 2500,
+          delay: 500,
         },
         fileName: fileName || "report.pdf",
       }),
