@@ -19,6 +19,7 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
   const isMobile = useIsMobile();
   const [copied, setCopied] = useState(false);
   const [generatedHtml, setGeneratedHtml] = useState<string | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -45,6 +46,7 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
         if (data?.error) throw new Error(data.error);
         if (!cancelled) {
           setGeneratedHtml(data.html);
+          if (data.pdfUrl) setPdfUrl(data.pdfUrl);
         }
       } catch (err) {
         if (!cancelled) {
@@ -76,14 +78,21 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
   };
 
   const handleDownloadPDF = () => {
-    if (!generatedHtml) return;
-    const printHtml = generatedHtml.replace(
-      "location.search.indexOf('print=1')",
-      "true"
-    );
-    const blob = new Blob([printHtml], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    window.open(url, "_blank");
+    if (pdfUrl) {
+      const a = document.createElement('a');
+      a.href = pdfUrl;
+      a.download = `${artifact.title.replace(/\s+/g, '_')}.pdf`;
+      a.click();
+    } else if (generatedHtml) {
+      // Fallback: open print dialog
+      const printHtml = generatedHtml.replace(
+        "location.search.indexOf('print=1')",
+        "true"
+      );
+      const blob = new Blob([printHtml], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+    }
   };
 
   const openInNewTab = () => {
@@ -161,11 +170,11 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
       <div className="flex items-center gap-2 px-4 py-3 shrink-0" style={{ background: "#F4F7FB", borderTop: "1px solid #d1dce8" }}>
         <button
           onClick={handleDownloadPDF}
-          disabled={isGenerating || !!error}
+          disabled={isGenerating || !!error || (!pdfUrl && !generatedHtml)}
           className="flex items-center gap-1.5 rounded-lg border border-[#173C82] px-3 py-1.5 text-xs font-medium text-[#173C82] transition-colors hover:bg-[#173C82] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {isGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-          🖨 Imprimir PDF
+          {pdfUrl ? "📥 Download PDF" : "🖨 Imprimir PDF"}
         </button>
         <button
           onClick={openInNewTab}
