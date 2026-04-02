@@ -249,28 +249,6 @@ export default function Chat() {
                   m.id === assistantId ? { ...m, content: snap, toolCalls: tcSnap } : m
                 )
               );
-              // Auto-open viz tool calls in artifact panel
-              const vizTools = [
-                "renderizar_grafico_barras",
-                "renderizar_grafico_linha",
-                "renderizar_pie_chart",
-                "renderizar_tabela_retornos",
-                "renderizar_flash_factsheet",
-              ];
-              if (vizTools.includes(event.tool)) {
-                const vizTitle = event.input?.title || event.input?.assetName || ({
-                  renderizar_grafico_barras: "Gráfico de Barras",
-                  renderizar_grafico_linha: "Gráfico de Linha",
-                  renderizar_pie_chart: "Gráfico de Composição",
-                  renderizar_tabela_retornos: "Tabela de Retornos",
-                  renderizar_flash_factsheet: "Flash Factsheet",
-                } as Record<string, string>)[event.tool] || "Visualização";
-                setArtifactPanel({
-                  title: vizTitle,
-                  content: JSON.stringify({ tool: event.tool, input: event.input }),
-                  artifact_type: "report",
-                });
-              }
             } else if (event.type === "sources") {
               sources = event.sources || [];
               setMessages((prev) =>
