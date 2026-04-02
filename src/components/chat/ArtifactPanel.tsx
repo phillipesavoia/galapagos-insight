@@ -400,6 +400,7 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
       {/* Body */}
       <div className="flex-1 min-h-0 overflow-hidden">
         <iframe
+          ref={iframeRef}
           srcDoc={factsheetHtml}
           title={artifact.title}
           className="w-full h-full border-0"
