@@ -135,7 +135,7 @@ Place each chart/table visualization inline within the relevant section of the r
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
-        max_tokens: 8000,
+        max_tokens: 10000,
         stream: true,
         system: systemPrompt,
         messages: [{ role: "user", content: userMessage }],
