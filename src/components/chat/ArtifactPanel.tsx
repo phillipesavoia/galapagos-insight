@@ -1,6 +1,11 @@
 import { useState, useMemo } from "react";
 import { X, Download, FileText, ClipboardCopy, Check } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { InlineBarChart } from "@/components/chat/InlineBarChart";
+import { FlashFactsheet } from "@/components/chat/FlashFactsheet";
+import InlineReturnsTable from "@/components/chat/InlineReturnsTable";
+import InlineLineChart from "@/components/chat/InlineLineChart";
+import InlinePieChart from "@/components/chat/InlinePieChart";
 
 export interface ArtifactData {
   title: string;
