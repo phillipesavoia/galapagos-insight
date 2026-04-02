@@ -78,17 +78,24 @@ const CHART_COLORS = {
   palette: ["#173C82", "#0071BB", "#4a9fd4", "#38a169", "#e53e3e", "#d69e2e", "#805ad5", "#dd6b20"],
 };
 
-function buildChartScript(chartCalls: Array<{ tool: string; input: any }>): string {
-  if (!chartCalls || chartCalls.length === 0) return "";
+interface ChartBlock {
+  title: string;
+  keywords: string[];
+  html: string;
+  script: string;
+}
 
-  const canvases: string[] = [];
-  const scripts: string[] = [];
+function buildChartBlocks(chartCalls: Array<{ tool: string; input: any }>): ChartBlock[] {
+  if (!chartCalls || chartCalls.length === 0) return [];
+
+  const blocks: ChartBlock[] = [];
 
   chartCalls.forEach((tc, idx) => {
     const canvasId = `chart_${idx}`;
+    const rawTitle = tc.input?.title || tc.input?.titulo || tc.input?.assetName || "";
+    const keywords = rawTitle.toLowerCase().split(/[\s\-–—:,/]+/).filter((w: string) => w.length > 2);
 
     if (tc.tool === "renderizar_tabela_retornos" && tc.input) {
-      // Render as styled HTML table, no canvas needed
       const { title, columns, rows, colorize } = tc.input;
       const cols = columns || [];
       const dataRows = rows || [];
@@ -107,19 +114,18 @@ function buildChartScript(chartCalls: Array<{ tool: string; input: any }>): stri
         }).join("");
         return `<tr>${cells}</tr>`;
       }).join("");
-      canvases.push(`<div class="chart-container"><h3>${title || ""}</h3><table><thead>${thead}</thead><tbody>${tbody}</tbody></table></div>`);
+      blocks.push({ title: title || rawTitle, keywords, html: `<div class="chart-container"><h3>${title || ""}</h3><table><thead>${thead}</thead><tbody>${tbody}</tbody></table></div>`, script: "" });
       return;
     }
 
     if (tc.tool === "renderizar_flash_factsheet") {
-      // Render factsheet as structured HTML
       const { assetName, ticker, assetClass, thesis, portfolios } = tc.input;
-      canvases.push(`<div class="chart-container">
+      blocks.push({ title: assetName || rawTitle, keywords, html: `<div class="chart-container">
         <h3>${assetName || ""} ${ticker ? `(${ticker})` : ""}</h3>
         <p><strong>Classe:</strong> ${assetClass || ""}</p>
         ${portfolios?.length ? `<p><strong>Portfólios:</strong> ${portfolios.join(", ")}</p>` : ""}
         ${thesis ? `<p><strong>Tese:</strong> ${thesis}</p>` : ""}
-      </div>`);
+      </div>`, script: "" });
       return;
     }
 
@@ -131,12 +137,11 @@ function buildChartScript(chartCalls: Array<{ tool: string; input: any }>): stri
         data: (data || []).map((d: any) => d[bar.dataKey] ?? 0),
         backgroundColor: bar.color || CHART_COLORS.palette[bi % CHART_COLORS.palette.length],
       }));
-      canvases.push(`<div class="chart-container"><h3>${title || ""}</h3><canvas id="${canvasId}" height="300"></canvas></div>`);
-      scripts.push(`new Chart(document.getElementById('${canvasId}'), {
+      blocks.push({ title: title || rawTitle, keywords, html: `<div class="chart-container"><h3>${title || ""}</h3><canvas id="${canvasId}" height="300"></canvas></div>`, script: `new Chart(document.getElementById('${canvasId}'), {
         type: 'bar',
         data: { labels: ${JSON.stringify(labels)}, datasets: ${JSON.stringify(datasets)} },
         options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: ${datasets.length > 1} } }, scales: { x: { title: { display: ${!!yAxisLabel}, text: ${JSON.stringify(yAxisLabel || "")} } } } }
-      });`);
+      });` });
       return;
     }
 
@@ -151,12 +156,11 @@ function buildChartScript(chartCalls: Array<{ tool: string; input: any }>): stri
         tension: 0.3,
         pointRadius: 0,
       }));
-      canvases.push(`<div class="chart-container"><h3>${title || ""}</h3><canvas id="${canvasId}" height="300"></canvas></div>`);
-      scripts.push(`new Chart(document.getElementById('${canvasId}'), {
+      blocks.push({ title: title || rawTitle, keywords, html: `<div class="chart-container"><h3>${title || ""}</h3><canvas id="${canvasId}" height="300"></canvas></div>`, script: `new Chart(document.getElementById('${canvasId}'), {
         type: 'line',
         data: { labels: ${JSON.stringify(labels)}, datasets: ${JSON.stringify(datasets)} },
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { title: { display: ${!!yAxisLabel}, text: ${JSON.stringify(yAxisLabel || "")} } } } }
-      });`);
+      });` });
       return;
     }
 
@@ -165,29 +169,82 @@ function buildChartScript(chartCalls: Array<{ tool: string; input: any }>): stri
       const labels = (data || []).map((d: any) => d.name || "");
       const values = (data || []).map((d: any) => d.value ?? 0);
       const colors = (data || []).map((d: any, di: number) => d.color || CHART_COLORS.palette[di % CHART_COLORS.palette.length]);
-      canvases.push(`<div class="chart-container"><h3>${title || ""}</h3><canvas id="${canvasId}" height="300"></canvas></div>`);
-      scripts.push(`new Chart(document.getElementById('${canvasId}'), {
+      blocks.push({ title: title || rawTitle, keywords, html: `<div class="chart-container"><h3>${title || ""}</h3><canvas id="${canvasId}" height="300"></canvas></div>`, script: `new Chart(document.getElementById('${canvasId}'), {
         type: 'doughnut',
         data: { labels: ${JSON.stringify(labels)}, datasets: [{ data: ${JSON.stringify(values)}, backgroundColor: ${JSON.stringify(colors)} }] },
         options: { responsive: true, maintainAspectRatio: false, cutout: ${donut !== false ? "'50%'" : "0"}, plugins: { legend: { position: 'bottom' } } }
-      });`);
+      });` });
       return;
     }
   });
 
-  const chartHtml = canvases.join("\n");
-  const chartScript = scripts.length > 0
-    ? `<script src="https://cdn.jsdelivr.net/npm/chart.js"></script><script>window.onload=function(){${scripts.join("\n")}}</script>`
-    : "";
+  return blocks;
+}
 
-  return chartHtml + chartScript;
+function injectChartsIntoHtml(htmlContent: string, chartBlocks: ChartBlock[]): { html: string; scripts: string[] } {
+  if (chartBlocks.length === 0) return { html: htmlContent, scripts: [] };
+
+  let result = htmlContent;
+  const scripts: string[] = [];
+  const placed = new Set<number>();
+
+  // Try to place each chart after its matching section
+  chartBlocks.forEach((block, idx) => {
+    if (block.keywords.length === 0) return;
+
+    // Find matching h2/h3 in the HTML
+    const sectionRegex = /<h[23][^>]*>(.*?)<\/h[23]>/gi;
+    let match: RegExpExecArray | null;
+    let bestPos = -1;
+
+    while ((match = sectionRegex.exec(result)) !== null) {
+      const sectionText = match[1].toLowerCase().replace(/<[^>]*>/g, "");
+      const matchCount = block.keywords.filter(kw => sectionText.includes(kw)).length;
+      if (matchCount >= 1) {
+        // Find the next closing tag after this header to inject after
+        const afterHeader = result.substring(match.index + match[0].length);
+        const insertAfterMatch = afterHeader.match(/^[\s\S]*?(<\/table>|<\/ul>|<\/ol>|<\/blockquote>|<\/p>)/);
+        if (insertAfterMatch) {
+          bestPos = match.index + match[0].length + insertAfterMatch.index! + insertAfterMatch[0].length;
+        } else {
+          bestPos = match.index + match[0].length;
+        }
+        break;
+      }
+    }
+
+    if (bestPos >= 0) {
+      result = result.substring(0, bestPos) + "\n" + block.html + "\n" + result.substring(bestPos);
+      placed.add(idx);
+      if (block.script) scripts.push(block.script);
+    }
+  });
+
+  // Append unplaced charts at the end
+  chartBlocks.forEach((block, idx) => {
+    if (!placed.has(idx)) {
+      result += "\n" + block.html;
+      if (block.script) scripts.push(block.script);
+    }
+  });
+
+  return { html: result, scripts };
 }
 
 function buildFactsheetHtml(title: string, content: string, chartCalls?: Array<{ tool: string; input: any }>): string {
   const date = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
-  const cleanedContent = stripPreamble(title, content);
+  let cleanedContent = stripPreamble(title, content);
+
+  // Strip "Explorar mais" section and everything after it
+  cleanedContent = cleanedContent.replace(/💡\s*\*?\*?Explorar mais:?\*?\*?[\s\S]*$/m, '').trim();
+
   const htmlContent = markdownToHtml(cleanedContent);
-  const chartsBlock = buildChartScript(chartCalls || []);
+  const chartBlocks = buildChartBlocks(chartCalls || []);
+  const { html: finalHtml, scripts } = injectChartsIntoHtml(htmlContent, chartBlocks);
+
+  const chartScriptTag = scripts.length > 0
+    ? `<script src="https://cdn.jsdelivr.net/npm/chart.js"></script><script>window.onload=function(){${scripts.join("\n")}}</script>`
+    : "";
 
   return `<!DOCTYPE html>
 <html>
@@ -216,7 +273,7 @@ function buildFactsheetHtml(title: string, content: string, chartCalls?: Array<{
   li { margin-bottom: 4px; color: #2d3748; }
   blockquote { border-left: 4px solid #0071BB; padding: 8px 16px; background: #eef3fb; margin: 12px 0; border-radius: 0 6px 6px 0; color: #173C82; font-style: italic; }
   hr { border: none; border-top: 1px solid #d1dce8; margin: 20px 0; }
-  .chart-container { margin: 20px 0; padding: 16px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .chart-container { margin: 16px 0 24px; padding: 16px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
   .chart-container h3 { margin-top: 0; margin-bottom: 12px; }
   .chart-container canvas { width: 100% !important; max-height: 320px; }
   .footer { margin-top: 32px; padding: 12px 28px; border-top: 1px solid #d1dce8; background: #F4F7FB; text-align: center; font-size: 10px; color: #94a3b8; }
@@ -232,10 +289,10 @@ function buildFactsheetHtml(title: string, content: string, chartCalls?: Array<{
     <div class="header-right">Documento Confidencial<br>${date}</div>
   </div>
   <div class="content">
-    ${htmlContent}
-    ${chartsBlock}
+    ${finalHtml}
   </div>
   <div class="footer">Galapagos Capital Advisory LLC — Documento Confidencial — Uso Exclusivo do Cliente</div>
+  ${chartScriptTag}
 </body>
 </html>`;
 }
