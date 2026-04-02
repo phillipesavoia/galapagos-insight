@@ -184,7 +184,7 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
       } flex flex-col h-full animate-in slide-in-from-right duration-300 bg-background`}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3" style={{ background: "#173C82" }}>
+      <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{ background: "#173C82" }}>
         <div className="flex items-center gap-2 min-w-0">
           <span className="inline-flex items-center rounded-md bg-white/15 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-white uppercase">
             {typeLabel}
