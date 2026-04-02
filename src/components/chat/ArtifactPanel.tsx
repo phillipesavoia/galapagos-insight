@@ -204,14 +204,34 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
         </button>
       </div>
 
-      {/* Body — iframe */}
+      {/* Body */}
       <div className="flex-1 min-h-0 overflow-hidden">
-        <iframe
-          srcDoc={factsheetHtml}
-          title={artifact.title}
-          className="w-full h-full border-0"
-          sandbox="allow-same-origin"
-        />
+        {vizData ? (
+          <div className="h-full overflow-y-auto p-4 bg-background">
+            {vizData.tool === "renderizar_grafico_barras" && (
+              <InlineBarChart title={vizData.input.title || ""} data={vizData.input.data || []} bars={vizData.input.bars || []} yAxisLabel={vizData.input.yAxisLabel} />
+            )}
+            {vizData.tool === "renderizar_grafico_linha" && (
+              <InlineLineChart title={vizData.input.title || ""} data={vizData.input.data || []} lines={vizData.input.lines || []} yAxisLabel={vizData.input.yAxisLabel} />
+            )}
+            {vizData.tool === "renderizar_pie_chart" && (
+              <InlinePieChart title={vizData.input.title || ""} data={vizData.input.data || []} donut={vizData.input.donut} />
+            )}
+            {vizData.tool === "renderizar_tabela_retornos" && (
+              <InlineReturnsTable title={vizData.input.title || ""} columns={vizData.input.columns || []} rows={vizData.input.rows || []} colorize={vizData.input.colorize} />
+            )}
+            {vizData.tool === "renderizar_flash_factsheet" && (
+              <FlashFactsheet assetName={vizData.input.assetName || ""} ticker={vizData.input.ticker} assetClass={vizData.input.assetClass || ""} portfolios={vizData.input.portfolios || []} weightsByPortfolio={vizData.input.weightsByPortfolio} radarMetrics={vizData.input.radarMetrics || []} thesis={vizData.input.thesis || ""} />
+            )}
+          </div>
+        ) : (
+          <iframe
+            srcDoc={factsheetHtml}
+            title={artifact.title}
+            className="w-full h-full border-0"
+            sandbox="allow-same-origin"
+          />
+        )}
       </div>
 
       {/* Footer */}
