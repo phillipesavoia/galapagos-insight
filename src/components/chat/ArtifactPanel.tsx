@@ -156,7 +156,7 @@ function buildChartBlocks(chartCalls: Array<{ tool: string; input: any }>): Char
         tension: 0.3,
         pointRadius: 0,
       }));
-      blocks.push({ title: title || rawTitle, keywords, html: `<div class="chart-container"><h3>${title || ""}</h3><canvas id="${canvasId}" height="300"></canvas></div>`, script: `new Chart(document.getElementById('${canvasId}'), {
+      blocks.push({ title: title || rawTitle, keywords, html: `<div class="chart-container" style="height:280px"><h3>${title || ""}</h3><canvas id="${canvasId}" height="300"></canvas></div>`, script: `new Chart(document.getElementById('${canvasId}'), {
         type: 'line',
         data: { labels: ${JSON.stringify(labels)}, datasets: ${JSON.stringify(datasets)} },
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { title: { display: ${!!yAxisLabel}, text: ${JSON.stringify(yAxisLabel || "")} } } } }
