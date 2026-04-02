@@ -77,15 +77,20 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
 
   const handleDownloadPDF = () => {
     if (!generatedHtml) return;
-    // Inject ?print=1 so the ECharts onload script triggers window.print()
     const printHtml = generatedHtml.replace(
-      '<head>',
-      '<head><script>history.replaceState(null,"","?print=1");</script>'
+      "location.search.indexOf('print=1')",
+      "true"
     );
-    const win = window.open("", "_blank");
-    if (!win) return;
-    win.document.write(printHtml);
-    win.document.close();
+    const blob = new Blob([printHtml], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+  };
+
+  const openInNewTab = () => {
+    if (!generatedHtml) return;
+    const blob = new Blob([generatedHtml], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
   };
 
   const typeLabel = {
