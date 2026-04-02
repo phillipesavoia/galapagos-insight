@@ -165,21 +165,29 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
           className="flex items-center gap-1.5 rounded-lg border border-[#173C82] px-3 py-1.5 text-xs font-medium text-[#173C82] transition-colors hover:bg-[#173C82] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {isGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-          Download PDF
+          🖨 Imprimir PDF
+        </button>
+        <button
+          onClick={openInNewTab}
+          disabled={isGenerating || !!error}
+          className="flex items-center gap-1.5 rounded-lg border border-[#173C82] px-3 py-1.5 text-xs font-medium text-[#173C82] transition-colors hover:bg-[#173C82] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          🔗 Ver Relatório
         </button>
         <button
           onClick={handleDownloadMarkdown}
           className="flex items-center gap-1.5 rounded-lg border border-[#173C82] px-3 py-1.5 text-xs font-medium text-[#173C82] transition-colors hover:bg-[#173C82] hover:text-white"
         >
           <FileText className="h-3.5 w-3.5" />
-          Download Markdown
+          Markdown
         </button>
         <button
           onClick={handleCopy}
           className="flex items-center gap-1.5 rounded-lg border border-[#173C82] px-3 py-1.5 text-xs font-medium text-[#173C82] transition-colors hover:bg-[#173C82] hover:text-white"
         >
           {copied ? <Check className="h-3.5 w-3.5" /> : <ClipboardCopy className="h-3.5 w-3.5" />}
-          {copied ? "✓ Copiado" : "Copiar"}
+          {copied ? "✓" : "Copiar"}
         </button>
       </div>
     </div>
