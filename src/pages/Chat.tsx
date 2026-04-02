@@ -372,8 +372,9 @@ export default function Chat() {
               </div>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-6 space-y-6 bg-background" ref={messagesEndRef}>
-              {messages.map((msg) => (
+            <div className="flex-1 overflow-y-auto scrollbar-thin py-6 bg-background" ref={messagesEndRef}>
+              <div className="max-w-3xl mx-auto px-4 space-y-6">
+               {messages.map((msg) => (
                 <ChatMessageItem
                   key={msg.id}
                   message={msg}
@@ -405,14 +406,15 @@ export default function Chat() {
                   </div>
                 </div>
               )}
+              </div>
             </div>
           )}
 
           <div className="border-t border-border p-4 bg-background">
-            <div className="flex items-end gap-2">
+            <div className="max-w-3xl mx-auto flex items-end gap-2">
               <button
                 onClick={() => setShowHistory(!showHistory)}
-                className={`h-11 w-11 rounded-xl flex items-center justify-center transition-colors shrink-0 ${showHistory ? 'text-foreground bg-secondary border border-border' : 'text-muted-foreground bg-card border border-border hover:text-foreground hover:bg-accent'}`}
+                className={`h-11 w-11 rounded-2xl flex items-center justify-center transition-colors shrink-0 ${showHistory ? 'text-foreground bg-secondary border border-border' : 'text-muted-foreground bg-card border border-border hover:text-foreground hover:bg-accent'}`}
                 title="Histórico de conversas"
               >
                 <History className="h-4 w-4" strokeWidth={1.5} />
@@ -428,7 +430,7 @@ export default function Chat() {
                 }}
                 placeholder="Pergunte sobre fundos, teses ou performance..."
                 rows={1}
-                className="flex-1 resize-none rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                className="flex-1 resize-none rounded-2xl border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
               <button
                 onClick={() => handleSend()}

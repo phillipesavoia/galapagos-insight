@@ -143,10 +143,10 @@ export function ChatMessageItem({
   return (
     <div className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-4xl w-full text-[13px] leading-[1.7] ${
+        className={`text-sm ${
           msg.role === "user"
-            ? "rounded-2xl border border-border bg-secondary px-4 py-3 text-foreground"
-            : "text-foreground"
+            ? "max-w-[85%] rounded-2xl bg-accent px-4 py-2.5 leading-6 text-foreground"
+            : "w-full leading-7 text-foreground"
         }`}
       >
         {msg.role === "assistant" && msg.modelUsed && (
@@ -169,7 +169,7 @@ export function ChatMessageItem({
 
               return (
                 <>
-                  <div className="prose prose-sm max-w-none text-foreground [&_p]:my-2 [&_p]:text-foreground [&_ul]:my-2 [&_ol]:my-2 [&_li]:my-1 [&_li]:text-foreground [&_strong]:font-semibold [&_strong]:text-foreground [&_h1]:mt-4 [&_h1]:mb-2 [&_h1]:text-[15px] [&_h1]:font-bold [&_h1]:text-foreground [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:text-[14px] [&_h2]:font-bold [&_h2]:text-foreground [&_h3]:mt-3 [&_h3]:mb-1 [&_h3]:text-[13px] [&_h3]:font-semibold [&_h3]:text-foreground [&_ul]:pl-5 [&_ol]:pl-5 [&_hr]:my-3 [&_hr]:border-border [&_code]:text-foreground">
+                  <div className="prose prose-sm max-w-none text-foreground [&_p]:mb-4 [&_p]:text-foreground [&_ul]:mb-4 [&_ol]:mb-4 [&_li]:my-1 [&_li]:text-foreground [&_strong]:font-semibold [&_strong]:text-foreground [&_h1]:mt-6 [&_h1]:mb-3 [&_h1]:text-base [&_h1]:font-bold [&_h1]:text-foreground [&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:text-sm [&_h2]:font-bold [&_h2]:text-foreground [&_h3]:mt-4 [&_h3]:mb-1 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-foreground [&_ul]:pl-5 [&_ol]:pl-5 [&_hr]:my-4 [&_hr]:border-border [&_code]:text-xs [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-foreground [&_pre]:bg-muted [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:text-xs [&_pre]:overflow-x-auto">
                     <ReactMarkdown
                       remarkPlugins={[remarkGfm]}
                       components={{
@@ -243,8 +243,12 @@ export function ChatMessageItem({
             })()}
 
             {msg.toolCalls && msg.toolCalls.length > 0 && (
-              <div className="mt-2">
-                {msg.toolCalls.map((tc, i) => renderToolCall(tc, i))}
+              <div className="mt-3 space-y-3">
+                {msg.toolCalls.map((tc, i) => (
+                  <div key={i} className="overflow-x-auto max-h-96 overflow-y-auto">
+                    {renderToolCall(tc, i)}
+                  </div>
+                ))}
               </div>
             )}
 
