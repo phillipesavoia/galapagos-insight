@@ -266,11 +266,31 @@ export default function Chat() {
       }
 
       // After streaming is done, detect artifact from full content
+      const vizTools = [
+        "renderizar_grafico_barras", "renderizar_grafico_linha",
+        "renderizar_pie_chart", "renderizar_tabela_retornos",
+        "renderizar_flash_factsheet",
+      ];
+      const chartCalls = toolCalls.filter(tc => vizTools.includes(tc.tool));
       const detectedArtifact = detectArtifact(fullContent);
       if (detectedArtifact) {
+        const artifactWithCharts = { ...detectedArtifact, chartCalls: chartCalls.length > 0 ? chartCalls : undefined };
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === assistantId ? { ...m, artifact: detectedArtifact } : m
+            m.id === assistantId ? { ...m, artifact: artifactWithCharts } : m
+          )
+        );
+      } else if (chartCalls.length > 0) {
+        // Even without a text artifact, create one for chart-only responses
+        const chartArtifact: ArtifactData = {
+          title: chartCalls[0]?.input?.title || "Visualização",
+          content: fullContent || "",
+          artifact_type: "report",
+          chartCalls,
+        };
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId ? { ...m, artifact: chartArtifact } : m
           )
         );
       }
