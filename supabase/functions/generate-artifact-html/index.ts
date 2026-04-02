@@ -123,8 +123,9 @@ Place each chart/table visualization inline within the relevant section of the r
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 6000,
+        model: "claude-sonnet-4-6",
+        max_tokens: 8000,
+        stream: true,
         system: systemPrompt,
         messages: [{ role: "user", content: userMessage }],
       }),
@@ -139,12 +140,33 @@ Place each chart/table visualization inline within the relevant section of the r
       });
     }
 
-    const claudeData = await claudeRes.json();
-    const textBlock = (claudeData?.content || []).find((b: any) => b.type === "text");
-    let html = textBlock?.text || "";
+    // Collect full streamed text
+    const reader = claudeRes.body!.getReader();
+    const decoder = new TextDecoder();
+    let fullText = "";
+    let buffer = "";
 
-    // Strip markdown code fences if Claude wrapped the HTML
-    html = html.replace(/^```html?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const data = line.slice(6).trim();
+          if (data === "[DONE]") continue;
+          try {
+            const event = JSON.parse(data);
+            if (event.type === "content_block_delta" && event.delta?.text) {
+              fullText += event.delta.text;
+            }
+          } catch {}
+        }
+      }
+    }
+
+    let html = fullText.replace(/^```html?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
 
     if (!html || html.length < 100) {
       throw new Error("Claude returned empty HTML");
