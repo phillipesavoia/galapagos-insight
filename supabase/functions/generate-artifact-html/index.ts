@@ -204,7 +204,49 @@ IMPORTANT INSTRUCTIONS:
       throw new Error("Claude returned empty HTML");
     }
 
-    return new Response(JSON.stringify({ html }), {
+    // Generate PDF via API2PDF using Chrome Headless
+    const api2pdfKey = Deno.env.get("API2PDF_KEY");
+    let pdfUrl: string | null = null;
+
+    if (api2pdfKey && html) {
+      try {
+        const pdfRes = await fetch("https://v2.api2pdf.com/chrome/html", {
+          method: "POST",
+          headers: {
+            "Authorization": api2pdfKey,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            html: html,
+            inlineHtml: true,
+            options: {
+              landscape: false,
+              printBackground: true,
+              format: "A4",
+              marginTop: "0mm",
+              marginBottom: "0mm",
+              marginLeft: "0mm",
+              marginRight: "0mm",
+              delay: 2500,
+            },
+            fileName: `${title.replace(/\s+/g, "_")}.pdf`,
+          }),
+        });
+
+        if (pdfRes.ok) {
+          const pdfData = await pdfRes.json();
+          if (pdfData?.FileUrl) {
+            pdfUrl = pdfData.FileUrl;
+          }
+        } else {
+          console.warn("API2PDF error:", await pdfRes.text());
+        }
+      } catch (e) {
+        console.warn("PDF generation failed:", e);
+      }
+    }
+
+    return new Response(JSON.stringify({ html, pdfUrl }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {

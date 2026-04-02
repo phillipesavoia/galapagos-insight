@@ -19,6 +19,7 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
   const isMobile = useIsMobile();
   const [copied, setCopied] = useState(false);
   const [generatedHtml, setGeneratedHtml] = useState<string | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
