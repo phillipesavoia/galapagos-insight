@@ -1,11 +1,6 @@
 import { useState, useMemo } from "react";
 import { X, Download, FileText, ClipboardCopy, Check } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { InlineBarChart } from "@/components/chat/InlineBarChart";
-import { FlashFactsheet } from "@/components/chat/FlashFactsheet";
-import InlineReturnsTable from "@/components/chat/InlineReturnsTable";
-import InlineLineChart from "@/components/chat/InlineLineChart";
-import InlinePieChart from "@/components/chat/InlinePieChart";
 
 export interface ArtifactData {
   title: string;
@@ -21,20 +16,15 @@ interface Props {
 
 function markdownToHtml(md: string): string {
   let html = md
-    // Horizontal rules
     .replace(/^---+$/gm, "<hr>")
-    // Headers
     .replace(/^### (.+)$/gm, "<h3>$1</h3>")
     .replace(/^## (.+)$/gm, "<h2>$1</h2>")
     .replace(/^# (.+)$/gm, "<h1>$1</h1>")
-    // Bold
     .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-    // Blockquotes
     .replace(/(?:^> .+$\n?)+/gm, (block) => {
       const text = block.replace(/^> /gm, "").trim();
       return `<blockquote>${text}</blockquote>`;
     })
-    // Tables
     .replace(/(?:^\|.+\|$\n?)+/gm, (block) => {
       const rows = block.trim().split("\n").filter((r) => !/^\|[\s\-:|]+\|$/.test(r));
       if (rows.length === 0) return block;
@@ -46,24 +36,18 @@ function markdownToHtml(md: string): string {
       ).join("");
       return `<table>${thead}<tbody>${bodyRows}</tbody></table>`;
     })
-    // Unordered lists
     .replace(/(?:^- .+$\n?)+/gm, (block) => {
       const items = block.trim().split("\n").map((l) => `<li>${l.replace(/^- /, "")}</li>`).join("");
       return `<ul>${items}</ul>`;
     })
-    // Ordered lists
     .replace(/(?:^\d+\. .+$\n?)+/gm, (block) => {
       const items = block.trim().split("\n").map((l) => `<li>${l.replace(/^\d+\. /, "")}</li>`).join("");
       return `<ol>${items}</ol>`;
     })
-    // Paragraphs (double newlines)
     .replace(/\n{2,}/g, "</p><p>")
-    // Single newlines to <br>
     .replace(/\n/g, "<br>");
 
-  // Wrap in paragraph tags if not already wrapped
   if (!html.startsWith("<")) html = `<p>${html}</p>`;
-
   return html;
 }
 
@@ -72,28 +56,138 @@ function stripPreamble(title: string, content: string): string {
   const preamblePhrases = ["vou montar", "iniciando", "vou preparar", "deixa eu", "vou elaborar", "vou criar", "vou gerar", "vou analisar", "aqui está", "segue abaixo", "preparei"];
   let startIdx = 0;
 
-  // Skip lines that match the title or are preamble
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim();
-    // Skip empty lines at the top
     if (!trimmed) { startIdx = i + 1; continue; }
-    // Skip H1 that matches the title
     const h1Match = trimmed.match(/^#\s+(.+)$/);
     if (h1Match && h1Match[1].trim().toLowerCase() === title.trim().toLowerCase()) { startIdx = i + 1; continue; }
-    // Skip preamble paragraphs
     const lower = trimmed.toLowerCase();
     if (preamblePhrases.some(p => lower.includes(p)) && !trimmed.startsWith("##") && !trimmed.startsWith("---")) { startIdx = i + 1; continue; }
-    // Stop at first real content (## header, ---, or non-preamble text)
     break;
   }
 
   return lines.slice(startIdx).join("\n").trim();
 }
 
-function buildFactsheetHtml(title: string, content: string): string {
+const CHART_COLORS = {
+  primary: "#173C82",
+  secondary: "#0071BB",
+  accent: "#4a9fd4",
+  negative: "#e53e3e",
+  positive: "#38a169",
+  palette: ["#173C82", "#0071BB", "#4a9fd4", "#38a169", "#e53e3e", "#d69e2e", "#805ad5", "#dd6b20"],
+};
+
+function buildChartScript(chartCalls: Array<{ tool: string; input: any }>): string {
+  if (!chartCalls || chartCalls.length === 0) return "";
+
+  const canvases: string[] = [];
+  const scripts: string[] = [];
+
+  chartCalls.forEach((tc, idx) => {
+    const canvasId = `chart_${idx}`;
+
+    if (tc.tool === "renderizar_tabela_retornos" && tc.input) {
+      // Render as styled HTML table, no canvas needed
+      const { title, columns, rows, colorize } = tc.input;
+      const cols = columns || [];
+      const dataRows = rows || [];
+      const thead = `<tr>${cols.map((c: any) => `<th>${c.label || c.key || c}</th>`).join("")}</tr>`;
+      const tbody = dataRows.map((row: any) => {
+        const cells = cols.map((c: any) => {
+          const key = c.key || c;
+          const val = row[key] ?? "";
+          const strVal = String(val);
+          let style = "";
+          if (colorize !== false) {
+            if (/^-/.test(strVal)) style = `color: ${CHART_COLORS.negative};`;
+            else if (/^\+?\d+(\.\d+)?%$/.test(strVal) && !strVal.startsWith("0")) style = `color: ${CHART_COLORS.positive};`;
+          }
+          return `<td style="${style}">${strVal}</td>`;
+        }).join("");
+        return `<tr>${cells}</tr>`;
+      }).join("");
+      canvases.push(`<div class="chart-container"><h3>${title || ""}</h3><table><thead>${thead}</thead><tbody>${tbody}</tbody></table></div>`);
+      return;
+    }
+
+    if (tc.tool === "renderizar_flash_factsheet") {
+      // Render factsheet as structured HTML
+      const { assetName, ticker, assetClass, thesis, portfolios } = tc.input;
+      canvases.push(`<div class="chart-container">
+        <h3>${assetName || ""} ${ticker ? `(${ticker})` : ""}</h3>
+        <p><strong>Classe:</strong> ${assetClass || ""}</p>
+        ${portfolios?.length ? `<p><strong>Portfólios:</strong> ${portfolios.join(", ")}</p>` : ""}
+        ${thesis ? `<p><strong>Tese:</strong> ${thesis}</p>` : ""}
+      </div>`);
+      return;
+    }
+
+    if (tc.tool === "renderizar_grafico_barras" && tc.input) {
+      const { title, data, bars, yAxisLabel } = tc.input;
+      const labels = (data || []).map((d: any) => d.name || d.label || "");
+      const datasets = (bars || []).map((bar: any, bi: number) => ({
+        label: bar.label,
+        data: (data || []).map((d: any) => d[bar.dataKey] ?? 0),
+        backgroundColor: bar.color || CHART_COLORS.palette[bi % CHART_COLORS.palette.length],
+      }));
+      canvases.push(`<div class="chart-container"><h3>${title || ""}</h3><canvas id="${canvasId}" height="300"></canvas></div>`);
+      scripts.push(`new Chart(document.getElementById('${canvasId}'), {
+        type: 'bar',
+        data: { labels: ${JSON.stringify(labels)}, datasets: ${JSON.stringify(datasets)} },
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: ${datasets.length > 1} } }, scales: { x: { title: { display: ${!!yAxisLabel}, text: ${JSON.stringify(yAxisLabel || "")} } } } }
+      });`);
+      return;
+    }
+
+    if (tc.tool === "renderizar_grafico_linha" && tc.input) {
+      const { title, data, lines, yAxisLabel } = tc.input;
+      const labels = (data || []).map((d: any) => d.date || "");
+      const datasets = (lines || []).map((line: any, li: number) => ({
+        label: line.label,
+        data: (data || []).map((d: any) => d[line.dataKey] ?? null),
+        borderColor: line.color || CHART_COLORS.palette[li % CHART_COLORS.palette.length],
+        backgroundColor: "transparent",
+        tension: 0.3,
+        pointRadius: 0,
+      }));
+      canvases.push(`<div class="chart-container"><h3>${title || ""}</h3><canvas id="${canvasId}" height="300"></canvas></div>`);
+      scripts.push(`new Chart(document.getElementById('${canvasId}'), {
+        type: 'line',
+        data: { labels: ${JSON.stringify(labels)}, datasets: ${JSON.stringify(datasets)} },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { title: { display: ${!!yAxisLabel}, text: ${JSON.stringify(yAxisLabel || "")} } } } }
+      });`);
+      return;
+    }
+
+    if (tc.tool === "renderizar_pie_chart" && tc.input) {
+      const { title, data, donut } = tc.input;
+      const labels = (data || []).map((d: any) => d.name || "");
+      const values = (data || []).map((d: any) => d.value ?? 0);
+      const colors = (data || []).map((d: any, di: number) => d.color || CHART_COLORS.palette[di % CHART_COLORS.palette.length]);
+      canvases.push(`<div class="chart-container"><h3>${title || ""}</h3><canvas id="${canvasId}" height="300"></canvas></div>`);
+      scripts.push(`new Chart(document.getElementById('${canvasId}'), {
+        type: 'doughnut',
+        data: { labels: ${JSON.stringify(labels)}, datasets: [{ data: ${JSON.stringify(values)}, backgroundColor: ${JSON.stringify(colors)} }] },
+        options: { responsive: true, maintainAspectRatio: false, cutout: ${donut !== false ? "'50%'" : "0"}, plugins: { legend: { position: 'bottom' } } }
+      });`);
+      return;
+    }
+  });
+
+  const chartHtml = canvases.join("\n");
+  const chartScript = scripts.length > 0
+    ? `<script src="https://cdn.jsdelivr.net/npm/chart.js"></script><script>window.onload=function(){${scripts.join("\n")}}</script>`
+    : "";
+
+  return chartHtml + chartScript;
+}
+
+function buildFactsheetHtml(title: string, content: string, chartCalls?: Array<{ tool: string; input: any }>): string {
   const date = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
   const cleanedContent = stripPreamble(title, content);
   const htmlContent = markdownToHtml(cleanedContent);
+  const chartsBlock = buildChartScript(chartCalls || []);
 
   return `<!DOCTYPE html>
 <html>
@@ -122,8 +216,11 @@ function buildFactsheetHtml(title: string, content: string): string {
   li { margin-bottom: 4px; color: #2d3748; }
   blockquote { border-left: 4px solid #0071BB; padding: 8px 16px; background: #eef3fb; margin: 12px 0; border-radius: 0 6px 6px 0; color: #173C82; font-style: italic; }
   hr { border: none; border-top: 1px solid #d1dce8; margin: 20px 0; }
+  .chart-container { margin: 20px 0; padding: 16px; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .chart-container h3 { margin-top: 0; margin-bottom: 12px; }
+  .chart-container canvas { width: 100% !important; max-height: 320px; }
   .footer { margin-top: 32px; padding: 12px 28px; border-top: 1px solid #d1dce8; background: #F4F7FB; text-align: center; font-size: 10px; color: #94a3b8; }
-  @media print { body { background: white; } .header { -webkit-print-color-adjust: exact; print-color-adjust: exact; } th { -webkit-print-color-adjust: exact; print-color-adjust: exact; } tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+  @media print { body { background: white; } .header { -webkit-print-color-adjust: exact; print-color-adjust: exact; } th { -webkit-print-color-adjust: exact; print-color-adjust: exact; } tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .chart-container { break-inside: avoid; } }
 </style>
 </head>
 <body>
@@ -134,7 +231,10 @@ function buildFactsheetHtml(title: string, content: string): string {
     </div>
     <div class="header-right">Documento Confidencial<br>${date}</div>
   </div>
-  <div class="content">${htmlContent}</div>
+  <div class="content">
+    ${htmlContent}
+    ${chartsBlock}
+  </div>
   <div class="footer">Galapagos Capital Advisory LLC — Documento Confidencial — Uso Exclusivo do Cliente</div>
 </body>
 </html>`;
@@ -144,19 +244,9 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
   const isMobile = useIsMobile();
   const [copied, setCopied] = useState(false);
 
-  // Detect if content is a JSON visualization tool call
-  const vizData = useMemo(() => {
-    try {
-      if (artifact.content.startsWith('{"tool":')) {
-        return JSON.parse(artifact.content) as { tool: string; input: any };
-      }
-    } catch {}
-    return null;
-  }, [artifact.content]);
-
   const factsheetHtml = useMemo(
-    () => vizData ? "" : buildFactsheetHtml(artifact.title, artifact.content),
-    [artifact.title, artifact.content, vizData]
+    () => buildFactsheetHtml(artifact.title, artifact.content, artifact.chartCalls),
+    [artifact.title, artifact.content, artifact.chartCalls]
   );
 
   const handleCopy = async () => {
@@ -217,32 +307,12 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
 
       {/* Body */}
       <div className="flex-1 min-h-0 overflow-hidden">
-        {vizData ? (
-          <div className="h-full overflow-y-auto p-4 bg-background">
-            {vizData.tool === "renderizar_grafico_barras" && (
-              <InlineBarChart title={vizData.input.title || ""} data={vizData.input.data || []} bars={vizData.input.bars || []} yAxisLabel={vizData.input.yAxisLabel} />
-            )}
-            {vizData.tool === "renderizar_grafico_linha" && (
-              <InlineLineChart title={vizData.input.title || ""} data={vizData.input.data || []} lines={vizData.input.lines || []} yAxisLabel={vizData.input.yAxisLabel} />
-            )}
-            {vizData.tool === "renderizar_pie_chart" && (
-              <InlinePieChart title={vizData.input.title || ""} data={vizData.input.data || []} donut={vizData.input.donut} />
-            )}
-            {vizData.tool === "renderizar_tabela_retornos" && (
-              <InlineReturnsTable title={vizData.input.title || ""} columns={vizData.input.columns || []} rows={vizData.input.rows || []} colorize={vizData.input.colorize} />
-            )}
-            {vizData.tool === "renderizar_flash_factsheet" && (
-              <FlashFactsheet assetName={vizData.input.assetName || ""} ticker={vizData.input.ticker} assetClass={vizData.input.assetClass || ""} portfolios={vizData.input.portfolios || []} weightsByPortfolio={vizData.input.weightsByPortfolio} radarMetrics={vizData.input.radarMetrics || []} thesis={vizData.input.thesis || ""} />
-            )}
-          </div>
-        ) : (
-          <iframe
-            srcDoc={factsheetHtml}
-            title={artifact.title}
-            className="w-full h-full border-0"
-            sandbox="allow-same-origin"
-          />
-        )}
+        <iframe
+          srcDoc={factsheetHtml}
+          title={artifact.title}
+          className="w-full h-full border-0"
+          sandbox="allow-same-origin allow-scripts"
+        />
       </div>
 
       {/* Footer */}
