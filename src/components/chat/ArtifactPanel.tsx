@@ -78,14 +78,21 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
   };
 
   const handleDownloadPDF = () => {
-    if (!generatedHtml) return;
-    const printHtml = generatedHtml.replace(
-      "location.search.indexOf('print=1')",
-      "true"
-    );
-    const blob = new Blob([printHtml], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    window.open(url, "_blank");
+    if (pdfUrl) {
+      const a = document.createElement('a');
+      a.href = pdfUrl;
+      a.download = `${artifact.title.replace(/\s+/g, '_')}.pdf`;
+      a.click();
+    } else if (generatedHtml) {
+      // Fallback: open print dialog
+      const printHtml = generatedHtml.replace(
+        "location.search.indexOf('print=1')",
+        "true"
+      );
+      const blob = new Blob([printHtml], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+    }
   };
 
   const openInNewTab = () => {
