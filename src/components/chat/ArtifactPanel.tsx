@@ -137,7 +137,7 @@ function buildChartBlocks(chartCalls: Array<{ tool: string; input: any }>): Char
         data: (data || []).map((d: any) => d[bar.dataKey] ?? 0),
         backgroundColor: bar.color || CHART_COLORS.palette[bi % CHART_COLORS.palette.length],
       }));
-      blocks.push({ title: title || rawTitle, keywords, html: `<div class="chart-container"><h3>${title || ""}</h3><canvas id="${canvasId}" height="300"></canvas></div>`, script: `new Chart(document.getElementById('${canvasId}'), {
+      blocks.push({ title: title || rawTitle, keywords, html: `<div class="chart-container" style="height:280px"><h3>${title || ""}</h3><canvas id="${canvasId}" height="300"></canvas></div>`, script: `new Chart(document.getElementById('${canvasId}'), {
         type: 'bar',
         data: { labels: ${JSON.stringify(labels)}, datasets: ${JSON.stringify(datasets)} },
         options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: ${datasets.length > 1} } }, scales: { x: { title: { display: ${!!yAxisLabel}, text: ${JSON.stringify(yAxisLabel || "")} } } } }
@@ -156,7 +156,7 @@ function buildChartBlocks(chartCalls: Array<{ tool: string; input: any }>): Char
         tension: 0.3,
         pointRadius: 0,
       }));
-      blocks.push({ title: title || rawTitle, keywords, html: `<div class="chart-container"><h3>${title || ""}</h3><canvas id="${canvasId}" height="300"></canvas></div>`, script: `new Chart(document.getElementById('${canvasId}'), {
+      blocks.push({ title: title || rawTitle, keywords, html: `<div class="chart-container" style="height:280px"><h3>${title || ""}</h3><canvas id="${canvasId}" height="300"></canvas></div>`, script: `new Chart(document.getElementById('${canvasId}'), {
         type: 'line',
         data: { labels: ${JSON.stringify(labels)}, datasets: ${JSON.stringify(datasets)} },
         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { title: { display: ${!!yAxisLabel}, text: ${JSON.stringify(yAxisLabel || "")} } } } }
@@ -169,7 +169,7 @@ function buildChartBlocks(chartCalls: Array<{ tool: string; input: any }>): Char
       const labels = (data || []).map((d: any) => d.name || "");
       const values = (data || []).map((d: any) => d.value ?? 0);
       const colors = (data || []).map((d: any, di: number) => d.color || CHART_COLORS.palette[di % CHART_COLORS.palette.length]);
-      blocks.push({ title: title || rawTitle, keywords, html: `<div class="chart-container"><h3>${title || ""}</h3><canvas id="${canvasId}" height="300"></canvas></div>`, script: `new Chart(document.getElementById('${canvasId}'), {
+      blocks.push({ title: title || rawTitle, keywords, html: `<div class="chart-container" style="height:280px"><h3>${title || ""}</h3><canvas id="${canvasId}" height="300"></canvas></div>`, script: `new Chart(document.getElementById('${canvasId}'), {
         type: 'doughnut',
         data: { labels: ${JSON.stringify(labels)}, datasets: [{ data: ${JSON.stringify(values)}, backgroundColor: ${JSON.stringify(colors)} }] },
         options: { responsive: true, maintainAspectRatio: false, cutout: ${donut !== false ? "'50%'" : "0"}, plugins: { legend: { position: 'bottom' } } }
@@ -243,7 +243,11 @@ function buildFactsheetHtml(title: string, content: string, chartCalls?: Array<{
   const { html: finalHtml, scripts } = injectChartsIntoHtml(htmlContent, chartBlocks);
 
   const chartScriptTag = scripts.length > 0
-    ? `<script src="https://cdn.jsdelivr.net/npm/chart.js"></script><script>window.onload=function(){${scripts.join("\n")}}</script>`
+    ? `<script src="https://cdn.jsdelivr.net/npm/chart.js?v=4"></script><script>
+var chartScriptEl=document.querySelector('script[src*="chart.js"]');
+function initCharts(){${scripts.join("\n")}}
+if(chartScriptEl){chartScriptEl.addEventListener('load',function(){setTimeout(initCharts,200)});}else{setTimeout(initCharts,200);}
+</script>`
     : "";
 
   return `<!DOCTYPE html>
@@ -323,13 +327,29 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
   };
 
   const handleDownloadPDF = () => {
+    // Build a version of the HTML with an auto-print script
+    const printHtml = factsheetHtml.replace(
+      '</body>',
+      `<script>
+window.addEventListener('load', function() {
+  var chartJsScript = document.querySelector('script[src*="chart.js"]');
+  if (chartJsScript) {
+    chartJsScript.addEventListener('load', function() {
+      setTimeout(function() { window.print(); }, 1200);
+    });
+    if (chartJsScript.complete || document.readyState === 'complete') {
+      setTimeout(function() { window.print(); }, 1200);
+    }
+  } else {
+    setTimeout(function() { window.print(); }, 800);
+  }
+});
+</script></body>`
+    );
     const win = window.open("", "_blank");
     if (!win) return;
-    win.document.write(factsheetHtml);
+    win.document.write(printHtml);
     win.document.close();
-    win.onload = () => {
-      setTimeout(() => win.print(), 400);
-    };
   };
 
   const typeLabel = {
