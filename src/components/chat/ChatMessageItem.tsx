@@ -143,10 +143,10 @@ export function ChatMessageItem({
   return (
     <div className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-4xl w-full text-[13px] leading-[1.7] ${
+        className={`text-sm ${
           msg.role === "user"
-            ? "rounded-2xl border border-border bg-secondary px-4 py-3 text-foreground"
-            : "text-foreground"
+            ? "max-w-[85%] rounded-2xl bg-accent px-4 py-2.5 leading-6 text-foreground"
+            : "w-full leading-7 text-foreground"
         }`}
       >
         {msg.role === "assistant" && msg.modelUsed && (
