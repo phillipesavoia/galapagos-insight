@@ -243,7 +243,11 @@ function buildFactsheetHtml(title: string, content: string, chartCalls?: Array<{
   const { html: finalHtml, scripts } = injectChartsIntoHtml(htmlContent, chartBlocks);
 
   const chartScriptTag = scripts.length > 0
-    ? `<script src="https://cdn.jsdelivr.net/npm/chart.js"></script><script>window.onload=function(){${scripts.join("\n")}}</script>`
+    ? `<script src="https://cdn.jsdelivr.net/npm/chart.js?v=4"></script><script>
+var chartScriptEl=document.querySelector('script[src*="chart.js"]');
+function initCharts(){${scripts.join("\n")}}
+if(chartScriptEl){chartScriptEl.addEventListener('load',function(){setTimeout(initCharts,200)});}else{setTimeout(initCharts,200);}
+</script>`
     : "";
 
   return `<!DOCTYPE html>
