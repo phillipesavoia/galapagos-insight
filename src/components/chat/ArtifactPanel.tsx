@@ -137,7 +137,7 @@ function buildChartBlocks(chartCalls: Array<{ tool: string; input: any }>): Char
         data: (data || []).map((d: any) => d[bar.dataKey] ?? 0),
         backgroundColor: bar.color || CHART_COLORS.palette[bi % CHART_COLORS.palette.length],
       }));
-      blocks.push({ title: title || rawTitle, keywords, html: `<div class="chart-container"><h3>${title || ""}</h3><canvas id="${canvasId}" height="300"></canvas></div>`, script: `new Chart(document.getElementById('${canvasId}'), {
+      blocks.push({ title: title || rawTitle, keywords, html: `<div class="chart-container" style="height:280px"><h3>${title || ""}</h3><canvas id="${canvasId}" height="300"></canvas></div>`, script: `new Chart(document.getElementById('${canvasId}'), {
         type: 'bar',
         data: { labels: ${JSON.stringify(labels)}, datasets: ${JSON.stringify(datasets)} },
         options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: ${datasets.length > 1} } }, scales: { x: { title: { display: ${!!yAxisLabel}, text: ${JSON.stringify(yAxisLabel || "")} } } } }
