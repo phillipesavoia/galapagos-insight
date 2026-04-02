@@ -169,7 +169,7 @@ function buildChartBlocks(chartCalls: Array<{ tool: string; input: any }>): Char
       const labels = (data || []).map((d: any) => d.name || "");
       const values = (data || []).map((d: any) => d.value ?? 0);
       const colors = (data || []).map((d: any, di: number) => d.color || CHART_COLORS.palette[di % CHART_COLORS.palette.length]);
-      blocks.push({ title: title || rawTitle, keywords, html: `<div class="chart-container"><h3>${title || ""}</h3><canvas id="${canvasId}" height="300"></canvas></div>`, script: `new Chart(document.getElementById('${canvasId}'), {
+      blocks.push({ title: title || rawTitle, keywords, html: `<div class="chart-container" style="height:280px"><h3>${title || ""}</h3><canvas id="${canvasId}" height="300"></canvas></div>`, script: `new Chart(document.getElementById('${canvasId}'), {
         type: 'doughnut',
         data: { labels: ${JSON.stringify(labels)}, datasets: [{ data: ${JSON.stringify(values)}, backgroundColor: ${JSON.stringify(colors)} }] },
         options: { responsive: true, maintainAspectRatio: false, cutout: ${donut !== false ? "'50%'" : "0"}, plugins: { legend: { position: 'bottom' } } }
