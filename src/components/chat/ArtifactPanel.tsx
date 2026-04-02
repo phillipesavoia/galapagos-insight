@@ -11,6 +11,7 @@ export interface ArtifactData {
   title: string;
   content: string;
   artifact_type: "report" | "analysis" | "factsheet";
+  chartCalls?: Array<{ tool: string; input: any }>;
 }
 
 interface Props {
