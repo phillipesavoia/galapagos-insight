@@ -33,32 +33,16 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
       setGeneratedHtml(null);
 
       try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        const token = sessionData?.session?.access_token;
-        if (!token) throw new Error("Not authenticated");
+        const { data, error: fnError } = await supabase.functions.invoke('generate-artifact-html', {
+          body: {
+            title: artifact.title,
+            content: artifact.content,
+            chartCalls: artifact.chartCalls || [],
+          },
+        });
 
-        const res = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-artifact-html`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              title: artifact.title,
-              content: artifact.content,
-              chartCalls: artifact.chartCalls || [],
-            }),
-          }
-        );
-
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || `HTTP ${res.status}`);
-        }
-
-        const data = await res.json();
+        if (fnError) throw new Error(fnError.message);
+        if (data?.error) throw new Error(data.error);
         if (!cancelled) {
           setGeneratedHtml(data.html);
         }
