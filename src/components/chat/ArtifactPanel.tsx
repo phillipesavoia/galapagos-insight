@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Download, FileText, ClipboardCopy, Check, Loader2 } from "lucide-react";
+import { X, Download, FileText, ClipboardCopy, Check, Loader2, ExternalLink } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -77,15 +77,20 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
 
   const handleDownloadPDF = () => {
     if (!generatedHtml) return;
-    // Inject ?print=1 so the ECharts onload script triggers window.print()
     const printHtml = generatedHtml.replace(
-      '<head>',
-      '<head><script>history.replaceState(null,"","?print=1");</script>'
+      "location.search.indexOf('print=1')",
+      "true"
     );
-    const win = window.open("", "_blank");
-    if (!win) return;
-    win.document.write(printHtml);
-    win.document.close();
+    const blob = new Blob([printHtml], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+  };
+
+  const openInNewTab = () => {
+    if (!generatedHtml) return;
+    const blob = new Blob([generatedHtml], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
   };
 
   const typeLabel = {
@@ -148,7 +153,7 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
           srcDoc={iframeSrcDoc}
           title={artifact.title}
           className="w-full h-full border-0"
-          sandbox="allow-same-origin"
+          sandbox="allow-scripts allow-same-origin"
         />
       </div>
 
@@ -160,21 +165,29 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
           className="flex items-center gap-1.5 rounded-lg border border-[#173C82] px-3 py-1.5 text-xs font-medium text-[#173C82] transition-colors hover:bg-[#173C82] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {isGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-          Download PDF
+          🖨 Imprimir PDF
+        </button>
+        <button
+          onClick={openInNewTab}
+          disabled={isGenerating || !!error}
+          className="flex items-center gap-1.5 rounded-lg border border-[#173C82] px-3 py-1.5 text-xs font-medium text-[#173C82] transition-colors hover:bg-[#173C82] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          🔗 Ver Relatório
         </button>
         <button
           onClick={handleDownloadMarkdown}
           className="flex items-center gap-1.5 rounded-lg border border-[#173C82] px-3 py-1.5 text-xs font-medium text-[#173C82] transition-colors hover:bg-[#173C82] hover:text-white"
         >
           <FileText className="h-3.5 w-3.5" />
-          Download Markdown
+          Markdown
         </button>
         <button
           onClick={handleCopy}
           className="flex items-center gap-1.5 rounded-lg border border-[#173C82] px-3 py-1.5 text-xs font-medium text-[#173C82] transition-colors hover:bg-[#173C82] hover:text-white"
         >
           {copied ? <Check className="h-3.5 w-3.5" /> : <ClipboardCopy className="h-3.5 w-3.5" />}
-          {copied ? "✓ Copiado" : "Copiar"}
+          {copied ? "✓" : "Copiar"}
         </button>
       </div>
     </div>
