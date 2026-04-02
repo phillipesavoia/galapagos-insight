@@ -62,36 +62,23 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
     return () => { cancelled = true; };
   }, [artifact.title, artifact.content, artifact.chartCalls]);
 
-  // Background PDF generation when HTML is ready
-  useEffect(() => {
-    if (!generatedHtml) return;
-    let cancelled = false;
-
-    async function generatePdf() {
-      setIsGeneratingPdf(true);
-      try {
-        const { data, error: fnError } = await supabase.functions.invoke('generate-pdf', {
-          body: {
-            html: generatedHtml,
-            fileName: `${artifact.title.replace(/\s+/g, '_')}.pdf`,
-          },
-        });
-
-        if (fnError) throw new Error(fnError.message);
-        if (data?.error) throw new Error(data.error);
-        if (!cancelled && data?.pdfUrl) {
-          setPdfUrl(data.pdfUrl);
-        }
-      } catch (err) {
-        console.warn("PDF generation failed:", err);
-      } finally {
-        if (!cancelled) setIsGeneratingPdf(false);
-      }
+  const generatePdfInBackground = async (html: string) => {
+    setIsGeneratingPdf(true);
+    setPdfUrl(null);
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('generate-pdf', {
+        body: {
+          html,
+          fileName: `${artifact.title.replace(/\s+/g, '_')}.pdf`,
+        },
+      });
+      if (!fnError && data?.pdfUrl) setPdfUrl(data.pdfUrl);
+    } catch (e) {
+      console.warn('PDF generation failed:', e);
+    } finally {
+      setIsGeneratingPdf(false);
     }
-
-    generatePdf();
-    return () => { cancelled = true; };
-  }, [generatedHtml, artifact.title]);
+  };
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(artifact.content);
