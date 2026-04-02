@@ -143,9 +143,19 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
   const isMobile = useIsMobile();
   const [copied, setCopied] = useState(false);
 
+  // Detect if content is a JSON visualization tool call
+  const vizData = useMemo(() => {
+    try {
+      if (artifact.content.startsWith('{"tool":')) {
+        return JSON.parse(artifact.content) as { tool: string; input: any };
+      }
+    } catch {}
+    return null;
+  }, [artifact.content]);
+
   const factsheetHtml = useMemo(
-    () => buildFactsheetHtml(artifact.title, artifact.content),
-    [artifact.title, artifact.content]
+    () => vizData ? "" : buildFactsheetHtml(artifact.title, artifact.content),
+    [artifact.title, artifact.content, vizData]
   );
 
   const handleCopy = async () => {
