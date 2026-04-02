@@ -84,28 +84,39 @@ Generate a complete, self-contained HTML report with inline SVG charts.
 
 BRANDING:
 - Primary navy: #173C82
-- Bright blue: #0071BB  
+- Bright blue: #0071BB
 - Accent blue: #4a9fd4
 - Positive green: #38a169
 - Negative red: #e53e3e
 - Background: #F4F7FB
 - Text: #1a1a2e
 
-RULES:
-- Return ONLY valid HTML — no markdown, no explanation, no code fences
-- ALL CSS must be inline in a <style> tag
-- ALL charts must be rendered as inline SVG with proper colors, labels, and values
-- For bar charts: use horizontal bars with labels and values
-- For line charts: use SVG polyline/path with axis labels
-- For pie/donut charts: use SVG circle/path segments with legend
-- Tables must have the navy header style
+SVG CHART RULES — CRITICAL:
+- For horizontal bar charts: ALL bars must go LEFT to RIGHT from a fixed origin line. Negative values use red color but still render as a bar going right (use absolute value for width). NEVER let text overlap bars.
+- Bar labels (asset names) go on the LEFT side, values on the RIGHT side of each bar with 8px padding
+- Minimum bar height: 28px per item. Calculate total SVG height = number of items × 32 + 60 (for title + padding)
+- Always set explicit viewBox and width="100%" height="auto" on every SVG
+- Text labels: font-size="12" — never truncate, use full names
+- For donut/pie charts: always include a visible legend below the chart
+- Add page-break-inside: avoid to every chart container div
+
+PDF PRINT RULES — CRITICAL:
+- Add this to your CSS: @media print { .chart-container { page-break-inside: avoid; break-inside: avoid; } svg { overflow: visible !important; } }
+- Every section card must have: style="page-break-inside: avoid; break-inside: avoid;"
+- Use explicit pixel heights on all SVG elements
+
+LAYOUT:
+- Two-column grid for wide sections, single column for tables
+- KPI cards in a row at the top
+- Each section in a white card with subtle shadow
+- Tables: navy headers, alternating rows #F4F7FB/white
+- Font: Helvetica Neue, Arial, sans-serif
 - Include a header bar with Galapagos Capital Advisory branding
 - Include a footer with confidentiality notice
 - The HTML must print perfectly — include @media print styles
 - Portuguese language for all UI elements
-- Font: Helvetica Neue, Arial, sans-serif
-- Make the report look institutional and professional`;
 
+Return ONLY valid HTML — no markdown, no backticks, no explanation.`;
     const userMessage = `Generate a branded HTML report. Be concise — maximum 6000 tokens. Prioritize charts and key tables over lengthy text explanations.
 
 Title: ${title}
@@ -124,7 +135,7 @@ Place each chart/table visualization inline within the relevant section of the r
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
-        max_tokens: 8000,
+        max_tokens: 10000,
         stream: true,
         system: systemPrompt,
         messages: [{ role: "user", content: userMessage }],
