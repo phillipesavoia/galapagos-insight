@@ -243,7 +243,7 @@ function buildFactsheetHtml(title: string, content: string, chartCalls?: Array<{
   const { html: finalHtml, scripts } = injectChartsIntoHtml(htmlContent, chartBlocks);
 
   const chartScriptTag = scripts.length > 0
-    ? `<script src="https://cdn.jsdelivr.net/npm/chart.js?v=4"></script><script>
+    ? `<script src="https://cdn.jsdelivr.net/npm/chart.js?v=4"></script><script data-chart="true">
 var chartScriptEl=document.querySelector('script[src*="chart.js"]');
 function initCharts(){${scripts.join("\n")}}
 if(chartScriptEl){chartScriptEl.addEventListener('load',function(){setTimeout(initCharts,200)});}else{setTimeout(initCharts,200);}
@@ -327,22 +327,32 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
   };
 
   const handleDownloadPDF = () => {
-    // Build a version of the HTML with an auto-print script
     const printHtml = factsheetHtml.replace(
       '</body>',
       `<script>
 window.addEventListener('load', function() {
-  var chartJsScript = document.querySelector('script[src*="chart.js"]');
-  if (chartJsScript) {
-    chartJsScript.addEventListener('load', function() {
-      setTimeout(function() { window.print(); }, 1200);
-    });
-    if (chartJsScript.complete || document.readyState === 'complete') {
-      setTimeout(function() { window.print(); }, 1200);
-    }
-  } else {
-    setTimeout(function() { window.print(); }, 800);
+  function convertCanvasAndPrint() {
+    setTimeout(function() {
+      var canvases = document.querySelectorAll('canvas');
+      canvases.forEach(function(canvas) {
+        try {
+          var img = document.createElement('img');
+          img.src = canvas.toDataURL('image/png');
+          img.style.cssText = canvas.style.cssText;
+          img.style.width = '100%';
+          img.style.maxHeight = '300px';
+          canvas.parentNode.replaceChild(img, canvas);
+        } catch(e) {}
+      });
+      setTimeout(function() { window.print(); }, 300);
+    }, 1500);
   }
+  var chartScripts = document.querySelectorAll('script[data-chart]');
+  if (chartScripts.length === 0) {
+    window.print();
+    return;
+  }
+  convertCanvasAndPrint();
 });
 </script></body>`
     );
