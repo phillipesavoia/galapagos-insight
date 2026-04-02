@@ -200,7 +200,7 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
       </div>
 
       {/* Body — iframe */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden">
         <iframe
           srcDoc={factsheetHtml}
           title={artifact.title}
@@ -210,7 +210,7 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
       </div>
 
       {/* Footer */}
-      <div className="flex items-center gap-2 px-4 py-3 bg-background" style={{ borderTop: "1px solid #173C82" }}>
+      <div className="flex items-center gap-2 px-4 py-3 shrink-0" style={{ background: "#F4F7FB", borderTop: "1px solid #d1dce8" }}>
         <button
           onClick={handleDownloadPDF}
           className="flex items-center gap-1.5 rounded-lg border border-[#173C82] px-3 py-1.5 text-xs font-medium text-[#173C82] transition-colors hover:bg-[#173C82] hover:text-white"
