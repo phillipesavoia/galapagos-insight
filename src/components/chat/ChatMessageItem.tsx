@@ -243,8 +243,12 @@ export function ChatMessageItem({
             })()}
 
             {msg.toolCalls && msg.toolCalls.length > 0 && (
-              <div className="mt-2">
-                {msg.toolCalls.map((tc, i) => renderToolCall(tc, i))}
+              <div className="mt-3 space-y-3">
+                {msg.toolCalls.map((tc, i) => (
+                  <div key={i} className="overflow-x-auto max-h-96 overflow-y-auto">
+                    {renderToolCall(tc, i)}
+                  </div>
+                ))}
               </div>
             )}
 

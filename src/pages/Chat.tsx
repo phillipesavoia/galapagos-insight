@@ -411,10 +411,10 @@ export default function Chat() {
           )}
 
           <div className="border-t border-border p-4 bg-background">
-            <div className="flex items-end gap-2">
+            <div className="max-w-3xl mx-auto flex items-end gap-2">
               <button
                 onClick={() => setShowHistory(!showHistory)}
-                className={`h-11 w-11 rounded-xl flex items-center justify-center transition-colors shrink-0 ${showHistory ? 'text-foreground bg-secondary border border-border' : 'text-muted-foreground bg-card border border-border hover:text-foreground hover:bg-accent'}`}
+                className={`h-11 w-11 rounded-2xl flex items-center justify-center transition-colors shrink-0 ${showHistory ? 'text-foreground bg-secondary border border-border' : 'text-muted-foreground bg-card border border-border hover:text-foreground hover:bg-accent'}`}
                 title="Histórico de conversas"
               >
                 <History className="h-4 w-4" strokeWidth={1.5} />
@@ -430,7 +430,7 @@ export default function Chat() {
                 }}
                 placeholder="Pergunte sobre fundos, teses ou performance..."
                 rows={1}
-                className="flex-1 resize-none rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                className="flex-1 resize-none rounded-2xl border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
               <button
                 onClick={() => handleSend()}
