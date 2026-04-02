@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { X, Download, FileText, ClipboardCopy, Check } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 
