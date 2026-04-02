@@ -205,21 +205,13 @@ IMPORTANT INSTRUCTIONS:
       throw new Error("Claude returned empty HTML");
     }
 
-    // Inline ECharts to make HTML fully self-contained for API2PDF
-    try {
-      const echartsRes = await fetch(
-        'https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js',
-        { signal: AbortSignal.timeout(15000) }
+    // Inline ECharts from cache
+    const echartsJs = await getECharts();
+    if (echartsJs) {
+      html = html.replace(
+        /<script[^>]*echarts[^>]*><\/script>/gi,
+        `<script>${echartsJs}</script>`
       );
-      if (echartsRes.ok) {
-        const echartsJs = await echartsRes.text();
-        html = html.replace(
-          /<script[^>]*echarts[^>]*><\/script>/gi,
-          `<script>${echartsJs}</script>`
-        );
-      }
-    } catch (e) {
-      console.warn('ECharts inline failed:', e);
     }
 
     return new Response(JSON.stringify({ html }), {
