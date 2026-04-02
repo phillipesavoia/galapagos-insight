@@ -170,11 +170,11 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
       <div className="flex items-center gap-2 px-4 py-3 shrink-0" style={{ background: "#F4F7FB", borderTop: "1px solid #d1dce8" }}>
         <button
           onClick={handleDownloadPDF}
-          disabled={isGenerating || !!error}
+          disabled={isGenerating || !!error || (!pdfUrl && !generatedHtml)}
           className="flex items-center gap-1.5 rounded-lg border border-[#173C82] px-3 py-1.5 text-xs font-medium text-[#173C82] transition-colors hover:bg-[#173C82] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {isGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-          🖨 Imprimir PDF
+          {pdfUrl ? "📥 Download PDF" : "🖨 Imprimir PDF"}
         </button>
         <button
           onClick={openInNewTab}
