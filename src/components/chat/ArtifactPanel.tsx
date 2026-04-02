@@ -77,14 +77,15 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
 
   const handleDownloadPDF = () => {
     if (!generatedHtml) return;
+    // Inject ?print=1 so the ECharts onload script triggers window.print()
+    const printHtml = generatedHtml.replace(
+      '<head>',
+      '<head><script>history.replaceState(null,"","?print=1");</script>'
+    );
     const win = window.open("", "_blank");
     if (!win) return;
-    win.document.write(generatedHtml);
+    win.document.write(printHtml);
     win.document.close();
-    // SVG renders perfectly in print — no canvas issues
-    win.onload = () => {
-      setTimeout(() => win.print(), 600);
-    };
   };
 
   const typeLabel = {
