@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Download, FileText, ClipboardCopy, Check, Loader2 } from "lucide-react";
+import { X, Download, FileText, ClipboardCopy, Check, Loader2, ExternalLink } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/integrations/supabase/client";
 
