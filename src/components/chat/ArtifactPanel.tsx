@@ -48,7 +48,8 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
         if (data?.error) throw new Error(data.error);
         if (!cancelled) {
           setGeneratedHtml(data.html);
-          generatePdfInBackground(data.html);
+          // Use clean pdfHtml (no JS) for faster PDF generation
+          generatePdfInBackground(data.pdfHtml || data.html);
         }
       } catch (err) {
         if (!cancelled) {

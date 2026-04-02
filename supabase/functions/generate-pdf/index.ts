@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
           marginBottom: "0mm",
           marginLeft: "0mm",
           marginRight: "0mm",
-          delay: 2500,
+          delay: 500,
         },
         fileName: fileName || "report.pdf",
       }),
