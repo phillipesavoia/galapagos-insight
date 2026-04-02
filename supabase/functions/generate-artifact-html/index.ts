@@ -106,7 +106,7 @@ RULES:
 - Font: Helvetica Neue, Arial, sans-serif
 - Make the report look institutional and professional`;
 
-    const userMessage = `Generate a branded HTML report.
+    const userMessage = `Generate a branded HTML report. Be concise — maximum 6000 tokens. Prioritize charts and key tables over lengthy text explanations.
 
 Title: ${title}
 
@@ -123,8 +123,8 @@ Place each chart/table visualization inline within the relevant section of the r
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 16000,
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 6000,
         system: systemPrompt,
         messages: [{ role: "user", content: userMessage }],
       }),
