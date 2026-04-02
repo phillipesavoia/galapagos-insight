@@ -327,13 +327,29 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
   };
 
   const handleDownloadPDF = () => {
+    // Build a version of the HTML with an auto-print script
+    const printHtml = factsheetHtml.replace(
+      '</body>',
+      `<script>
+window.addEventListener('load', function() {
+  var chartJsScript = document.querySelector('script[src*="chart.js"]');
+  if (chartJsScript) {
+    chartJsScript.addEventListener('load', function() {
+      setTimeout(function() { window.print(); }, 1200);
+    });
+    if (chartJsScript.complete || document.readyState === 'complete') {
+      setTimeout(function() { window.print(); }, 1200);
+    }
+  } else {
+    setTimeout(function() { window.print(); }, 800);
+  }
+});
+</script></body>`
+    );
     const win = window.open("", "_blank");
     if (!win) return;
-    win.document.write(factsheetHtml);
+    win.document.write(printHtml);
     win.document.close();
-    win.onload = () => {
-      setTimeout(() => win.print(), 400);
-    };
   };
 
   const typeLabel = {
