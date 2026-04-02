@@ -326,40 +326,44 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
     URL.revokeObjectURL(url);
   };
 
-  const handleDownloadPDF = () => {
-    const printHtml = factsheetHtml.replace(
-      '</body>',
-      `<script>
-window.addEventListener('load', function() {
-  function convertCanvasAndPrint() {
-    setTimeout(function() {
-      var canvases = document.querySelectorAll('canvas');
-      canvases.forEach(function(canvas) {
-        try {
-          var img = document.createElement('img');
-          img.src = canvas.toDataURL('image/png');
-          img.style.cssText = canvas.style.cssText;
-          img.style.width = '100%';
-          img.style.maxHeight = '300px';
-          canvas.parentNode.replaceChild(img, canvas);
-        } catch(e) {}
-      });
-      setTimeout(function() { window.print(); }, 300);
-    }, 1500);
-  }
-  var chartScripts = document.querySelectorAll('script[data-chart]');
-  if (chartScripts.length === 0) {
-    window.print();
-    return;
-  }
-  convertCanvasAndPrint();
-});
-</script></body>`
-    );
-    const win = window.open("", "_blank");
-    if (!win) return;
-    win.document.write(printHtml);
-    win.document.close();
+  const handleDownloadPDF = async () => {
+    const iframe = iframeRef.current;
+    if (!iframe || !iframe.contentDocument) return;
+
+    const { default: html2canvas } = await import('html2canvas');
+    const { default: jsPDF } = await import('jspdf');
+
+    const body = iframe.contentDocument.body;
+    const canvas = await html2canvas(body, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      width: body.scrollWidth,
+      height: body.scrollHeight,
+    });
+
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const imgWidth = pageWidth;
+    const imgHeight = (canvas.height * pageWidth) / canvas.width;
+
+    let heightLeft = imgHeight;
+    let position = 0;
+
+    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
+
+    while (heightLeft > 0) {
+      position = heightLeft - imgHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+    }
+
+    pdf.save(`${artifact.title.replace(/\s+/g, '_')}.pdf`);
   };
 
   const typeLabel = {
