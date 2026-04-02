@@ -372,8 +372,9 @@ export default function Chat() {
               </div>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto scrollbar-thin px-6 py-6 space-y-6 bg-background" ref={messagesEndRef}>
-              {messages.map((msg) => (
+            <div className="flex-1 overflow-y-auto scrollbar-thin py-6 bg-background" ref={messagesEndRef}>
+              <div className="max-w-3xl mx-auto px-4 space-y-6">
+               {messages.map((msg) => (
                 <ChatMessageItem
                   key={msg.id}
                   message={msg}
