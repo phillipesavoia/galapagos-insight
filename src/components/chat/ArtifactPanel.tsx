@@ -19,9 +19,10 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
   const isMobile = useIsMobile();
   const [copied, setCopied] = useState(false);
   const [generatedHtml, setGeneratedHtml] = useState<string | null>(null);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // Generate HTML via Claude when artifact changes
@@ -32,6 +33,7 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
       setIsGenerating(true);
       setError(null);
       setGeneratedHtml(null);
+      setPdfUrl(null);
 
       try {
         const { data, error: fnError } = await supabase.functions.invoke('generate-artifact-html', {
@@ -46,7 +48,6 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
         if (data?.error) throw new Error(data.error);
         if (!cancelled) {
           setGeneratedHtml(data.html);
-          if (data.pdfUrl) setPdfUrl(data.pdfUrl);
         }
       } catch (err) {
         if (!cancelled) {
@@ -60,6 +61,37 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
     generateHtml();
     return () => { cancelled = true; };
   }, [artifact.title, artifact.content, artifact.chartCalls]);
+
+  // Background PDF generation when HTML is ready
+  useEffect(() => {
+    if (!generatedHtml) return;
+    let cancelled = false;
+
+    async function generatePdf() {
+      setIsGeneratingPdf(true);
+      try {
+        const { data, error: fnError } = await supabase.functions.invoke('generate-pdf', {
+          body: {
+            html: generatedHtml,
+            fileName: `${artifact.title.replace(/\s+/g, '_')}.pdf`,
+          },
+        });
+
+        if (fnError) throw new Error(fnError.message);
+        if (data?.error) throw new Error(data.error);
+        if (!cancelled && data?.pdfUrl) {
+          setPdfUrl(data.pdfUrl);
+        }
+      } catch (err) {
+        console.warn("PDF generation failed:", err);
+      } finally {
+        if (!cancelled) setIsGeneratingPdf(false);
+      }
+    }
+
+    generatePdf();
+    return () => { cancelled = true; };
+  }, [generatedHtml, artifact.title]);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(artifact.content);
@@ -83,15 +115,6 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
       a.href = pdfUrl;
       a.download = `${artifact.title.replace(/\s+/g, '_')}.pdf`;
       a.click();
-    } else if (generatedHtml) {
-      // Fallback: open print dialog
-      const printHtml = generatedHtml.replace(
-        "location.search.indexOf('print=1')",
-        "true"
-      );
-      const blob = new Blob([printHtml], { type: "text/html" });
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
     }
   };
 
@@ -170,11 +193,20 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
       <div className="flex items-center gap-2 px-4 py-3 shrink-0" style={{ background: "#F4F7FB", borderTop: "1px solid #d1dce8" }}>
         <button
           onClick={handleDownloadPDF}
-          disabled={isGenerating || !!error || (!pdfUrl && !generatedHtml)}
+          disabled={!pdfUrl}
           className="flex items-center gap-1.5 rounded-lg border border-[#173C82] px-3 py-1.5 text-xs font-medium text-[#173C82] transition-colors hover:bg-[#173C82] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {isGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-          {pdfUrl ? "📥 Download PDF" : "🖨 Imprimir PDF"}
+          {isGeneratingPdf ? (
+            <>
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Gerando PDF...
+            </>
+          ) : (
+            <>
+              <Download className="h-3.5 w-3.5" />
+              {pdfUrl ? "⬇ Download PDF" : "📄 PDF"}
+            </>
+          )}
         </button>
         <button
           onClick={openInNewTab}
