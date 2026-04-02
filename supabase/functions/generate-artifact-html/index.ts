@@ -205,6 +205,24 @@ IMPORTANT INSTRUCTIONS:
       throw new Error("Claude returned empty HTML");
     }
 
+    // Inline ECharts to make HTML fully self-contained for API2PDF
+    let echartsSource = '';
+    try {
+      const echartsRes = await fetch('https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js');
+      if (echartsRes.ok) {
+        echartsSource = await echartsRes.text();
+      }
+    } catch (e) {
+      console.warn('Could not fetch ECharts:', e);
+    }
+
+    if (echartsSource) {
+      html = html.replace(
+        /<script[^>]*echarts[^>]*><\/script>/i,
+        `<script>${echartsSource}</script>`
+      );
+    }
+
     return new Response(JSON.stringify({ html }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
