@@ -46,6 +46,7 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
         if (data?.error) throw new Error(data.error);
         if (!cancelled) {
           setGeneratedHtml(data.html);
+          if (data.pdfUrl) setPdfUrl(data.pdfUrl);
         }
       } catch (err) {
         if (!cancelled) {
