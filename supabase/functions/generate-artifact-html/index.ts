@@ -146,7 +146,7 @@ IMPORTANT INSTRUCTIONS:
 9. All chart div containers need unique IDs (chart1, chart2, etc.)
 10. Initialize all charts in a single window.onload function at the bottom of body
 11. Be concise — prioritize charts and key tables over lengthy text explanations.
-12. CONCISENESS RULE: Maximum 8000 tokens. Use compact HTML — no verbose comments, no redundant CSS, inline styles only where needed. Prioritize charts and data tables over explanatory text paragraphs.`;
+12. CONCISENESS RULE: Maximum 7000 tokens total. Use compact HTML — no verbose inline comments, minimal whitespace, no redundant CSS. Prioritize charts and data tables. Skip lengthy narrative paragraphs — one sentence per insight maximum.`;
 
     const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",

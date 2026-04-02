@@ -171,9 +171,8 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
         <iframe
           ref={iframeRef}
           srcDoc={iframeSrcDoc}
-          title={artifact.title}
-          className="w-full h-full border-0"
           style={{ width: '100%', flex: 1, border: 'none', minHeight: 0 }}
+          title="Relatório"
         />
       </div>
 
