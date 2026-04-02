@@ -242,52 +242,27 @@ export function ChatMessageItem({
               );
             })()}
 
-            {msg.toolCalls && msg.toolCalls.length > 0 && (
-              <div className="mt-3 space-y-2">
-                {msg.toolCalls.map((tc, i) => {
-                  const vizTools = [
-                    "renderizar_grafico_barras",
-                    "renderizar_grafico_linha",
-                    "renderizar_pie_chart",
-                    "renderizar_tabela_retornos",
-                    "renderizar_flash_factsheet",
-                  ];
-                  if (vizTools.includes(tc.tool) && onOpenArtifact) {
-                    const vizTitle = tc.input?.title || tc.input?.assetName || "Visualização";
-                    const toolLabel: Record<string, string> = {
-                      renderizar_grafico_barras: "Gráfico de Barras",
-                      renderizar_grafico_linha: "Gráfico de Linha",
-                      renderizar_pie_chart: "Gráfico de Composição",
-                      renderizar_tabela_retornos: "Tabela de Retornos",
-                      renderizar_flash_factsheet: "Flash Factsheet",
-                    };
-                    return (
-                      <button
-                        key={i}
-                        onClick={() => onOpenArtifact({
-                          title: vizTitle,
-                          content: JSON.stringify({ tool: tc.tool, input: tc.input }),
-                          artifact_type: "report",
-                        })}
-                        className="flex items-center gap-2.5 w-full rounded-xl border border-border bg-card px-4 py-3 text-left transition-colors hover:bg-accent/50"
-                      >
-                        <BarChart2 className="h-4 w-4 text-primary shrink-0" />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-semibold text-foreground truncate">{vizTitle}</p>
-                          <p className="text-[10px] text-muted-foreground">{toolLabel[tc.tool] || tc.tool}</p>
-                        </div>
-                        <span className="text-[10px] font-medium text-primary shrink-0">Ver no painel →</span>
-                      </button>
-                    );
-                  }
-                  return (
+            {/* Non-viz tool calls only — viz tools are rendered in the artifact panel */}
+            {msg.toolCalls && msg.toolCalls.length > 0 && (() => {
+              const vizTools = [
+                "renderizar_grafico_barras",
+                "renderizar_grafico_linha",
+                "renderizar_pie_chart",
+                "renderizar_tabela_retornos",
+                "renderizar_flash_factsheet",
+              ];
+              const nonVizCalls = msg.toolCalls.filter(tc => !vizTools.includes(tc.tool));
+              if (nonVizCalls.length === 0) return null;
+              return (
+                <div className="mt-3 space-y-2">
+                  {nonVizCalls.map((tc, i) => (
                     <div key={i} className="overflow-x-auto max-h-96 overflow-y-auto">
                       {renderToolCall(tc, i)}
                     </div>
-                  );
-                })}
-              </div>
-            )}
+                  ))}
+                </div>
+              );
+            })()}
 
             {msg.artifact && onOpenArtifact && (
               <div className="mt-4 flex border-l-4 border-[#0071BB] pl-3">
