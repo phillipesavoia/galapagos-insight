@@ -145,7 +145,8 @@ IMPORTANT INSTRUCTIONS:
 8. Include the ECharts CDN script tag in the head
 9. All chart div containers need unique IDs (chart1, chart2, etc.)
 10. Initialize all charts in a single window.onload function at the bottom of body
-11. Be concise — prioritize charts and key tables over lengthy text explanations.`;
+11. Be concise — prioritize charts and key tables over lengthy text explanations.
+12. CONCISENESS RULE: Maximum 8000 tokens. Use compact HTML — no verbose comments, no redundant CSS, inline styles only where needed. Prioritize charts and data tables over explanatory text paragraphs.`;
 
     const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -156,7 +157,7 @@ IMPORTANT INSTRUCTIONS:
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
-        max_tokens: 12000,
+        max_tokens: 8000,
         stream: true,
         system: systemPrompt,
         messages: [{ role: "user", content: userMessage }],
