@@ -181,10 +181,10 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
         isMobile
           ? "fixed inset-0 z-50"
           : "w-[520px] shrink-0 border-l border-border"
-      } flex flex-col animate-in slide-in-from-right duration-300 bg-background`}
+      } flex flex-col h-full animate-in slide-in-from-right duration-300 bg-background`}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3" style={{ background: "#173C82" }}>
+      <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{ background: "#173C82" }}>
         <div className="flex items-center gap-2 min-w-0">
           <span className="inline-flex items-center rounded-md bg-white/15 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-white uppercase">
             {typeLabel}
@@ -200,7 +200,7 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
       </div>
 
       {/* Body — iframe */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden">
         <iframe
           srcDoc={factsheetHtml}
           title={artifact.title}
@@ -210,7 +210,7 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
       </div>
 
       {/* Footer */}
-      <div className="flex items-center gap-2 px-4 py-3 bg-background" style={{ borderTop: "1px solid #173C82" }}>
+      <div className="flex items-center gap-2 px-4 py-3 shrink-0" style={{ background: "#F4F7FB", borderTop: "1px solid #d1dce8" }}>
         <button
           onClick={handleDownloadPDF}
           className="flex items-center gap-1.5 rounded-lg border border-[#173C82] px-3 py-1.5 text-xs font-medium text-[#173C82] transition-colors hover:bg-[#173C82] hover:text-white"
