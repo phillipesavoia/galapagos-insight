@@ -181,7 +181,7 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
         isMobile
           ? "fixed inset-0 z-50"
           : "w-[520px] shrink-0 border-l border-border"
-      } flex flex-col animate-in slide-in-from-right duration-300 bg-background`}
+      } flex flex-col h-full animate-in slide-in-from-right duration-300 bg-background`}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3" style={{ background: "#173C82" }}>
