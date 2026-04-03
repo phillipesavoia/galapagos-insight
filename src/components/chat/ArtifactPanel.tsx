@@ -165,7 +165,8 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
       <div className="flex-1 min-h-0 overflow-hidden">
         <iframe
           ref={iframeRef}
-          srcDoc={iframeSrcDoc}
+          src={isGenerating ? undefined : iframeUrl || undefined}
+          srcDoc={isGenerating ? loadingHtml : error ? errorHtml : undefined}
           style={{ width: '100%', height: '100%', border: 'none' }}
           title="Relatório"
         />
