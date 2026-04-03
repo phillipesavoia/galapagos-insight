@@ -22,6 +22,7 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingPptx, setIsGeneratingPptx] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [iframeUrl, setIframeUrl] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
