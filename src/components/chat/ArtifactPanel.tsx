@@ -20,6 +20,7 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
   const [copied, setCopied] = useState(false);
   const [generatedHtml, setGeneratedHtml] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingPptx, setIsGeneratingPptx] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -58,19 +59,29 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
     return () => { cancelled = true; };
   }, [artifact.title, artifact.content, artifact.chartCalls]);
 
-  const handleDownloadPDF = () => {
-    if (!generatedHtml) return;
-    const printHtml = generatedHtml.replace(
-      '</body>',
-      `<script>
-        window.addEventListener('load', function() {
-          setTimeout(function() { window.print(); }, 2500);
-        });
-      <\/script></body>`
-    );
-    const blob = new Blob([printHtml], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
+  const handleDownloadPPTX = async () => {
+    if (!artifact.content) return;
+    setIsGeneratingPptx(true);
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('generate-pptx', {
+        body: { title: artifact.title, content: artifact.content, chartCalls: artifact.chartCalls || [] }
+      });
+      if (fnError || !data?.pptx) throw new Error(fnError?.message || "Failed");
+      const binary = atob(data.pptx);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const blob = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.presentationml.presentation" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = data.fileName || `${artifact.title.replace(/\s+/g, "_")}.pptx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("PPTX error:", e);
+    } finally {
+      setIsGeneratingPptx(false);
+    }
   };
 
   const handleCopy = async () => {
@@ -162,12 +173,12 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
       {/* Footer */}
       <div className="flex items-center gap-2 px-4 py-3 shrink-0" style={{ background: "#F4F7FB", borderTop: "1px solid #d1dce8" }}>
         <button
-          onClick={handleDownloadPDF}
-          disabled={!generatedHtml}
-          className="flex items-center gap-1.5 rounded-lg border border-[#173C82] px-3 py-1.5 text-xs font-medium text-[#173C82] transition-colors hover:bg-[#173C82] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
+          onClick={handleDownloadPPTX}
+          disabled={isGeneratingPptx}
+          className="flex items-center gap-1.5 rounded-lg border border-[#173C82] px-3 py-1.5 text-xs font-medium text-[#173C82] transition-colors hover:bg-[#173C82] hover:text-white disabled:opacity-40"
         >
-          <Printer className="h-3.5 w-3.5" />
-          🖨 Imprimir PDF
+          {isGeneratingPptx ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+          {isGeneratingPptx ? "Gerando PPTX..." : "⬇ Download PPTX"}
         </button>
         <button
           onClick={openInNewTab}
