@@ -22,6 +22,7 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingPptx, setIsGeneratingPptx] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [iframeUrl, setIframeUrl] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
@@ -58,6 +59,14 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
     generateHtml();
     return () => { cancelled = true; };
   }, [artifact.title, artifact.content, artifact.chartCalls]);
+
+  useEffect(() => {
+    if (!generatedHtml) { setIframeUrl(null); return; }
+    const blob = new Blob([generatedHtml], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    setIframeUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [generatedHtml]);
 
   const handleDownloadPPTX = async () => {
     if (!artifact.content) return;
@@ -134,7 +143,7 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
   <div class="error"><h2>Erro ao gerar relatório</h2><p>${error || "Tente novamente"}</p></div>
 </body></html>`;
 
-  const iframeSrcDoc = isGenerating ? loadingHtml : error ? errorHtml : generatedHtml || loadingHtml;
+  
 
   return (
     <div
@@ -164,7 +173,8 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
       <div className="flex-1 min-h-0 overflow-hidden">
         <iframe
           ref={iframeRef}
-          srcDoc={iframeSrcDoc}
+          src={isGenerating ? undefined : iframeUrl || undefined}
+          srcDoc={isGenerating ? loadingHtml : error ? errorHtml : undefined}
           style={{ width: '100%', height: '100%', border: 'none' }}
           title="Relatório"
         />
