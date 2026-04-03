@@ -60,6 +60,14 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
     return () => { cancelled = true; };
   }, [artifact.title, artifact.content, artifact.chartCalls]);
 
+  useEffect(() => {
+    if (!generatedHtml) { setIframeUrl(null); return; }
+    const blob = new Blob([generatedHtml], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    setIframeUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [generatedHtml]);
+
   const handleDownloadPPTX = async () => {
     if (!artifact.content) return;
     setIsGeneratingPptx(true);
