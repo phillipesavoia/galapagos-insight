@@ -135,7 +135,7 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
   <div class="error"><h2>Erro ao gerar relatório</h2><p>${error || "Tente novamente"}</p></div>
 </body></html>`;
 
-  const iframeSrcDoc = isGenerating ? loadingHtml : error ? errorHtml : generatedHtml || loadingHtml;
+  
 
   return (
     <div
