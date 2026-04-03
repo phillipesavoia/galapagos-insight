@@ -284,7 +284,13 @@ ${content.substring(0, 4000)}`
     });
 
     const pptxBuffer = await pres.write({ outputType: "arraybuffer" });
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(pptxBuffer as ArrayBuffer)));
+    const bytes = new Uint8Array(pptxBuffer as ArrayBuffer);
+    let binary = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    const base64 = btoa(binary);
 
     return new Response(JSON.stringify({ pptx: base64, fileName: `${title.replace(/\s+/g, "_")}.pptx` }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
