@@ -148,7 +148,11 @@ Return ONLY HTML starting with <!DOCTYPE html>.`;
 
     const pdfSystemPrompt = `You are a financial report designer. Generate a clean HTML report for PDF printing.
 NO JavaScript. NO external scripts. NO ECharts. NO canvas.
-Use only HTML tables and inline SVG for simple charts (bar charts as SVG rect elements, pie charts as SVG circle/path).
+Use only HTML tables and inline SVG for simple charts.
+For bar charts: use SVG <rect> elements. ALWAYS put the label text (asset/portfolio name) on the LEFT side of the bar at x=0, right-aligned at x=155, width=155px fixed. Bar starts at x=165. Value label appears to the RIGHT of the bar. Total SVG height = number of items × 36 + 40. Use alternating row backgrounds #f8fafc and #ffffff.
+For pie/donut charts: use SVG circle/path elements.
+All SVG charts must be self-contained, fully rendered, and require zero JavaScript to display.
+Minimum chart container height: bars need 36px each. Donut charts minimum 240px × 240px. Never truncate labels.
 Galapagos Capital Advisory branding: navy #173C82, blue #0071BB, background #F4F7FB.
 Font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif.
 Print-optimized: -webkit-print-color-adjust: exact; print-color-adjust: exact; page-break-inside: avoid on all sections.
