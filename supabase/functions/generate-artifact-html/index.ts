@@ -225,15 +225,7 @@ Use HTML tables and simple inline SVG bar/pie charts. KPI cards at top. All tabl
       throw new Error("Claude returned empty HTML");
     }
 
-    // Inline ECharts into the rich version for the iframe
-    let html = richHtml;
-    const echartsJs = await getECharts();
-    if (echartsJs) {
-      html = html.replace(
-        /<script[^>]*echarts[^>]*><\/script>/gi,
-        `<script>${echartsJs}</script>`
-      );
-    }
+    const html = richHtml;
 
     return new Response(JSON.stringify({ html, pdfHtml: pdfHtml || null }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
