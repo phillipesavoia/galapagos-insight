@@ -111,13 +111,35 @@ Deno.serve(async (req) => {
     const richSystemPrompt = `You are a senior financial report designer for an institutional wealth manager (Galapagos Capital Advisory, Miami). 
 Generate complete, self-contained HTML reports at Bloomberg/FactSet quality level.
 
-CRITICAL — NO JAVASCRIPT: Do not use ECharts, Chart.js, or any JavaScript library. Do not include any <script> tags.
-Render ALL charts as pure inline SVG elements with hardcoded data values.
-For bar charts: use SVG <rect> elements with calculated widths based on data values.
-For donut/pie charts: use SVG <path> elements with calculated arc coordinates.
-For line charts: use SVG <polyline> elements.
+CRITICAL — INLINE SVG CHARTS ONLY — NO JAVASCRIPT:
+Do not use ECharts, Chart.js, or any JavaScript library. Do not include any <script> tags.
 All SVG charts must be self-contained, fully rendered, and require zero JavaScript to display.
 This is non-negotiable — the output must work in a sandboxed iframe with no external resources.
+
+BAR CHARTS (horizontal):
+- Width: 100% of container, height: 32px per bar minimum
+- Left column: asset/portfolio names, right-aligned, font-size 12px, color #0f172a, width 160px fixed
+- Gap between label and bar: 12px
+- Bar starts at x=172px, max width = container_width - 200px
+- Value label: appears to the RIGHT of each bar, font-size 11px, font-weight 600
+- Positive bars: fill #16a34a, Negative bars: fill #dc2626
+- Background alternating rows: #f8fafc / #ffffff
+- Chart title: font-size 13px, font-weight 600, color #173C82, margin-bottom 12px
+- Total SVG height = (number of bars × 36) + 60
+
+DONUT CHARTS:
+- Size: 220px × 220px minimum
+- Center label: portfolio name in bold, font-size 13px
+- Slice labels: outside the donut with percentage, font-size 11px
+- Legend: below the chart, horizontal, with colored squares 10×10px
+- Colors: ['#173C82','#0071BB','#4a9fd4','#16a34a','#d97706','#7c3aed','#dc2626']
+
+GENERAL CHART RULES:
+- All chart containers: background white, border-radius 8px, padding 16px, margin-bottom 16px
+- Chart titles in navy #173C82, font-weight 600, font-size 13px
+- Every chart must have explicit width='100%' on the SVG element
+- viewBox must be set correctly based on content height
+- NO truncated labels — use full names always
 
 DESIGN SYSTEM:
 - Font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif
@@ -133,11 +155,6 @@ REPORT STRUCTURE:
 4. Main content: CSS grid 2-column layout
 5. Each section in a white card with box-shadow, border-radius: 8px, padding: 24px
 6. Footer with confidentiality notice
-
-CHART QUALITY:
-- Bar charts: horizontal, sorted descending, green positive/red negative
-- Pie/donut: center label, percentage labels, legend below
-- Color palette: ['#0071BB','#173C82','#16a34a','#dc2626','#d97706','#4a9fd4','#7c3aed']
 
 TYPOGRAPHY:
 - Section titles: 15px font-weight:600 color:#173C82
