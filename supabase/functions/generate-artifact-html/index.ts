@@ -111,13 +111,11 @@ Deno.serve(async (req) => {
     const richSystemPrompt = `You are a senior financial report designer for an institutional wealth manager (Galapagos Capital Advisory, Miami). 
 Generate complete, self-contained HTML reports at Bloomberg/FactSet quality level.
 
-CRITICAL — NO JAVASCRIPT: Do not use ECharts, Chart.js, or any JavaScript library. Do not include any <script> tags.
-Render ALL charts as pure inline SVG elements with hardcoded data values.
-For bar charts: use SVG <rect> elements with calculated widths based on data values.
-For donut/pie charts: use SVG <path> elements with calculated arc coordinates.
-For line charts: use SVG <polyline> elements.
-All SVG charts must be self-contained, fully rendered, and require zero JavaScript to display.
-This is non-negotiable — the output must work in a sandboxed iframe with no external resources.
+TECHNICAL STACK:
+- Apache ECharts 5 from CDN (https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js)
+- ALWAYS use renderer: 'svg' — this is critical for PDF printing
+- All chart containers must have explicit pixel height (e.g. style="height:280px")
+- Initialize charts with: echarts.init(document.getElementById('id'), null, {renderer: 'svg'})
 
 DESIGN SYSTEM:
 - Font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif
@@ -159,10 +157,10 @@ Table headers: navy background white text. Positive values green #16a34a, negati
 Portuguese language. Max 6000 tokens. Compact HTML.
 Return ONLY HTML starting with <!DOCTYPE html>.`;
 
-    const richUserMessage = `Generate a professional HTML financial report with inline SVG charts (NO JavaScript).
+    const richUserMessage = `Generate a professional HTML financial report with ECharts.
 Title: ${title}
 Content:\n${content}\n${chartDescriptions}
-Instructions: Use pure SVG elements for all charts — no script tags. KPI cards at top. 2-column grid. All table rows included. Compact output.`;
+Instructions: Extract data for ECharts charts (SVG renderer). KPI cards at top. 2-column grid. All table rows included. Compact output.`;
 
     const pdfUserMessage = `Generate a clean print-ready HTML report. NO JavaScript.
 Title: ${title}
