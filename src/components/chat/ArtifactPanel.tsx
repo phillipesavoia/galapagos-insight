@@ -46,9 +46,6 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
         if (data?.error) throw new Error(data.error);
         if (!cancelled) {
           setGeneratedHtml(data.html);
-          console.log("Generated HTML length:", data.html?.length);
-          console.log("Has ECharts script:", data.html?.includes('echarts'));
-          console.log("HTML preview:", data.html?.substring(0, 500));
         }
       } catch (err) {
         if (!cancelled) {

@@ -37,24 +37,6 @@ async function collectStream(res: Response): Promise<string> {
   return fullText.replace(/^```html?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
 }
 
-let echartsCache: string | null = null;
-
-async function getECharts(): Promise<string> {
-  if (echartsCache) return echartsCache;
-  try {
-    const res = await fetch(
-      'https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js',
-      { signal: AbortSignal.timeout(10000) }
-    );
-    if (res.ok) {
-      echartsCache = await res.text();
-      return echartsCache;
-    }
-  } catch (e) {
-    console.warn('ECharts fetch failed:', e);
-  }
-  return '';
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -225,15 +207,7 @@ Use HTML tables and simple inline SVG bar/pie charts. KPI cards at top. All tabl
       throw new Error("Claude returned empty HTML");
     }
 
-    // Inline ECharts into the rich version for the iframe
-    let html = richHtml;
-    const echartsJs = await getECharts();
-    if (echartsJs) {
-      html = html.replace(
-        /<script[^>]*echarts[^>]*><\/script>/gi,
-        `<script>${echartsJs}</script>`
-      );
-    }
+    const html = richHtml;
 
     return new Response(JSON.stringify({ html, pdfHtml: pdfHtml || null }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
