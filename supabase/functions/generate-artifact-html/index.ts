@@ -162,10 +162,10 @@ Table headers: navy background white text. Positive values green #16a34a, negati
 Portuguese language. Max 6000 tokens. Compact HTML.
 Return ONLY HTML starting with <!DOCTYPE html>.`;
 
-    const richUserMessage = `Generate a professional HTML financial report with ECharts.
+    const richUserMessage = `Generate a professional HTML financial report using ONLY inline SVG charts (no JavaScript).
 Title: ${title}
 Content:\n${content}\n${chartDescriptions}
-Instructions: Extract data for ECharts charts (SVG renderer). KPI cards at top. 2-column grid. All table rows included. Compact output.`;
+Instructions: Use pure SVG for all charts. KPI cards at top. 2-column grid. All table rows included. Compact output.`;
 
     const pdfUserMessage = `Generate a clean print-ready HTML report. NO JavaScript.
 Title: ${title}
