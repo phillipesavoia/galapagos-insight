@@ -144,7 +144,8 @@ TYPOGRAPHY:
 - Bar charts: horizontal, sorted descending, green positive/red negative
 - Portuguese language for all UI elements
 
-CONCISENESS: Max 7000 tokens. Compact HTML, no verbose comments.
+COMPLETENESS IS MANDATORY: You MUST include ALL sections from the content — never stop mid-report. Include every table row, every chart, every section. If the content has 10 sections, the HTML must have 10 sections. Closing tags </body></html> MUST always be present.
+CONCISENESS: Compact HTML, no verbose comments, no redundant CSS. Prioritize data over narrative text — one sentence per insight max.
 Return ONLY HTML starting with <!DOCTYPE html>.`;
 
     const pdfSystemPrompt = `You are a financial report designer. Generate a clean HTML report for PDF printing.
