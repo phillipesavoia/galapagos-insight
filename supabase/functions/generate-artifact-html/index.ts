@@ -144,7 +144,8 @@ TYPOGRAPHY:
 - Bar charts: horizontal, sorted descending, green positive/red negative
 - Portuguese language for all UI elements
 
-CONCISENESS: Max 7000 tokens. Compact HTML, no verbose comments.
+COMPLETENESS IS MANDATORY: You MUST include ALL sections from the content — never stop mid-report. Include every table row, every chart, every section. If the content has 10 sections, the HTML must have 10 sections. Closing tags </body></html> MUST always be present.
+CONCISENESS: Compact HTML, no verbose comments, no redundant CSS. Prioritize data over narrative text — one sentence per insight max.
 Return ONLY HTML starting with <!DOCTYPE html>.`;
 
     const pdfSystemPrompt = `You are a financial report designer. Generate a clean HTML report for PDF printing.
@@ -165,7 +166,7 @@ Return ONLY HTML starting with <!DOCTYPE html>.`;
     const richUserMessage = `Generate a professional HTML financial report using ONLY inline SVG charts (no JavaScript).
 Title: ${title}
 Content:\n${content}\n${chartDescriptions}
-Instructions: Use pure SVG for all charts. KPI cards at top. 2-column grid. All table rows included. Compact output.`;
+Instructions: Use pure SVG for all charts. KPI cards at top. 2-column grid. ALL table rows and ALL sections from the content MUST be included — never truncate. Always close with </body></html>.`;
 
     const pdfUserMessage = `Generate a clean print-ready HTML report. NO JavaScript.
 Title: ${title}
@@ -184,7 +185,7 @@ Use HTML tables and simple inline SVG bar/pie charts. KPI cards at top. All tabl
         headers,
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
-          max_tokens: 8000,
+          max_tokens: 12000,
           stream: true,
           system: richSystemPrompt,
           messages: [{ role: "user", content: richUserMessage }],
@@ -195,7 +196,7 @@ Use HTML tables and simple inline SVG bar/pie charts. KPI cards at top. All tabl
         headers,
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
-          max_tokens: 6000,
+          max_tokens: 10000,
           stream: true,
           system: pdfSystemPrompt,
           messages: [{ role: "user", content: pdfUserMessage }],
