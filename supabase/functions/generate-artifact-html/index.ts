@@ -196,7 +196,7 @@ Use HTML tables and simple inline SVG bar/pie charts. KPI cards at top. All tabl
         headers,
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
-          max_tokens: 6000,
+          max_tokens: 10000,
           stream: true,
           system: pdfSystemPrompt,
           messages: [{ role: "user", content: pdfUserMessage }],
