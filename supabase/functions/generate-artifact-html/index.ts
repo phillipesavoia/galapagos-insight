@@ -166,7 +166,7 @@ Return ONLY HTML starting with <!DOCTYPE html>.`;
     const richUserMessage = `Generate a professional HTML financial report using ONLY inline SVG charts (no JavaScript).
 Title: ${title}
 Content:\n${content}\n${chartDescriptions}
-Instructions: Use pure SVG for all charts. KPI cards at top. 2-column grid. All table rows included. Compact output.`;
+Instructions: Use pure SVG for all charts. KPI cards at top. 2-column grid. ALL table rows and ALL sections from the content MUST be included — never truncate. Always close with </body></html>.`;
 
     const pdfUserMessage = `Generate a clean print-ready HTML report. NO JavaScript.
 Title: ${title}
