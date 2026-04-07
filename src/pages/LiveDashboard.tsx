@@ -5,6 +5,7 @@ import { PORTFOLIOS } from "@/lib/constants";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
+import { DownloadReportButton } from "@/components/DownloadReportButton";
 
 const benchmarkPlaceholders = [
   { title: "S&P 500 Total Return", ticker: "SPXT Index" },
