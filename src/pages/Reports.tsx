@@ -240,6 +240,15 @@ export default function Reports() {
                 <Download className="h-4 w-4" />
                 Exportar para PDF
               </button>
+
+              <button
+                onClick={handleDownloadPptx}
+                disabled={isGeneratingPptx}
+                className="w-full flex items-center justify-center gap-2 rounded-xl border border-primary text-primary px-4 py-3 text-sm font-medium hover:bg-primary hover:text-primary-foreground transition-colors disabled:opacity-50"
+              >
+                {isGeneratingPptx ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+                {isGeneratingPptx ? "Gerando PPTX..." : "Download PPTX"}
+              </button>
             </div>
 
             {/* Right: A4 Preview */}
