@@ -27,6 +27,7 @@ export default function Reports() {
   const [historyTab, setHistoryTab] = useState<"novo" | "historico">("novo");
   const [generatedReports, setGeneratedReports] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [isGeneratingPptx, setIsGeneratingPptx] = useState(false);
 
   useEffect(() => {
     if (historyTab !== "historico") return;
