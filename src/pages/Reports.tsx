@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useReactToPrint } from "react-to-print";
-import { Download } from "lucide-react";
+import { Download, FileDown, Loader2 } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { filterByPeriod, type NavDataPoint } from "@/lib/utils";
@@ -27,6 +27,7 @@ export default function Reports() {
   const [historyTab, setHistoryTab] = useState<"novo" | "historico">("novo");
   const [generatedReports, setGeneratedReports] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [isGeneratingPptx, setIsGeneratingPptx] = useState(false);
 
   useEffect(() => {
     if (historyTab !== "historico") return;
@@ -79,6 +80,57 @@ export default function Reports() {
   const filtered = useMemo(() => filterByPeriod(navData, period), [navData, period]);
 
   const periodLabel = periods.find((p) => p.value === period)?.label || period;
+
+  // Compute cumulative return for the filtered period
+  const cumulativeReturn = useMemo(() => {
+    if (filtered.length < 2) return 0;
+    const first = filtered[0].nav;
+    const last = filtered[filtered.length - 1].nav;
+    return first > 0 ? ((last - first) / first) * 100 : 0;
+  }, [filtered]);
+
+  const ytdReturn = useMemo(() => {
+    const last = navData[navData.length - 1];
+    return last?.ytd_return != null ? last.ytd_return * 100 : 0;
+  }, [navData]);
+
+  const handleDownloadPptx = async () => {
+    setIsGeneratingPptx(true);
+    try {
+      const res = await fetch(
+        "https://43ed6015-f502-4d2f-8f81-efec12377521-00-14er4jw3ws1x8.riker.replit.dev/generate-report",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-api-key": "GalapagosKey2026" },
+          body: JSON.stringify({
+            portfolio: portfolio.toLowerCase(),
+            month: periodLabel,
+            data: {
+              performance: { month: Number(cumulativeReturn.toFixed(2)), ytd: Number(ytdReturn.toFixed(2)), rankYtd: 1 },
+              grade: [
+                { name: "Conservative", month: 1.38, ytd: 2.02 },
+                { name: "Income", month: 0.97, ytd: 2.10 },
+                { name: "Balanced", month: 0.50, ytd: 2.22 },
+                { name: "Growth", month: -0.09, ytd: 2.30 },
+              ],
+            },
+          }),
+        }
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "galapagos_report.pptx";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("PPTX generation failed:", e);
+    } finally {
+      setIsGeneratingPptx(false);
+    }
+  };
 
   return (
     <Layout>
@@ -187,6 +239,15 @@ export default function Reports() {
               >
                 <Download className="h-4 w-4" />
                 Exportar para PDF
+              </button>
+
+              <button
+                onClick={handleDownloadPptx}
+                disabled={isGeneratingPptx}
+                className="w-full flex items-center justify-center gap-2 rounded-xl border border-primary text-primary px-4 py-3 text-sm font-medium hover:bg-primary hover:text-primary-foreground transition-colors disabled:opacity-50"
+              >
+                {isGeneratingPptx ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+                {isGeneratingPptx ? "Gerando PPTX..." : "Download PPTX"}
               </button>
             </div>
 
