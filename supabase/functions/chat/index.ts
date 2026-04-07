@@ -1366,7 +1366,7 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
 
             for (const tc of allToolCalls) {
               assistantContent.push({ type: "tool_use", id: tc.id, name: tc.name, input: tc.input });
-              const isServerTool = tc.name === "fetch_live_asset_data" || tc.name === "pesquisar_informacoes_fundo";
+              const isServerTool = tc.name === "fetch_live_asset_data" || tc.name === "pesquisar_informacoes_fundo" || tc.name === "generate_report";
               userContent.push({
                 type: "tool_result",
                 tool_use_id: tc.id,
