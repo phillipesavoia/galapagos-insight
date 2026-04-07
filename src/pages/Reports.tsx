@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useReactToPrint } from "react-to-print";
-import { Download } from "lucide-react";
+import { Download, FileDown, Loader2 } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { filterByPeriod, type NavDataPoint } from "@/lib/utils";
