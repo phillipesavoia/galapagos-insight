@@ -6,6 +6,7 @@ import { PortfolioTab } from "@/components/dashboard/PortfolioTab";
 import { supabase } from "@/integrations/supabase/client";
 import { PORTFOLIOS } from "@/lib/constants";
 import type { NavDataPoint } from "@/lib/utils";
+import { DownloadReportButton } from "@/components/DownloadReportButton";
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<string>("Conservative");
@@ -46,12 +47,29 @@ export default function Dashboard() {
     <Layout>
       <div className="flex-1 flex flex-col min-h-0 bg-background">
         <div className="px-6 pt-6 pb-4 border-b border-border">
-          <h1 className="text-xl font-semibold text-foreground tracking-tight">
-            Performance Analítica
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Evolução de NAV e composição dos modelos de portfólio
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-semibold text-foreground tracking-tight">
+                Performance Analítica
+              </h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                Evolução de NAV e composição dos modelos de portfólio
+              </p>
+            </div>
+            <DownloadReportButton
+              portfolio="conservative"
+              month="Fevereiro 2026"
+              data={{
+                performance: { month: 1.38, ytd: 2.02, rankYtd: 4 },
+                grade: [
+                  { name: "Conservative", month: 1.38, ytd: 2.02 },
+                  { name: "Income", month: 0.97, ytd: 2.10 },
+                  { name: "Balanced", month: 0.50, ytd: 2.22 },
+                  { name: "Growth", month: -0.09, ytd: 2.30 },
+                ],
+              }}
+            />
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-4">
