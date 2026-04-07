@@ -6,6 +6,7 @@ import { PortfolioTab } from "@/components/dashboard/PortfolioTab";
 import { supabase } from "@/integrations/supabase/client";
 import { PORTFOLIOS } from "@/lib/constants";
 import type { NavDataPoint } from "@/lib/utils";
+import { DownloadReportButton } from "@/components/DownloadReportButton";
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<string>("Conservative");
