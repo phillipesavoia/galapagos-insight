@@ -77,6 +77,7 @@ export default function LiveDashboard() {
               <RefreshCw className="h-4 w-4" />
               Atualizar
             </button>
+          </div>
         </div>
 
         {/* Benchmarks */}
