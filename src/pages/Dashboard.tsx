@@ -96,26 +96,37 @@ export default function Dashboard() {
     return Math.sqrt(variance) / 100 * Math.sqrt(TRADING_DAYS) * 100;
   }, [filtered]);
 
-  const pptxData = useMemo(() => ({
-    performance: {
-      month: Number(cumulativeReturn.toFixed(2)),
-      ytd: Number(ytdReturn.toFixed(2)),
-      rankYtd: 1,
-    },
-    volatility: Number(volatility.toFixed(2)),
-    composition: holdings.map((h) => ({
+  const pptxData = useMemo(() => {
+    const compositionArr = holdings.map((h) => ({
       ticker: h.ticker,
       name: h.name,
       class: h.asset_class,
       weight: Number(h.weight.toFixed(2)),
-    })),
-    grade: [
-      { name: "Conservative", month: 1.38, ytd: 2.02, fi: 80, eq: 5, alts: 10, liq: 5, vol: 4, var: 6 },
-      { name: "Income", month: 0.97, ytd: 2.10, fi: 60, eq: 20, alts: 15, liq: 5, vol: 5, var: 8 },
-      { name: "Balanced", month: 0.50, ytd: 2.22, fi: 35, eq: 40, alts: 20, liq: 5, vol: 8, var: 12 },
-      { name: "Growth", month: -0.09, ytd: 2.30, fi: 0, eq: 70, alts: 25, liq: 5, vol: 13, var: 20 },
-    ],
-  }), [cumulativeReturn, ytdReturn, volatility, holdings]);
+    }));
+    const top9 = compositionArr.slice(0, 9);
+    return {
+      performance: {
+        month: Number(cumulativeReturn.toFixed(2)),
+        ytd: Number(ytdReturn.toFixed(2)),
+        rankYtd: 1,
+      },
+      volatility: Number(volatility.toFixed(2)),
+      composition: compositionArr,
+      lookthrough: {
+        fixedIncome: top9.map((h) => ({
+          name: h.name,
+          ticker: h.ticker,
+          portfolioWeight: h.weight,
+        })),
+      },
+      grade: [
+        { name: "Conservative", month: 1.38, ytd: 2.02, fi: 80, eq: 5, alts: 10, liq: 5, vol: 4, var: 6 },
+        { name: "Income", month: 0.97, ytd: 2.10, fi: 60, eq: 20, alts: 15, liq: 5, vol: 5, var: 8 },
+        { name: "Balanced", month: 0.50, ytd: 2.22, fi: 35, eq: 40, alts: 20, liq: 5, vol: 8, var: 12 },
+        { name: "Growth", month: -0.09, ytd: 2.30, fi: 0, eq: 70, alts: 25, liq: 5, vol: 13, var: 20 },
+      ],
+    };
+  }, [cumulativeReturn, ytdReturn, volatility, holdings]);
 
   const periodLabels: Record<string, string> = { "1M": "1 Mês", "YTD": "YTD", "12M": "12 Meses", "Máx": "Máximo" };
 
