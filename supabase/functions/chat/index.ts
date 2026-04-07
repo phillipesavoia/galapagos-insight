@@ -493,6 +493,25 @@ Exemplos de quando usar:
       required: ["query", "asset_name"],
     },
   },
+  {
+    name: "generate_report",
+    description: "Generates a PowerPoint PPTX report for a model portfolio. Use this when the user asks for a report, presentation, or slide deck for a portfolio. Examples: 'me dê um relatório do Conservative', 'gere uma apresentação do Income de fevereiro', 'quero o PPTX do Growth'.",
+    input_schema: {
+      type: "object",
+      properties: {
+        portfolio: {
+          type: "string",
+          enum: ["conservative", "income", "balanced", "growth"],
+          description: "The portfolio to generate the report for",
+        },
+        month: {
+          type: "string",
+          description: "The month/period for the report, e.g. 'Fevereiro 2026'",
+        },
+      },
+      required: ["portfolio", "month"],
+    },
+  },
 ];
 
 // --- Intent detection for model routing ---
@@ -1088,7 +1107,7 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
                   try {
                     const toolInput = JSON.parse(toolInputJson);
                     
-                    if (handleServerTool && (currentToolName === "fetch_live_asset_data" || currentToolName === "pesquisar_informacoes_fundo")) {
+                    if (handleServerTool && (currentToolName === "fetch_live_asset_data" || currentToolName === "pesquisar_informacoes_fundo" || currentToolName === "generate_report")) {
                       serverToolCall = { id: currentToolId, name: currentToolName, input: toolInput };
                       // Emit web_search SSE event for frontend indicator
                       if (currentToolName === "pesquisar_informacoes_fundo") {
@@ -1210,6 +1229,134 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
                   result.serverToolCall.input.asset_name,
                 );
                 serverToolResults[result.serverToolCall.id] = { status: "success", results: searchResult };
+              } else if (result.serverToolCall.name === "generate_report") {
+                const toolInput = result.serverToolCall.input;
+                const portfolio = toolInput.portfolio || "conservative";
+                const month = toolInput.month || "Março 2026";
+                console.log(`Generating PPTX report for ${portfolio} — ${month}`);
+
+                try {
+                  // Fetch composition from asset_knowledge
+                  const portfolioCapitalized = portfolio.charAt(0).toUpperCase() + portfolio.slice(1);
+                  const { data: assets } = await serviceClient
+                    .from("asset_knowledge")
+                    .select("ticker, name, asset_class, weight_pct")
+                    .order("name");
+
+                  const composition = (assets || [])
+                    .filter((a: any) => {
+                      const w = Number((a.weight_pct as any)?.[portfolioCapitalized] || 0);
+                      return w > 0;
+                    })
+                    .map((a: any) => ({
+                      ticker: a.ticker,
+                      name: a.name,
+                      class: a.asset_class,
+                      weight: Number((a.weight_pct as any)?.[portfolioCapitalized] || 0),
+                    }))
+                    .sort((a: any, b: any) => b.weight - a.weight);
+
+                  // Fetch latest NAV data
+                  const { data: navRows } = await serviceClient
+                    .from("daily_navs")
+                    .select("date, nav, daily_return, ytd_return")
+                    .eq("portfolio_name", portfolioCapitalized)
+                    .order("date", { ascending: false })
+                    .limit(30);
+
+                  let perfMonth = 0;
+                  let perfYtd = 0;
+                  let volatility = 0;
+                  if (navRows && navRows.length > 0) {
+                    perfYtd = Number(navRows[0].ytd_return || 0);
+                    const returns = navRows.map((r: any) => Number(r.daily_return || 0)).filter((v: number) => v !== 0);
+                    if (returns.length > 0) {
+                      perfMonth = returns.reduce((a: number, b: number) => a + b, 0);
+                      const mean = returns.reduce((a: number, b: number) => a + b, 0) / returns.length;
+                      const variance = returns.reduce((a: number, b: number) => a + (b - mean) ** 2, 0) / returns.length;
+                      volatility = Math.sqrt(variance) * Math.sqrt(252) * 100;
+                    }
+                  }
+
+                  const top9 = composition.slice(0, 9);
+                  const payload = {
+                    portfolio,
+                    month,
+                    data: {
+                      performance: {
+                        month: Number(perfMonth.toFixed(2)),
+                        ytd: Number(perfYtd.toFixed(2)),
+                        rankYtd: 1,
+                      },
+                      volatility: Number(volatility.toFixed(2)),
+                      composition: composition.map((h: any) => ({
+                        ticker: h.ticker,
+                        name: h.name,
+                        class: h.class,
+                        weight: Number(h.weight.toFixed(2)),
+                      })),
+                      lookthrough: {
+                        fixedIncome: top9.map((h: any) => ({
+                          name: h.name,
+                          ticker: h.ticker,
+                          portfolioWeight: h.weight,
+                        })),
+                      },
+                      grade: [
+                        { name: "Conservative", month: 1.38, ytd: 2.02, fi: 80, eq: 5, alts: 10, liq: 5, vol: 4, var: 6 },
+                        { name: "Income", month: 0.97, ytd: 2.10, fi: 60, eq: 20, alts: 15, liq: 5, vol: 5, var: 8 },
+                        { name: "Balanced", month: 0.50, ytd: 2.22, fi: 35, eq: 40, alts: 20, liq: 5, vol: 8, var: 12 },
+                        { name: "Growth", month: -0.09, ytd: 2.30, fi: 0, eq: 70, alts: 25, liq: 5, vol: 13, var: 20 },
+                      ],
+                    },
+                  };
+
+                  const pptxRes = await fetch(
+                    "https://43ed6015-f502-4d2f-8f81-efec12377521-00-14er4jw3ws1x8.riker.replit.dev/generate-report",
+                    {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        "x-api-key": "GalapagosKey2026",
+                      },
+                      body: JSON.stringify(payload),
+                    }
+                  );
+
+                  if (!pptxRes.ok) {
+                    throw new Error(`PPTX service error: ${pptxRes.status}`);
+                  }
+
+                  const pptxBuffer = await pptxRes.arrayBuffer();
+                  const bytes = new Uint8Array(pptxBuffer);
+                  let binary = "";
+                  const chunkSize = 8192;
+                  for (let i = 0; i < bytes.length; i += chunkSize) {
+                    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+                  }
+                  const base64 = btoa(binary);
+                  const filename = `galapagos_${portfolio}_${month.replace(/\s+/g, "_")}.pptx`;
+
+                  // Emit download event to frontend
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({
+                      type: "download",
+                      filename,
+                      data: base64,
+                    })}\n\n`)
+                  );
+
+                  serverToolResults[result.serverToolCall.id] = {
+                    status: "success",
+                    message: `Relatório PPTX gerado com sucesso para ${portfolioCapitalized} — ${month}. O download foi iniciado automaticamente no navegador do usuário.`,
+                  };
+                } catch (pptxErr) {
+                  console.error("PPTX generation error:", pptxErr);
+                  serverToolResults[result.serverToolCall.id] = {
+                    status: "error",
+                    message: `Erro ao gerar PPTX: ${pptxErr instanceof Error ? pptxErr.message : "Unknown error"}`,
+                  };
+                }
               }
             }
 
@@ -1219,7 +1366,7 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
 
             for (const tc of allToolCalls) {
               assistantContent.push({ type: "tool_use", id: tc.id, name: tc.name, input: tc.input });
-              const isServerTool = tc.name === "fetch_live_asset_data" || tc.name === "pesquisar_informacoes_fundo";
+              const isServerTool = tc.name === "fetch_live_asset_data" || tc.name === "pesquisar_informacoes_fundo" || tc.name === "generate_report";
               userContent.push({
                 type: "tool_result",
                 tool_use_id: tc.id,
