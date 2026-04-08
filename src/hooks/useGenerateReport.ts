@@ -45,7 +45,7 @@ async function extractAttribution(portfolio: string): Promise<{ asset: string; c
         apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
       },
       body: JSON.stringify({
-        message: prompt,
+        query: prompt,
         session_id: crypto.randomUUID(),
         filters: {},
       }),
