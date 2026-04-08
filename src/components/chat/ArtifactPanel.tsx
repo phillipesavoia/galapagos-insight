@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Download, FileText, ClipboardCopy, Check, Loader2, ExternalLink } from "lucide-react";
+import { X, Download, FileText, ClipboardCopy, Check, Loader2, ExternalLink, Printer } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -20,12 +20,11 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
   const [copied, setCopied] = useState(false);
   const [generatedHtml, setGeneratedHtml] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingPptx, setIsGeneratingPptx] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [iframeUrl, setIframeUrl] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Generate HTML via Claude when artifact changes
   useEffect(() => {
     let cancelled = false;
 
@@ -33,7 +32,6 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
       setIsGenerating(true);
       setError(null);
       setGeneratedHtml(null);
-      setPdfUrl(null);
 
       try {
         const { data, error: fnError } = await supabase.functions.invoke('generate-artifact-html', {
@@ -48,7 +46,6 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
         if (data?.error) throw new Error(data.error);
         if (!cancelled) {
           setGeneratedHtml(data.html);
-          generatePdfInBackground(data.html);
         }
       } catch (err) {
         if (!cancelled) {
@@ -63,21 +60,36 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
     return () => { cancelled = true; };
   }, [artifact.title, artifact.content, artifact.chartCalls]);
 
-  const generatePdfInBackground = async (html: string) => {
-    setIsGeneratingPdf(true);
-    setPdfUrl(null);
+  useEffect(() => {
+    if (!generatedHtml) { setIframeUrl(null); return; }
+    const blob = new Blob([generatedHtml], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    setIframeUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [generatedHtml]);
+
+  const handleDownloadPPTX = async () => {
+    if (!artifact.content) return;
+    setIsGeneratingPptx(true);
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('generate-pdf', {
-        body: {
-          html,
-          fileName: `${artifact.title.replace(/\s+/g, '_')}.pdf`,
-        },
+      const { data, error: fnError } = await supabase.functions.invoke('generate-pptx', {
+        body: { title: artifact.title, content: artifact.content, chartCalls: artifact.chartCalls || [] }
       });
-      if (!fnError && data?.pdfUrl) setPdfUrl(data.pdfUrl);
+      if (fnError || !data?.pptx) throw new Error(fnError?.message || "Failed");
+      const binary = atob(data.pptx);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const blob = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.presentationml.presentation" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = data.fileName || `${artifact.title.replace(/\s+/g, "_")}.pptx`;
+      a.click();
+      URL.revokeObjectURL(url);
     } catch (e) {
-      console.warn('PDF generation failed:', e);
+      console.error("PPTX error:", e);
     } finally {
-      setIsGeneratingPdf(false);
+      setIsGeneratingPptx(false);
     }
   };
 
@@ -95,15 +107,6 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
     a.download = `${artifact.title.replace(/\s+/g, "_")}.md`;
     a.click();
     URL.revokeObjectURL(url);
-  };
-
-  const handleDownloadPDF = () => {
-    if (pdfUrl) {
-      const a = document.createElement('a');
-      a.href = pdfUrl;
-      a.download = `${artifact.title.replace(/\s+/g, '_')}.pdf`;
-      a.click();
-    }
   };
 
   const openInNewTab = () => {
@@ -140,7 +143,7 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
   <div class="error"><h2>Erro ao gerar relatório</h2><p>${error || "Tente novamente"}</p></div>
 </body></html>`;
 
-  const iframeSrcDoc = isGenerating ? loadingHtml : error ? errorHtml : generatedHtml || loadingHtml;
+  
 
   return (
     <div
@@ -170,35 +173,26 @@ export function ArtifactPanel({ artifact, onClose }: Props) {
       <div className="flex-1 min-h-0 overflow-hidden">
         <iframe
           ref={iframeRef}
-          srcDoc={iframeSrcDoc}
-          title={artifact.title}
-          className="w-full h-full border-0"
-          style={{ width: '100%', flex: 1, border: 'none', minHeight: 0 }}
+          src={isGenerating ? undefined : iframeUrl || undefined}
+          srcDoc={isGenerating ? loadingHtml : error ? errorHtml : undefined}
+          style={{ width: '100%', height: '100%', border: 'none' }}
+          title="Relatório"
         />
       </div>
 
       {/* Footer */}
       <div className="flex items-center gap-2 px-4 py-3 shrink-0" style={{ background: "#F4F7FB", borderTop: "1px solid #d1dce8" }}>
         <button
-          onClick={handleDownloadPDF}
-          disabled={!pdfUrl}
-          className="flex items-center gap-1.5 rounded-lg border border-[#173C82] px-3 py-1.5 text-xs font-medium text-[#173C82] transition-colors hover:bg-[#173C82] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
+          onClick={handleDownloadPPTX}
+          disabled={isGeneratingPptx}
+          className="flex items-center gap-1.5 rounded-lg border border-[#173C82] px-3 py-1.5 text-xs font-medium text-[#173C82] transition-colors hover:bg-[#173C82] hover:text-white disabled:opacity-40"
         >
-          {isGeneratingPdf ? (
-            <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Gerando PDF...
-            </>
-          ) : (
-            <>
-              <Download className="h-3.5 w-3.5" />
-              {pdfUrl ? "⬇ Download PDF" : "📄 PDF"}
-            </>
-          )}
+          {isGeneratingPptx ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+          {isGeneratingPptx ? "Gerando PPTX..." : "⬇ Download PPTX"}
         </button>
         <button
           onClick={openInNewTab}
-          disabled={isGenerating || !!error}
+          disabled={!generatedHtml}
           className="flex items-center gap-1.5 rounded-lg border border-[#173C82] px-3 py-1.5 text-xs font-medium text-[#173C82] transition-colors hover:bg-[#173C82] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <ExternalLink className="h-3.5 w-3.5" />
