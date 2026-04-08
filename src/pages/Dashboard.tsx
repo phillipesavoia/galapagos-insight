@@ -10,12 +10,6 @@ import { DownloadReportButton } from "@/components/DownloadReportButton";
 
 const TRADING_DAYS = 252;
 
-// Top-level AMC tickers (parent assets, not individual holdings)
-const AMC_TICKERS = new Set([
-  "XS3064438362",    // AMC Equities
-  "XS3065236278",    // AMC Fixed Income
-  "ZB090152     CORP", // AMC Alternatives
-]);
 
 const INSIGHT_TEXT: Record<string, string> = {
   conservative: "Portfólio concentrado em renda fixa global (80%), com diversificação em alternativos e ações.",
