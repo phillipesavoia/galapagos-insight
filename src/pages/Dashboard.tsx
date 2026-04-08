@@ -89,10 +89,10 @@ export default function Dashboard() {
     return first > 0 ? ((last - first) / first) * 100 : 0;
   }, [filtered]);
 
-  // BUG 1 FIX: ytd_return from daily_navs is already a decimal (e.g. 0.0202 = 2.02%)
+  // YTD: stored as percentage already (e.g. 2.30 = 2.30%)
   const ytdReturn = useMemo(() => {
     const last = navData[navData.length - 1];
-    return last?.ytd_return != null ? last.ytd_return * 100 : 0;
+    return last?.ytd_return ?? 0;
   }, [navData]);
 
   const volatility = useMemo(() => {
@@ -107,25 +107,29 @@ export default function Dashboard() {
   }, [filtered]);
 
   const pptxData = useMemo(() => {
-    // Level 1: only top-level rows (amc_parent is null)
+    // Level 1: only top-level AMC wrappers + Liquidity
     const composition = holdings
-      .filter((h) => h.amc_parent === null || h.amc_parent === undefined)
+      .filter((h) => (h.amc_parent === null || h.amc_parent === undefined) &&
+        ['Equities', 'Fixed Income', 'Alternatives', 'Liquidity'].includes(h.asset_class))
       .map((h) => ({
         name: h.name,
         class: h.asset_class,
         weight: Number(h.weight.toFixed(2)),
       }));
 
-    // Level 2: children of AMC Fixed Income only
-    const fiHoldings = holdings
-      .filter((h) => h.amc_parent === "XS3065236278")
-      .map((h) => ({
-        name: h.name,
-        ticker: h.ticker,
-        portfolioWeight: Number(h.weight.toFixed(2)),
-      }));
+    // Level 2: children of primary AMC (FI first, fallback to Equities for Growth)
+    const fiAmc = holdings.find((h) => h.amc_parent === null && h.asset_class === 'Fixed Income');
+    const equitiesAmc = holdings.find((h) => h.amc_parent === null && h.asset_class === 'Equities');
+    const primaryAmc = fiAmc || equitiesAmc;
+    const lookthroughItems = primaryAmc
+      ? holdings.filter((h) => h.amc_parent === primaryAmc.ticker)
+      : [];
+    const lookthroughFI = lookthroughItems.map((h) => ({
+      name: h.name,
+      ticker: h.ticker,
+      portfolioWeight: Number(h.weight.toFixed(2)),
+    }));
 
-    // BUG 5 FIX: Dynamic insight text
     const insight = INSIGHT_TEXT[activeTab.toLowerCase()] || INSIGHT_TEXT.conservative;
 
     return {
@@ -137,9 +141,14 @@ export default function Dashboard() {
       volatility: Number(volatility.toFixed(2)),
       composition,
       lookthrough: {
-        fixedIncome: fiHoldings,
+        fixedIncome: lookthroughFI,
       },
       insight,
+      synthesis: {
+        strengths: [],
+        risks: [],
+        insight,
+      },
       grade: [
         { name: "Conservative", month: 1.38, ytd: 2.02, fi: 80, eq: 5, alts: 10, liq: 5, vol: 4, var: 6 },
         { name: "Income", month: 0.97, ytd: 2.10, fi: 60, eq: 20, alts: 15, liq: 5, vol: 5, var: 8 },
