@@ -256,23 +256,6 @@ export default function Chat() {
                   m.id === assistantId ? { ...m, sources } : m
                 )
               );
-            } else if (event.type === "download" && event.data && event.filename) {
-              try {
-                const binary = atob(event.data);
-                const bytes = new Uint8Array(binary.length);
-                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-                const blob = new Blob([bytes], {
-                  type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = event.filename;
-                a.click();
-                URL.revokeObjectURL(url);
-              } catch (dlErr) {
-                console.error("Download error:", dlErr);
-              }
             } else if (event.type === "web_search") {
               setWebSearching(event.asset_name || "fundo");
             }

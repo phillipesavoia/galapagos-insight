@@ -5,7 +5,6 @@ import { PORTFOLIOS } from "@/lib/constants";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
-import { DownloadReportButton } from "@/components/DownloadReportButton";
 
 const benchmarkPlaceholders = [
   { title: "S&P 500 Total Return", ticker: "SPXT Index" },
@@ -56,28 +55,13 @@ export default function LiveDashboard() {
               </span>
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <DownloadReportButton
-              portfolio="conservative"
-              month="Fevereiro 2026"
-              data={{
-                performance: { month: 1.38, ytd: 2.02, rankYtd: 4 },
-                grade: [
-                  { name: "Conservative", month: 1.38, ytd: 2.02 },
-                  { name: "Income", month: 0.97, ytd: 2.10 },
-                  { name: "Balanced", month: 0.50, ytd: 2.22 },
-                  { name: "Growth", month: -0.09, ytd: 2.30 },
-                ],
-              }}
-            />
-            <button
-              onClick={() => setRefreshKey(k => k + 1)}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-accent/10 transition-colors border border-border"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Atualizar
-            </button>
-          </div>
+          <button
+            onClick={() => setRefreshKey(k => k + 1)}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-accent/10 transition-colors border border-border"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Atualizar
+          </button>
         </div>
 
         {/* Benchmarks */}

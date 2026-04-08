@@ -1,4 +1,4 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, LabelList } from "recharts";
 
 interface BarDef {
   dataKey: string;
@@ -13,22 +13,16 @@ interface InlineBarChartProps {
   yAxisLabel?: string;
 }
 
-const COLORS = {
-  positive: "#4ade80",
-  negative: "#fb7185",
-  palette: ["#4ade80", "#60a5fa", "#fbbf24", "#fb7185", "#a78bfa", "#2dd4bf", "#fb923c", "#f472b6"],
-  axis: "#64748b",
-  label: "#cbd5e1",
-  grid: "rgba(255,255,255,0.06)",
-  bg: "#050a14",
-  border: "rgba(255,255,255,0.08)",
-  legendBg: "rgba(255,255,255,0.03)",
-  legendBorder: "rgba(255,255,255,0.08)",
-};
+const DEFAULT_COLORS = [
+  "#4ade80", "#60a5fa", "#fbbf24", "#fb7185", "#a78bfa",
+  "#f472b6", "#2dd4bf", "#fb923c",
+];
 
 function formatLabel(value: number, suffix: string) {
   if (value == null) return "";
-  return `${Number(value).toFixed(2)}${suffix}`;
+  // For weight/allocation data (no sign needed), only add +/- for return-like metrics
+  const num = Number(value);
+  return `${num.toFixed(2)}${suffix}`;
 }
 
 export function InlineBarChart({ title, data, bars, yAxisLabel }: InlineBarChartProps) {
@@ -36,84 +30,69 @@ export function InlineBarChart({ title, data, bars, yAxisLabel }: InlineBarChart
 
   const isSingleBar = bars.length === 1;
   const suffix = yAxisLabel || "";
-  const barHeight = isSingleBar ? 28 : 22;
-  const rowGap = 14;
-  const chartHeight = Math.max(260, data.length * (barHeight + rowGap) + 80);
+  const barHeight = isSingleBar ? 32 : 24;
+  const chartHeight = Math.max(220, data.length * (barHeight + 20) + 80);
+
+  // Build legend items for single-bar mode (each data point is a color)
+  const legendItems = isSingleBar
+    ? data.map((entry, i) => ({
+        name: entry.name as string,
+        color: (entry[bars[0].dataKey] as number) < 0 ? DEFAULT_COLORS[3] : DEFAULT_COLORS[0],
+        value: entry[bars[0].dataKey] as number,
+      }))
+    : bars.map((bar, idx) => ({
+        name: bar.label,
+        color: bar.color || DEFAULT_COLORS[idx % DEFAULT_COLORS.length],
+        value: null as number | null,
+      }));
 
   return (
-    <div
-      className="my-5 rounded-2xl border shadow-lg"
-      style={{
-        background: COLORS.bg,
-        borderColor: COLORS.border,
-        padding: "20px 24px 16px",
-      }}
-    >
-      <h4
-        className="mb-5 text-[11px] font-semibold uppercase tracking-[0.2em]"
-        style={{ color: COLORS.axis }}
-      >
+    <div className="my-4 p-5 rounded-2xl bg-[#050b18] border border-white/10 backdrop-blur-md shadow-lg">
+      <h4 className="text-[11px] font-semibold text-muted-foreground mb-4 uppercase tracking-widest">
         {title}
       </h4>
-
-      <div className="flex gap-5">
-        {/* Chart area */}
+      <div className="flex gap-4">
+        {/* Chart */}
         <div className="flex-1 min-w-0">
           <ResponsiveContainer width="100%" height={chartHeight}>
             <BarChart
               data={data}
               layout="vertical"
-              margin={{ top: 4, right: 90, left: 12, bottom: 4 }}
+              margin={{ top: 8, right: 80, left: 8, bottom: 8 }}
             >
               <CartesianGrid
                 strokeDasharray="3 3"
-                stroke={COLORS.grid}
-                horizontal
+                stroke="rgba(255,255,255,0.05)"
+                horizontal={true}
                 vertical={false}
               />
               <XAxis
                 type="number"
-                tick={{ fontSize: 10, fill: COLORS.axis, fontFamily: "'DM Mono', monospace" }}
+                tick={{ fontSize: 10, fill: "#64748b", fontFamily: "monospace" }}
                 tickFormatter={(v) => `${v}`}
-                axisLine={{ stroke: COLORS.grid }}
+                axisLine={{ stroke: "rgba(255,255,255,0.1)" }}
                 tickLine={false}
-                label={
-                  suffix
-                    ? {
-                        value: suffix,
-                        position: "insideBottomRight",
-                        offset: -4,
-                        style: { fontSize: 10, fill: COLORS.axis },
-                      }
-                    : undefined
-                }
+                label={suffix ? { value: suffix, position: "insideBottomRight", offset: -4, style: { fontSize: 10, fill: "#64748b" } } : undefined}
               />
               <YAxis
                 type="category"
                 dataKey="name"
-                tick={{
-                  fontSize: 12,
-                  fill: COLORS.label,
-                  fontWeight: 500,
-                }}
-                width={140}
+                tick={{ fontSize: 11, fill: "#94a3b8", fontWeight: 500 }}
+                width={110}
                 axisLine={false}
                 tickLine={false}
               />
               <Tooltip
                 contentStyle={{
                   fontSize: 12,
-                  borderRadius: 10,
-                  border: `1px solid ${COLORS.border}`,
-                  backgroundColor: COLORS.bg,
+                  borderRadius: 12,
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  backgroundColor: "#050b18",
                   color: "#e2e8f0",
-                  boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
-                  fontFamily: "'DM Mono', monospace",
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
                 }}
-                formatter={(value: number, name: string) => [
-                  `${Number(value).toFixed(2)}${suffix}`,
-                  name,
-                ]}
+                itemStyle={{ color: "#e2e8f0" }}
+                formatter={(value: number, name: string) => [`${Number(value).toFixed(2)}${suffix}`, name]}
                 cursor={{ fill: "rgba(255,255,255,0.03)" }}
               />
               {bars.map((bar, idx) => (
@@ -121,8 +100,8 @@ export function InlineBarChart({ title, data, bars, yAxisLabel }: InlineBarChart
                   key={bar.dataKey}
                   dataKey={bar.dataKey}
                   name={bar.label}
-                  fill={bar.color || COLORS.palette[idx % COLORS.palette.length]}
-                  radius={[0, 5, 5, 0]}
+                  fill={bar.color || DEFAULT_COLORS[idx % DEFAULT_COLORS.length]}
+                  radius={[0, 6, 6, 0]}
                   barSize={barHeight}
                 >
                   <LabelList
@@ -131,64 +110,42 @@ export function InlineBarChart({ title, data, bars, yAxisLabel }: InlineBarChart
                     style={{
                       fontSize: 11,
                       fontWeight: 600,
-                      fill: COLORS.label,
-                      fontFamily: "'DM Mono', monospace",
+                      fill: "#e2e8f0",
+                      fontFamily: "monospace",
                     }}
                     formatter={(v: number) => formatLabel(v, suffix)}
                   />
-                  {isSingleBar &&
-                    data.map((entry, i) => {
-                      const val = entry[bar.dataKey];
-                      return (
-                        <Cell
-                          key={i}
-                          fill={val < 0 ? COLORS.negative : COLORS.positive}
-                          fillOpacity={0.9}
-                        />
-                      );
-                    })}
+                  {isSingleBar && data.map((entry, i) => {
+                    const val = entry[bar.dataKey];
+                    const color = val < 0
+                      ? DEFAULT_COLORS[3]
+                      : DEFAULT_COLORS[0];
+                    return (
+                      <Cell
+                        key={i}
+                        fill={color}
+                        fillOpacity={0.85}
+                      />
+                    );
+                  })}
                 </Bar>
               ))}
             </BarChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Legend */}
-        <div
-          className="shrink-0 w-52 rounded-xl p-3.5 flex flex-col gap-2 self-start max-h-[420px] overflow-y-auto"
-          style={{
-            background: COLORS.legendBg,
-            border: `1px solid ${COLORS.legendBorder}`,
-          }}
-        >
-          <span
-            className="text-[9px] font-semibold uppercase tracking-[0.2em] mb-1"
-            style={{ color: COLORS.axis }}
-          >
-            Legenda
-          </span>
-          {(isSingleBar
-            ? data.map((entry, i) => ({
-                name: entry.name as string,
-                color: (entry[bars[0].dataKey] as number) < 0 ? COLORS.negative : COLORS.positive,
-                value: entry[bars[0].dataKey] as number,
-              }))
-            : bars.map((bar, idx) => ({
-                name: bar.label,
-                color: bar.color || COLORS.palette[idx % COLORS.palette.length],
-                value: null as number | null,
-              }))
-          ).map((item, i) => (
+        {/* Legend panel */}
+        <div className="shrink-0 w-56 rounded-xl border border-white/10 bg-white/[0.03] p-3 flex flex-col gap-1.5 self-start max-h-[400px] overflow-y-auto">
+          <span className="text-[9px] font-semibold uppercase tracking-widest text-slate-500 mb-1">Legenda</span>
+          {legendItems.map((item, i) => (
             <div key={i} className="flex items-start gap-2">
               <span
-                className="inline-block h-2.5 w-2.5 rounded-sm shrink-0 mt-[3px]"
+                className="inline-block h-2.5 w-2.5 rounded-sm shrink-0 mt-0.5"
                 style={{ backgroundColor: item.color }}
               />
-              <span className="text-[11px] leading-tight break-words flex-1 min-w-0" style={{ color: COLORS.label }}>
-                {item.name}
-              </span>
+              <span className="text-[11px] text-slate-300 break-words leading-tight flex-1 min-w-0">{item.name}</span>
               {item.value != null && (
-                <span className="shrink-0 text-[10px] font-mono whitespace-nowrap" style={{ color: COLORS.axis }}>
+                <span className="shrink-0 text-[10px] font-mono text-slate-400 whitespace-nowrap">
                   {formatLabel(item.value, suffix)}
                 </span>
               )}
