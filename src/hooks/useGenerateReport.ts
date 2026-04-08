@@ -58,7 +58,7 @@ async function extractAttribution(portfolio: string): Promise<{ asset: string; c
 
     if (error || !chunks || chunks.length === 0) {
       console.warn("No attribution chunks found, using fallback");
-      return [];
+      return getAttributionFallback(portfolio);
     }
 
     const rawText = chunks.map((c) => c.content).join("\n\n");
@@ -117,7 +117,7 @@ async function extractAttribution(portfolio: string): Promise<{ asset: string; c
     const jsonMatch = fullText.match(/\[[\s\S]*?\]/);
     if (!jsonMatch) {
       console.warn("No JSON array found in response:", fullText.substring(0, 200));
-      return [];
+      return getAttributionFallback(portfolio);
     }
 
     const parsed = JSON.parse(jsonMatch[0]);
@@ -129,7 +129,7 @@ async function extractAttribution(portfolio: string): Promise<{ asset: string; c
     return getAttributionFallback(portfolio);
   } catch (err) {
     console.warn("Attribution extraction failed, using fallback:", err);
-    return [];
+    return getAttributionFallback(portfolio);
   }
 }
 
