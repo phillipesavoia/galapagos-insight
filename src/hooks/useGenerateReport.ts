@@ -89,10 +89,12 @@ async function extractAttribution(portfolio: string): Promise<{ asset: string; c
     }
 
     const parsed = JSON.parse(jsonMatch[0]);
-    if (Array.isArray(parsed)) {
+    console.log(`Attribution extraction for ${portfolio}:`, parsed);
+    if (Array.isArray(parsed) && parsed.length > 0) {
       return parsed;
     }
-    return [];
+    console.warn(`Attribution empty for ${portfolio}, checking fallback`);
+    return getAttributionFallback(portfolio);
   } catch (err) {
     console.warn("Attribution extraction failed, using fallback:", err);
     return [];
