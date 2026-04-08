@@ -50,12 +50,16 @@ Deno.serve(async (req) => {
       });
     }
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 55000);
+
     const pdfRes = await fetch("https://v2.api2pdf.com/chrome/html", {
       method: "POST",
       headers: {
         "Authorization": api2pdfKey,
         "Content-Type": "application/json",
       },
+      signal: controller.signal,
       body: JSON.stringify({
         html,
         inlineHtml: true,
@@ -67,11 +71,12 @@ Deno.serve(async (req) => {
           marginBottom: "0mm",
           marginLeft: "0mm",
           marginRight: "0mm",
-          delay: 2500,
+          delay: 5000,
         },
         fileName: fileName || "report.pdf",
       }),
     });
+    clearTimeout(timeout);
 
     if (!pdfRes.ok) {
       const errText = await pdfRes.text();
