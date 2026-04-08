@@ -153,6 +153,7 @@ export function useGenerateReport() {
         },
       };
 
+      console.log('PPTX PAYLOAD:', JSON.stringify(enrichedPayload, null, 2));
       const response = await fetch(`${PPTX_SERVICE_URL}/generate-report`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": PPTX_API_KEY },
