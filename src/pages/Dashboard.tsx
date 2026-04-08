@@ -113,34 +113,16 @@ export default function Dashboard() {
   }, [filtered]);
 
   const pptxData = useMemo(() => {
-    // BUG 2 FIX: Split into top-level AMC composition vs individual holdings
-    const topLevelComposition = holdings
-      .filter((h) => AMC_TICKERS.has(h.ticker) || h.asset_class === "Liquidity")
+    // Level 1: only top-level rows (amc_parent is null)
+    const composition = holdings
+      .filter((h) => h.amc_parent === null || h.amc_parent === undefined)
       .map((h) => ({
-        ticker: h.ticker,
         name: h.name,
         class: h.asset_class,
         weight: Number(h.weight.toFixed(2)),
       }));
 
-    // If no AMC-level entries found, fallback to grouping by asset_class
-    const composition = topLevelComposition.length > 0
-      ? topLevelComposition
-      : (() => {
-          const classMap: Record<string, number> = {};
-          for (const h of holdings) {
-            const cls = h.asset_class;
-            classMap[cls] = (classMap[cls] || 0) + h.weight;
-          }
-          return Object.entries(classMap).map(([cls, weight]) => ({
-            ticker: cls,
-            name: cls,
-            class: cls,
-            weight: Number(weight.toFixed(2)),
-          }));
-        })();
-
-    // BUG 3 FIX: Look-through = only Fixed Income AMC holdings (amc_parent = XS3065236278)
+    // Level 2: children of AMC Fixed Income only
     const fiHoldings = holdings
       .filter((h) => h.amc_parent === "XS3065236278")
       .map((h) => ({
