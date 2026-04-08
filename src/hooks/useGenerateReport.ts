@@ -4,6 +4,38 @@ import { supabase } from "@/integrations/supabase/client";
 const PPTX_SERVICE_URL = "https://43ed6015-f502-4d2f-8f81-efec12377521-00-14er4jw3ws1x8.riker.replit.dev";
 const PPTX_API_KEY = "GalapagosKey2026";
 
+const ATTRIBUTION_FALLBACKS: Record<string, { asset: string; contribution_pp: number }[]> = {
+  Conservative: [
+    { asset: "DTLA", contribution_pp: 1.04 },
+    { asset: "EMGA", contribution_pp: 0.11 },
+    { asset: "TIP5", contribution_pp: 0.06 },
+    { asset: "KWEB", contribution_pp: -0.04 },
+    { asset: "KBWB", contribution_pp: -0.02 },
+  ],
+  Income: [
+    { asset: "DTLA", contribution_pp: 0.76 },
+    { asset: "ACWI", contribution_pp: 0.14 },
+    { asset: "UTES", contribution_pp: 0.11 },
+    { asset: "EMGA", contribution_pp: 0.08 },
+  ],
+  Balanced: [
+    { asset: "DTLA", contribution_pp: 0.43 },
+    { asset: "ACWI", contribution_pp: 0.27 },
+    { asset: "UTES", contribution_pp: 0.21 },
+    { asset: "KWEB", contribution_pp: -0.04 },
+  ],
+  Growth: [
+    { asset: "ACWI", contribution_pp: 0.45 },
+    { asset: "UTES", contribution_pp: 0.37 },
+    { asset: "WHG", contribution_pp: 0.11 },
+    { asset: "BAI", contribution_pp: 0.07 },
+  ],
+};
+
+function getAttributionFallback(portfolio: string): { asset: string; contribution_pp: number }[] {
+  return ATTRIBUTION_FALLBACKS[portfolio] || [];
+}
+
 async function extractAttribution(portfolio: string): Promise<{ asset: string; contribution_pp: number }[]> {
   try {
     // 1. Fetch attribution chunks from the relatório de gestão
