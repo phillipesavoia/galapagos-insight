@@ -10,13 +10,27 @@ import { DownloadReportButton } from "@/components/DownloadReportButton";
 
 const TRADING_DAYS = 252;
 
+// Top-level AMC tickers (parent assets, not individual holdings)
+const AMC_TICKERS = new Set([
+  "XS3064438362",    // AMC Equities
+  "XS3065236278",    // AMC Fixed Income
+  "ZB090152     CORP", // AMC Alternatives
+]);
+
+const INSIGHT_TEXT: Record<string, string> = {
+  conservative: "Portfólio concentrado em renda fixa global (80%), com diversificação em alternativos e ações.",
+  income: "Portfólio balanceado com 60% em renda fixa e 20% em ações, equilibrando renda e crescimento.",
+  balanced: "Portfólio equilibrado com 40% em ações e 35% em renda fixa, dentro dos limites de volatilidade.",
+  growth: "Portfólio focado em crescimento com 70% em ações globais, maior tolerância ao risco.",
+};
+
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<string>("Conservative");
   const [period, setPeriod] = useState<Period>("YTD");
   const [selectedBenchmark, setSelectedBenchmark] = useState("");
   const [navData, setNavData] = useState<NavDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
-  const [holdings, setHoldings] = useState<{ ticker: string; name: string; asset_class: string; weight: number }[]>([]);
+  const [holdings, setHoldings] = useState<{ ticker: string; name: string; asset_class: string; weight: number; amc_parent: string | null }[]>([]);
 
   useEffect(() => {
     const fetchNav = async () => {
@@ -46,12 +60,12 @@ export default function Dashboard() {
     fetchNav();
   }, [activeTab]);
 
-  // Fetch holdings for current tab
+  // Fetch holdings for current tab (including amc_parent)
   useEffect(() => {
     const fetchHoldings = async () => {
       const { data } = await supabase
         .from("asset_knowledge")
-        .select("ticker, name, asset_class, weight_pct, portfolios")
+        .select("ticker, name, asset_class, weight_pct, portfolios, amc_parent")
         .contains("portfolios", [activeTab]);
       if (data) {
         setHoldings(
@@ -61,6 +75,7 @@ export default function Dashboard() {
               name: a.name,
               asset_class: a.asset_class,
               weight: (a.weight_pct as Record<string, number>)?.[activeTab] ?? 0,
+              amc_parent: a.amc_parent || null,
             }))
             .filter((h) => h.weight > 0)
             .sort((a, b) => b.weight - a.weight)
@@ -80,6 +95,7 @@ export default function Dashboard() {
     return first > 0 ? ((last - first) / first) * 100 : 0;
   }, [filtered]);
 
+  // BUG 1 FIX: ytd_return from daily_navs is already a decimal (e.g. 0.0202 = 2.02%)
   const ytdReturn = useMemo(() => {
     const last = navData[navData.length - 1];
     return last?.ytd_return != null ? last.ytd_return * 100 : 0;
@@ -97,13 +113,45 @@ export default function Dashboard() {
   }, [filtered]);
 
   const pptxData = useMemo(() => {
-    const compositionArr = holdings.map((h) => ({
-      ticker: h.ticker,
-      name: h.name,
-      class: h.asset_class,
-      weight: Number(h.weight.toFixed(2)),
-    }));
-    const top9 = compositionArr.slice(0, 9);
+    // BUG 2 FIX: Split into top-level AMC composition vs individual holdings
+    const topLevelComposition = holdings
+      .filter((h) => AMC_TICKERS.has(h.ticker) || h.asset_class === "Liquidity")
+      .map((h) => ({
+        ticker: h.ticker,
+        name: h.name,
+        class: h.asset_class,
+        weight: Number(h.weight.toFixed(2)),
+      }));
+
+    // If no AMC-level entries found, fallback to grouping by asset_class
+    const composition = topLevelComposition.length > 0
+      ? topLevelComposition
+      : (() => {
+          const classMap: Record<string, number> = {};
+          for (const h of holdings) {
+            const cls = h.asset_class;
+            classMap[cls] = (classMap[cls] || 0) + h.weight;
+          }
+          return Object.entries(classMap).map(([cls, weight]) => ({
+            ticker: cls,
+            name: cls,
+            class: cls,
+            weight: Number(weight.toFixed(2)),
+          }));
+        })();
+
+    // BUG 3 FIX: Look-through = only Fixed Income AMC holdings (amc_parent = XS3065236278)
+    const fiHoldings = holdings
+      .filter((h) => h.amc_parent === "XS3065236278")
+      .map((h) => ({
+        name: h.name,
+        ticker: h.ticker,
+        portfolioWeight: Number(h.weight.toFixed(2)),
+      }));
+
+    // BUG 5 FIX: Dynamic insight text
+    const insight = INSIGHT_TEXT[activeTab.toLowerCase()] || INSIGHT_TEXT.conservative;
+
     return {
       performance: {
         month: Number(cumulativeReturn.toFixed(2)),
@@ -111,14 +159,11 @@ export default function Dashboard() {
         rankYtd: 1,
       },
       volatility: Number(volatility.toFixed(2)),
-      composition: compositionArr,
+      composition,
       lookthrough: {
-        fixedIncome: top9.map((h) => ({
-          name: h.name,
-          ticker: h.ticker,
-          portfolioWeight: h.weight,
-        })),
+        fixedIncome: fiHoldings,
       },
+      insight,
       grade: [
         { name: "Conservative", month: 1.38, ytd: 2.02, fi: 80, eq: 5, alts: 10, liq: 5, vol: 4, var: 6 },
         { name: "Income", month: 0.97, ytd: 2.10, fi: 60, eq: 20, alts: 15, liq: 5, vol: 5, var: 8 },
@@ -126,7 +171,7 @@ export default function Dashboard() {
         { name: "Growth", month: -0.09, ytd: 2.30, fi: 0, eq: 70, alts: 25, liq: 5, vol: 13, var: 20 },
       ],
     };
-  }, [cumulativeReturn, ytdReturn, volatility, holdings]);
+  }, [cumulativeReturn, ytdReturn, volatility, holdings, activeTab]);
 
   const periodLabels: Record<string, string> = { "1M": "1 Mês", "YTD": "YTD", "12M": "12 Meses", "Máx": "Máximo" };
 
