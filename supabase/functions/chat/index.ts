@@ -493,6 +493,24 @@ Exemplos de quando usar:
       required: ["query", "asset_name"],
     },
   },
+  {
+    name: "generate_report",
+    description: "Generates a PowerPoint PPTX presentation for a model portfolio or AMC. Call this tool when the user asks for a report, presentation, relatório, apresentação, or PPTX for any portfolio (Conservative, Income, Balanced, Growth) or AMC (Fixed Income, Equities, Alternatives). Returns a download link for the generated file.",
+    input_schema: {
+      type: "object",
+      properties: {
+        portfolio: {
+          type: "string",
+          description: "Portfolio name in lowercase: conservative, income, balanced, growth, amc_fixed_income, amc_equities, amc_alternatives",
+        },
+        month: {
+          type: "string",
+          description: "Month and year for the report, e.g. 'Fevereiro 2026', 'Março 2026'",
+        },
+      },
+      required: ["portfolio", "month"],
+    },
+  },
 ];
 
 // --- Intent detection for model routing ---
@@ -1088,7 +1106,7 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
                   try {
                     const toolInput = JSON.parse(toolInputJson);
                     
-                    if (handleServerTool && (currentToolName === "fetch_live_asset_data" || currentToolName === "pesquisar_informacoes_fundo")) {
+                    if (handleServerTool && (currentToolName === "fetch_live_asset_data" || currentToolName === "pesquisar_informacoes_fundo" || currentToolName === "generate_report")) {
                       serverToolCall = { id: currentToolId, name: currentToolName, input: toolInput };
                       // Emit web_search SSE event for frontend indicator
                       if (currentToolName === "pesquisar_informacoes_fundo") {
@@ -1210,6 +1228,101 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
                   result.serverToolCall.input.asset_name,
                 );
                 serverToolResults[result.serverToolCall.id] = { status: "success", results: searchResult };
+              } else if (result.serverToolCall.name === "generate_report") {
+                const toolInput = result.serverToolCall.input;
+                console.log(`Executing generate_report for: ${toolInput.portfolio} ${toolInput.month}`);
+                try {
+                  const portfolioName = toolInput.portfolio.charAt(0).toUpperCase() + toolInput.portfolio.slice(1);
+                  const { data: holdings } = await serviceClient
+                    .from("asset_knowledge")
+                    .select("ticker, name, asset_class, weight_pct, amc_parent, portfolios")
+                    .contains("portfolios", [portfolioName]);
+
+                  const composition = (holdings || [])
+                    .filter((h: any) => !h.amc_parent && h.weight_pct?.[portfolioName] > 0 && ["Equities", "Fixed Income", "Alternatives", "Liquidity"].includes(h.asset_class))
+                    .map((h: any) => ({ name: h.name, class: h.asset_class, weight: h.weight_pct[portfolioName] }));
+
+                  const topAmc = (holdings || [])
+                    .filter((h: any) => !h.amc_parent && h.weight_pct?.[portfolioName] > 0)
+                    .sort((a: any, b: any) => (b.weight_pct[portfolioName] || 0) - (a.weight_pct[portfolioName] || 0))[0];
+
+                  const lookthrough = topAmc
+                    ? (holdings || [])
+                        .filter((h: any) => h.amc_parent === topAmc.ticker && h.weight_pct?.[portfolioName] > 0)
+                        .map((h: any) => ({ name: h.name, ticker: h.ticker, portfolioWeight: h.weight_pct[portfolioName] }))
+                        .sort((a: any, b: any) => b.portfolioWeight - a.portfolioWeight)
+                        .slice(0, 9)
+                    : [];
+
+                  const { data: navData } = await serviceClient
+                    .from("daily_navs")
+                    .select("ytd_return, daily_return")
+                    .eq("portfolio_name", portfolioName)
+                    .order("date", { ascending: false })
+                    .limit(1);
+
+                  const payload = {
+                    portfolio: toolInput.portfolio,
+                    month: toolInput.month,
+                    data: {
+                      performance: {
+                        month: navData?.[0]?.daily_return ?? 0,
+                        ytd: navData?.[0]?.ytd_return ?? 0,
+                      },
+                      composition,
+                      lookthrough: { fixedIncome: lookthrough },
+                      attribution: [],
+                      synthesis: { strengths: [], risks: [] },
+                      grade: [
+                        { name: "Conservative", month: 1.38, ytd: 2.02, fi: 80, eq: 5, alts: 10, liq: 5, vol: 4, var: 6 },
+                        { name: "Income", month: 0.97, ytd: 2.10, fi: 60, eq: 20, alts: 15, liq: 5, vol: 5, var: 8 },
+                        { name: "Balanced", month: 0.50, ytd: 2.22, fi: 35, eq: 40, alts: 20, liq: 5, vol: 8, var: 12 },
+                        { name: "Growth", month: -0.09, ytd: 2.30, fi: 0, eq: 70, alts: 25, liq: 5, vol: 13, var: 20 },
+                      ],
+                    },
+                  };
+
+                  console.log("Sending to Replit:", { portfolio: toolInput.portfolio, composition: composition.length, lookthrough: lookthrough.length });
+
+                  const replitResponse = await fetch(
+                    "https://43ed6015-f502-4d2f-8f81-efec12377521-00-14er4jw3ws1x8.riker.replit.dev/generate-report",
+                    {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json", "x-api-key": "GalapagosKey2026" },
+                      body: JSON.stringify(payload),
+                    }
+                  );
+
+                  if (!replitResponse.ok) {
+                    throw new Error(`Replit error: HTTP ${replitResponse.status}`);
+                  }
+
+                  const arrayBuffer = await replitResponse.arrayBuffer();
+                  const bytes = new Uint8Array(arrayBuffer);
+                  let binary = "";
+                  for (let i = 0; i < bytes.length; i++) {
+                    binary += String.fromCharCode(bytes[i]);
+                  }
+                  const base64 = btoa(binary);
+                  const fileName = `galapagos_${toolInput.portfolio}_${toolInput.month.replace(/\s+/g, "_")}.pptx`;
+
+                  // Emit download event to frontend
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ type: "download", fileName, base64 })}\n\n`)
+                  );
+
+                  serverToolResults[result.serverToolCall.id] = {
+                    success: true,
+                    fileName,
+                    message: `Relatório gerado com sucesso: ${fileName}`,
+                  };
+                } catch (e) {
+                  console.error("generate_report error:", e);
+                  serverToolResults[result.serverToolCall.id] = {
+                    success: false,
+                    message: `Erro ao gerar relatório: ${e instanceof Error ? e.message : String(e)}`,
+                  };
+                }
               }
             }
 
@@ -1219,7 +1332,7 @@ Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevant
 
             for (const tc of allToolCalls) {
               assistantContent.push({ type: "tool_use", id: tc.id, name: tc.name, input: tc.input });
-              const isServerTool = tc.name === "fetch_live_asset_data" || tc.name === "pesquisar_informacoes_fundo";
+              const isServerTool = tc.name === "fetch_live_asset_data" || tc.name === "pesquisar_informacoes_fundo" || tc.name === "generate_report";
               userContent.push({
                 type: "tool_result",
                 tool_use_id: tc.id,
