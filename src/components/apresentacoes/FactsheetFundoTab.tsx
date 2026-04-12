@@ -187,7 +187,8 @@ export function FactsheetFundoTab() {
     setSummaryLoading(false);
   }, [selectedDoc?.id]);
 
-  const pdfViewerUrl = selectedDoc?.file_url
+  const isDirectPdf = selectedDoc?.file_url?.toLowerCase().includes('.pdf') ?? false;
+  const pdfViewerUrl = selectedDoc?.file_url && isDirectPdf
     ? `https://docs.google.com/viewer?url=${encodeURIComponent(selectedDoc.file_url)}&embedded=true`
     : null;
 
@@ -365,13 +366,29 @@ export function FactsheetFundoTab() {
             </div>
           </div>
 
-          {/* PDF via Google Docs viewer */}
+          {/* PDF content */}
           <div className="flex-1 min-h-0">
-            <iframe
-              src={pdfViewerUrl!}
-              style={{ width: "100%", height: "100%", border: "none", minHeight: "500px" }}
-              title={fundLabel}
-            />
+            {isDirectPdf && pdfViewerUrl ? (
+              <iframe
+                src={pdfViewerUrl}
+                style={{ width: "100%", height: "100%", border: "none", minHeight: "500px" }}
+                title={fundLabel}
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full gap-4 px-6 py-12 text-center">
+                <FileText className="h-12 w-12 text-muted-foreground" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-foreground">{fundLabel}</p>
+                  <p className="text-xs text-muted-foreground">
+                    O documento não é um PDF direto — clique para abrir no site do gestor
+                  </p>
+                </div>
+                <Button onClick={() => window.open(selectedDoc!.file_url!, "_blank")} size="lg">
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Abrir Factsheet
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       )}
