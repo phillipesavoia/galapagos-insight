@@ -21,7 +21,7 @@ const tabs = [
 
 const descriptions: Record<string, string> = {
   "portfolio-pptx": "Gere apresentações completas dos portfólios modelo em PowerPoint",
-  "factsheet-amc": "Fichas detalhadas de cada AMC Galapagos (Fixed Income, Equities, Alternatives)",
+  "factsheet-amc": "Análise completa de qualquer fundo indexado (ETFs, Bonds, Fundos)",
   "carta-mensal": "Carta de mercado mensal gerada pelo Claude com base no relatório de gestão",
   "comparativo": "Tabela comparativa de todos os portfólios modelo em PowerPoint",
   "personalizado": "Descreva o que precisa e o Claude monta a apresentação",
