@@ -66,6 +66,8 @@ export default function Apresentacoes() {
               ticker: h.ticker,
               portfolioWeight: (h.weight_pct as any)[portfolio],
             }))
+            .sort((a, b) => b.portfolioWeight - a.portfolioWeight)
+            .slice(0, 9)
         : [];
 
       const { data: navData, error: navError } = await supabase
