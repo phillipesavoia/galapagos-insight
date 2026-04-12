@@ -329,33 +329,13 @@ export function FactsheetFundoTab() {
             </button>
           </div>
 
-          {/* Content: iframe for Supabase URLs, fallback card for external */}
+          {/* PDF via Google Docs viewer */}
           <div className="flex-1 min-h-0 overflow-hidden">
-            {canEmbedPdf ? (
-              <iframe
-                src={selectedDoc.file_url!}
-                style={{ width: "100%", height: "100%", border: "none" }}
-                title={`Factsheet - ${fundLabel}`}
-              />
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full px-8 text-center gap-6" style={{ background: "#F4F7FB" }}>
-                <FileText className="h-16 w-16 text-muted-foreground/40" />
-                <div className="space-y-2">
-                  <h3 className="text-lg font-semibold text-foreground">{fundLabel}</h3>
-                  <p className="text-sm text-muted-foreground max-w-xs">
-                    Este documento não pode ser exibido inline — clique para abrir no navegador
-                  </p>
-                </div>
-                <Button
-                  size="lg"
-                  onClick={() => window.open(selectedDoc.file_url!, "_blank")}
-                  className="gap-2"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  Abrir Factsheet
-                </Button>
-              </div>
-            )}
+            <iframe
+              src={pdfViewerUrl!}
+              style={{ width: "100%", height: "100%", border: "none", minHeight: "500px" }}
+              title={fundLabel}
+            />
           </div>
 
           {/* Footer */}
