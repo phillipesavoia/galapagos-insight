@@ -34,6 +34,7 @@ const App = () => (
             <Route path="/chat" element={<Chat />} />
             <Route path="/generator" element={<Generator />} />
             <Route path="/reports" element={<Reports />} />
+            <Route path="/apresentacoes" element={<Apresentacoes />} />
             <Route path="/library" element={<AdminRoute><Library /></AdminRoute>} />
             <Route path="/admin/nav-upload" element={<AdminRoute><NavUpload /></AdminRoute>} />
             <Route path="/admin/assets" element={<AdminRoute><AssetKnowledge /></AdminRoute>} />
