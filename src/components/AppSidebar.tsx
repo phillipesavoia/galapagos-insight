@@ -1,4 +1,4 @@
-import { MessageSquare, FileText, FolderOpen, BarChart3, Upload, LogOut, ClipboardList, BookOpen, TrendingUp, ClipboardCheck, Users } from "lucide-react";
+import { MessageSquare, FolderOpen, BarChart3, Upload, LogOut, BookOpen, TrendingUp, ClipboardCheck, Users, LayoutTemplate } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/contexts/UserRoleContext";
@@ -7,8 +7,7 @@ const publicNavItems = [
   { title: "Dashboard", label: "Dashboard", url: "/dashboard", icon: TrendingUp },
   { title: "Advisor Chat", label: "Advisor Chat", url: "/chat", icon: MessageSquare },
   { title: "Performance Analítica", label: "Performance Analítica", url: "/analytics", icon: BarChart3 },
-  { title: "Cartas & Documentos", label: "Cartas & Documentos", url: "/generator", icon: FileText },
-  { title: "Relatório de Portfólio", label: "Relatório de Portfólio", url: "/reports", icon: ClipboardList },
+  { title: "Apresentações & Docs", label: "Apresentações & Docs", url: "/apresentacoes", icon: LayoutTemplate },
 ];
 
 const adminNavItems = [
