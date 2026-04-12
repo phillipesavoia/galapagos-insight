@@ -54,14 +54,19 @@ export default function Apresentacoes() {
           weight: (h.weight_pct as any)[portfolio],
         }));
 
-      const lookthrough = (holdings ?? [])
-        .filter((h) => h.amc_parent !== null && (h.weight_pct as any)?.[portfolio] > 0)
-        .map((h) => ({
-          name: h.name,
-          ticker: h.ticker,
-          portfolioWeight: (h.weight_pct as any)[portfolio],
-          amc_parent: h.amc_parent,
-        }));
+      const topAmc = (holdings ?? [])
+        .filter((h) => h.amc_parent === null && (h.weight_pct as any)?.[portfolio] > 0)
+        .sort((a, b) => ((b.weight_pct as any)[portfolio] || 0) - ((a.weight_pct as any)[portfolio] || 0))[0];
+
+      const lookthrough = topAmc
+        ? (holdings ?? [])
+            .filter((h) => h.amc_parent === topAmc.ticker && (h.weight_pct as any)?.[portfolio] > 0)
+            .map((h) => ({
+              name: h.name,
+              ticker: h.ticker,
+              portfolioWeight: (h.weight_pct as any)[portfolio],
+            }))
+        : [];
 
       const { data: navData, error: navError } = await supabase
         .from("daily_navs")
@@ -92,6 +97,8 @@ export default function Apresentacoes() {
           ],
         },
       };
+
+      console.log('Sending to Replit:', { portfolio, composition: composition.length, lookthrough: lookthrough.length });
 
       const response = await fetch(
         "https://43ed6015-f502-4d2f-8f81-efec12377521-00-14er4jw3ws1x8.riker.replit.dev/generate-report",
