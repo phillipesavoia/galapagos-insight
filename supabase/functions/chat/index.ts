@@ -495,7 +495,7 @@ Exemplos de quando usar:
   },
   {
     name: "generate_report",
-    description: "Generates a PowerPoint PPTX presentation for a model portfolio or AMC. Call this tool when the user asks for a report, presentation, relatório, apresentação, or PPTX for any portfolio (Conservative, Income, Balanced, Growth) or AMC (Fixed Income, Equities, Alternatives). Returns a download link for the generated file.",
+    description: "Generates a PowerPoint PPTX file for download. Use ONLY when the user explicitly asks for a PPTX file, PowerPoint, or presentation to download. For visual analysis in the chat, use the chart rendering tools instead.",
     input_schema: {
       type: "object",
       properties: {
@@ -998,6 +998,17 @@ PESQUISA WEB DE FUNDOS (pesquisar_informacoes_fundo):
 - Para qualquer outro tema NÃO relacionado a investimentos, responda: "Esta informação não está disponível nos documentos do Galapagos Connect."
 - Quando o ativo pesquisado fizer parte dos portfólios, combine os resultados da pesquisa web com os dados internos (Asset Dictionary + documentos) — identifique a origem: 📚 Base interna / 🌐 Pesquisa externa.
 - Quando o ativo NÃO fizer parte dos portfólios, apresente os resultados da pesquisa web e indique claramente que o ativo não está nos portfólios atuais.
+
+GERAÇÃO DE APRESENTAÇÕES NO CHAT:
+Quando o usuário pedir uma apresentação, relatório visual, ou análise gráfica no chat (NÃO um arquivo PPTX para download), use as tools renderizar_grafico_barras, renderizar_pie_chart, ou renderizar_tabela_retornos para mostrar os dados visualmente no chat.
+
+Para pedidos de 'apresentação', 'relatório', ou 'análise completa' que devem abrir num painel lateral:
+1. Use as tools de renderização para mostrar os gráficos principais inline
+2. No final da resposta, gere um artifact com type='analysis' contendo um resumo completo em markdown com todos os dados discutidos
+3. O artifact deve ter: título claro, seções de Performance, Composição, Attribution (se disponível), e Síntese
+4. NÃO chame generate_report para isso — generate_report é apenas para PPTX institucionais do tab Apresentações & Docs
+
+Quando o usuário pedir explicitamente 'baixar PPTX', 'gerar apresentação PowerPoint', ou 'PPTX para cliente': aí sim use generate_report.
 
 Ao final de cada resposta analítica, sugira 2-3 perguntas de follow-up relevantes sob "💡 Explorar mais:".`;
 
