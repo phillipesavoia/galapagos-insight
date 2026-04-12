@@ -7,12 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { PORTFOLIOS } from "@/lib/constants";
 import { supabase } from "@/integrations/supabase/client";
+import { FactsheetFundoTab } from "@/components/apresentacoes/FactsheetFundoTab";
 
 const periods = ["Janeiro 2026", "Fevereiro 2026", "Março 2026"];
 
 const tabs = [
   { value: "portfolio-pptx", label: "Portfólio PPTX" },
-  { value: "factsheet-amc", label: "Factsheet AMC" },
+  { value: "factsheet-amc", label: "Factsheet Fundo" },
   { value: "carta-mensal", label: "Carta Mensal" },
   { value: "comparativo", label: "Comparativo de Grade" },
   { value: "personalizado", label: "Personalizado" },
@@ -20,7 +21,7 @@ const tabs = [
 
 const descriptions: Record<string, string> = {
   "portfolio-pptx": "Gere apresentações completas dos portfólios modelo em PowerPoint",
-  "factsheet-amc": "Fichas detalhadas de cada AMC Galapagos (Fixed Income, Equities, Alternatives)",
+  "factsheet-amc": "Análise completa de qualquer fundo indexado (ETFs, Bonds, Fundos)",
   "carta-mensal": "Carta de mercado mensal gerada pelo Claude com base no relatório de gestão",
   "comparativo": "Tabela comparativa de todos os portfólios modelo em PowerPoint",
   "personalizado": "Descreva o que precisa e o Claude monta a apresentação",
@@ -196,7 +197,11 @@ export default function Apresentacoes() {
             </Card>
           </TabsContent>
 
-          {tabs.filter((t) => t.value !== "portfolio-pptx").map((t) => (
+          <TabsContent value="factsheet-amc" className="mt-6">
+            <FactsheetFundoTab />
+          </TabsContent>
+
+          {tabs.filter((t) => t.value !== "portfolio-pptx" && t.value !== "factsheet-amc").map((t) => (
             <TabsContent key={t.value} value={t.value} className="mt-6">
               <Card>
                 <CardHeader>
