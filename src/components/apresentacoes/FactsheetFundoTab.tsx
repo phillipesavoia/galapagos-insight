@@ -109,9 +109,14 @@ export function FactsheetFundoTab() {
     }
   };
 
-  const handleSearchOnline = () => {
+  const handleSearchOnlineAndSummarize = () => {
+    if (!selectedDoc) return;
     const q = encodeURIComponent(fundLabel + " factsheet PDF");
     window.open(`https://www.google.com/search?q=${q}`, "_blank");
+    // Auto-trigger RAG summary
+    if (!summaryContent && !summaryLoading) {
+      handleFetchSummary();
+    }
   };
 
   const handleFetchSummary = async () => {
@@ -187,7 +192,7 @@ export function FactsheetFundoTab() {
     : null;
 
   return (
-    <div className="flex h-full">
+    <div className="flex">
       {/* Main content area */}
       <div className="min-w-0 space-y-4 pr-4" style={{ width: showPdfPanel ? `${listWidth}px` : '100%', flexShrink: 0 }}>
         <Card>
@@ -214,7 +219,7 @@ export function FactsheetFundoTab() {
                     Ver Factsheet
                   </Button>
                 ) : (
-                  <Button onClick={handleSearchOnline} size="sm" variant="outline">
+                  <Button onClick={handleSearchOnlineAndSummarize} size="sm" variant="outline">
                     <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
                     Buscar Factsheet Online
                   </Button>
@@ -244,7 +249,7 @@ export function FactsheetFundoTab() {
                 Nenhum fundo encontrado{search ? ` para "${search}"` : ""}.
               </p>
             ) : (
-              <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
+              <div className="space-y-4 pr-1">
                 {groups.map((group) => (
                   <div key={group.key}>
                     <div className="flex items-center gap-2 mb-2">
@@ -290,46 +295,28 @@ export function FactsheetFundoTab() {
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
 
-        {/* No-URL fallback: inline summary */}
-        {selectedDoc && !selectedDoc.file_url && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Resumo do Fundo (RAG)</CardTitle>
-              <CardDescription className="text-xs">
-                Resumo gerado com base nos documentos indexados
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {!summaryContent && !summaryLoading && (
-                <Button onClick={handleFetchSummary} size="sm" variant="secondary">
-                  <Loader2 className="h-3.5 w-3.5 mr-1.5" />
-                  Gerar Resumo
-                </Button>
-              )}
-              {(summaryContent || summaryLoading) && (
-                <div>
-                  {summaryLoading && !summaryContent && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Gerando resumo...
-                    </div>
-                  )}
-                  <div
-                    ref={contentRef}
-                    className="prose prose-sm max-w-none max-h-[300px] overflow-y-auto text-foreground"
-                  >
+            {/* Inline RAG summary for no-URL funds */}
+            {selectedDoc && !selectedDoc.file_url && (summaryContent || summaryLoading) && (
+              <div className="pt-3 border-t border-border">
+                <p className="text-xs font-medium text-muted-foreground mb-2">Resumo do Fundo (RAG)</p>
+                {summaryLoading && !summaryContent && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Gerando resumo...
+                  </div>
+                )}
+                {summaryContent && (
+                  <div ref={contentRef} className="prose prose-sm max-w-none text-foreground">
                     <pre className="whitespace-pre-wrap text-sm font-sans leading-relaxed">
                       {summaryContent}
                     </pre>
                   </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Resize handle */}
@@ -347,18 +334,10 @@ export function FactsheetFundoTab() {
 
       {/* PDF Panel (right side) */}
       {showPdfPanel && selectedDoc?.file_url && (
-        <div className="flex-1 min-w-0 flex flex-col h-full animate-in slide-in-from-right duration-300 bg-background">
-          {/* Minimal top bar */}
+        <div className="flex-1 min-w-0 flex flex-col animate-in slide-in-from-right duration-300 bg-background">
+          {/* Top bar: fund name left, actions right */}
           <div className="flex items-center justify-between px-3 py-2 shrink-0 border-b border-border">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-xs text-muted-foreground truncate">{fundLabel}</span>
-              <button
-                onClick={() => setShowPdfPanel(false)}
-                className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
+            <span className="text-xs text-muted-foreground truncate min-w-0 mr-2">{fundLabel}</span>
             <div className="flex items-center gap-1.5 shrink-0">
               <a
                 href={selectedDoc.file_url!}
@@ -377,11 +356,17 @@ export function FactsheetFundoTab() {
               >
                 <ExternalLink className="h-3.5 w-3.5" />
               </button>
+              <button
+                onClick={() => setShowPdfPanel(false)}
+                className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
             </div>
           </div>
 
           {/* PDF via Google Docs viewer */}
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="flex-1 min-h-0">
             <iframe
               src={pdfViewerUrl!}
               style={{ width: "100%", height: "100%", border: "none", minHeight: "500px" }}
