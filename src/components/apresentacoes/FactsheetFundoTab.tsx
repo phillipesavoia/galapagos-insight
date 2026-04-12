@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, FileText, Loader2, ChevronRight } from "lucide-react";
+import { Search, FileText, Loader2, ChevronRight, ExternalLink, Download, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { ArtifactPanel, type ArtifactData } from "@/components/chat/ArtifactPanel";
 
 interface FundDoc {
   id: string;
@@ -13,6 +12,7 @@ interface FundDoc {
   fund_name: string | null;
   period: string | null;
   category: string | null;
+  file_url: string | null;
 }
 
 const FUND_CATEGORIES = ["etf", "bond", "private_fund", "open_end_fund", "ucits", "other"] as const;
@@ -23,35 +23,18 @@ const GROUP_CONFIG: Record<string, { label: string; categories: string[] }> = {
   fundos: { label: "Fundos", categories: ["private_fund", "open_end_fund", "ucits", "other"] },
 };
 
-function detectArtifact(content: string): ArtifactData | null {
-  if (!content || content.length < 200) return null;
-  const headerCount = (content.match(/^#{1,3}\s+.+$/gm) || []).length;
-  const tableRowCount = (content.match(/^\|.+\|$/gm) || []).length;
-  const formalSections = [
-    "resumo executivo", "performance", "composição", "composicao",
-    "análise de risco", "analise de risco", "conclusão", "conclusao",
-    "recomendação", "recomendacao", "retorno", "alocação", "alocacao",
-    "carteira", "fundo", "portfólio", "portfolio", "gestão", "gestao",
-    "estratégia", "estrategia",
-  ];
-  const lower = content.toLowerCase();
-  const formalHits = formalSections.filter(s => lower.includes(s)).length;
-  const isArtifact = headerCount >= 2 || tableRowCount >= 3 || formalHits >= 2 || (content.length >= 800 && headerCount >= 1);
-  if (!isArtifact) return null;
-  const firstHeader = content.match(/^#{1,3}\s+(.+)$/m);
-  const title = firstHeader ? firstHeader[1].trim() : "Factsheet";
-  return { title, content, artifact_type: "factsheet" };
-}
-
 export function FactsheetFundoTab() {
   const [docs, setDocs] = useState<FundDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedDoc, setSelectedDoc] = useState<FundDoc | null>(null);
-  const [analysisContent, setAnalysisContent] = useState("");
-  const [analysisLoading, setAnalysisLoading] = useState(false);
-  const [artifactPanel, setArtifactPanel] = useState<ArtifactData | null>(null);
-  const [toolCalls, setToolCalls] = useState<Array<{ tool: string; input: any }>>([]);
+
+  // PDF panel state
+  const [showPdfPanel, setShowPdfPanel] = useState(false);
+
+  // No-URL fallback state
+  const [summaryContent, setSummaryContent] = useState("");
+  const [summaryLoading, setSummaryLoading] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -59,7 +42,7 @@ export function FactsheetFundoTab() {
       setLoading(true);
       const { data, error } = await supabase
         .from("documents")
-        .select("id, name, fund_name, period, category")
+        .select("id, name, fund_name, period, category, file_url")
         .in("category", FUND_CATEGORIES as unknown as string[])
         .eq("status", "indexed")
         .order("name");
@@ -82,18 +65,27 @@ export function FactsheetFundoTab() {
     items: filtered.filter((d) => cfg.categories.includes(d.category ?? "other")),
   })).filter((g) => g.items.length > 0);
 
-  const handleAnalyze = async () => {
+  const fundLabel = selectedDoc?.fund_name || selectedDoc?.name || "";
+
+  const handleViewFactsheet = () => {
     if (!selectedDoc) return;
-    setAnalysisLoading(true);
-    setAnalysisContent("");
-    setArtifactPanel(null);
-    setToolCalls([]);
+    if (selectedDoc.file_url) {
+      setShowPdfPanel(true);
+      setSummaryContent("");
+    }
+  };
 
-    const fundLabel = selectedDoc.fund_name || selectedDoc.name;
-    const query = `Faça uma análise completa do fundo ${fundLabel} com base nos documentos disponíveis. Inclua: estratégia, performance, composição, riscos e pontos de atenção. Gere um artifact com type='factsheet' com o resumo completo.`;
+  const handleSearchOnline = () => {
+    const q = encodeURIComponent(fundLabel + " factsheet PDF");
+    window.open(`https://www.google.com/search?q=${q}`, "_blank");
+  };
 
-    let fullContent = "";
-    let allToolCalls: Array<{ tool: string; input: any }> = [];
+  const handleFetchSummary = async () => {
+    if (!selectedDoc || summaryLoading) return;
+    setSummaryLoading(true);
+    setSummaryContent("");
+
+    const query = `Resuma em 3 parágrafos o fundo ${fundLabel} com base nos documentos disponíveis. Seja conciso.`;
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -113,6 +105,7 @@ export function FactsheetFundoTab() {
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
+      let full = "";
 
       while (true) {
         const { done, value } = await reader.read();
@@ -126,55 +119,36 @@ export function FactsheetFundoTab() {
           if (!line.startsWith("data: ")) continue;
           const jsonStr = line.slice(6).trim();
           if (jsonStr === "[DONE]") continue;
-
           try {
             const event = JSON.parse(jsonStr);
             if (event.type === "delta" && event.text) {
-              fullContent += event.text;
-              setAnalysisContent(fullContent);
-            } else if (event.type === "tool_call") {
-              allToolCalls = [...allToolCalls, { tool: event.tool, input: event.input }];
-              setToolCalls(allToolCalls);
+              full += event.text;
+              setSummaryContent(full);
             }
-          } catch {
-            // partial JSON
-          }
+          } catch { /* partial */ }
         }
       }
-
-      // Detect artifact
-      const vizTools = [
-        "renderizar_grafico_barras", "renderizar_grafico_linha",
-        "renderizar_pie_chart", "renderizar_tabela_retornos",
-        "renderizar_flash_factsheet",
-      ];
-      const chartCalls = allToolCalls.filter(tc => vizTools.includes(tc.tool));
-      const detected = detectArtifact(fullContent);
-      if (detected) {
-        const artifact = { ...detected, chartCalls: chartCalls.length > 0 ? chartCalls : undefined };
-        setArtifactPanel(artifact);
-      } else if (chartCalls.length > 0) {
-        setArtifactPanel({
-          title: chartCalls[0]?.input?.title || "Factsheet",
-          content: fullContent,
-          artifact_type: "factsheet",
-          chartCalls,
-        });
-      }
     } catch (err) {
-      console.error("Factsheet analysis error:", err);
-      setAnalysisContent("Erro ao gerar análise. Tente novamente.");
+      console.error("Summary error:", err);
+      setSummaryContent("Erro ao gerar resumo. Tente novamente.");
     } finally {
-      setAnalysisLoading(false);
+      setSummaryLoading(false);
     }
   };
 
-  // Scroll content as it streams
+  // Auto-scroll summary
   useEffect(() => {
     if (contentRef.current) {
       contentRef.current.scrollTop = contentRef.current.scrollHeight;
     }
-  }, [analysisContent]);
+  }, [summaryContent]);
+
+  // Reset states when selecting a different doc
+  useEffect(() => {
+    setShowPdfPanel(false);
+    setSummaryContent("");
+    setSummaryLoading(false);
+  }, [selectedDoc?.id]);
 
   return (
     <div className="flex gap-4 h-full">
@@ -184,7 +158,7 @@ export function FactsheetFundoTab() {
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Factsheet Fundo</CardTitle>
             <CardDescription>
-              Selecione um fundo para gerar uma análise completa com base nos documentos indexados
+              Selecione um fundo para visualizar sua factsheet ou buscar online
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -242,6 +216,11 @@ export function FactsheetFundoTab() {
                                 {doc.period}
                               </span>
                             )}
+                            {doc.file_url && (
+                              <Badge variant="outline" className="text-[9px] px-1 py-0 shrink-0 text-green-600 border-green-300">
+                                PDF
+                              </Badge>
+                            )}
                           </div>
                           <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                         </button>
@@ -256,57 +235,60 @@ export function FactsheetFundoTab() {
             {selectedDoc && (
               <div className="flex items-center gap-3 pt-2 border-t border-border">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">
-                    {selectedDoc.fund_name || selectedDoc.name}
-                  </p>
+                  <p className="text-sm font-medium text-foreground truncate">{fundLabel}</p>
                   <p className="text-xs text-muted-foreground">
                     {selectedDoc.period || "Período não definido"}
+                    {selectedDoc.file_url ? " · PDF disponível" : " · Sem PDF"}
                   </p>
                 </div>
-                <Button onClick={handleAnalyze} disabled={analysisLoading} size="sm">
-                  {analysisLoading ? (
-                    <>
-                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                      Analisando...
-                    </>
-                  ) : (
-                    "Gerar Análise"
-                  )}
-                </Button>
+                {selectedDoc.file_url ? (
+                  <Button onClick={handleViewFactsheet} size="sm">
+                    <FileText className="h-3.5 w-3.5 mr-1.5" />
+                    Ver Factsheet
+                  </Button>
+                ) : (
+                  <Button onClick={handleSearchOnline} size="sm" variant="outline">
+                    <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                    Buscar Factsheet Online
+                  </Button>
+                )}
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Inline analysis result */}
-        {(analysisContent || analysisLoading) && (
+        {/* No-URL fallback: inline summary */}
+        {selectedDoc && !selectedDoc.file_url && (
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                {analysisLoading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
-                {analysisLoading ? "Analisando documento..." : "Análise Completa"}
-              </CardTitle>
+              <CardTitle className="text-sm">Resumo do Fundo (RAG)</CardTitle>
+              <CardDescription className="text-xs">
+                Resumo gerado com base nos documentos indexados
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div
-                ref={contentRef}
-                className="prose prose-sm max-w-none max-h-[400px] overflow-y-auto text-foreground"
-              >
-                <pre className="whitespace-pre-wrap text-sm font-sans leading-relaxed">
-                  {analysisContent}
-                </pre>
-              </div>
-              {artifactPanel && !analysisLoading && (
-                <div className="mt-3 pt-3 border-t border-border">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setArtifactPanel(artifactPanel)}
-                    className="text-xs"
+              {!summaryContent && !summaryLoading && (
+                <Button onClick={handleFetchSummary} size="sm" variant="secondary">
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5" />
+                  Gerar Resumo
+                </Button>
+              )}
+              {(summaryContent || summaryLoading) && (
+                <div>
+                  {summaryLoading && !summaryContent && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Gerando resumo...
+                    </div>
+                  )}
+                  <div
+                    ref={contentRef}
+                    className="prose prose-sm max-w-none max-h-[300px] overflow-y-auto text-foreground"
                   >
-                    <FileText className="h-3.5 w-3.5 mr-1.5" />
-                    Ver Relatório Completo
-                  </Button>
+                    <pre className="whitespace-pre-wrap text-sm font-sans leading-relaxed">
+                      {summaryContent}
+                    </pre>
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -314,12 +296,55 @@ export function FactsheetFundoTab() {
         )}
       </div>
 
-      {/* Artifact panel */}
-      {artifactPanel && (
-        <ArtifactPanel
-          artifact={artifactPanel}
-          onClose={() => setArtifactPanel(null)}
-        />
+      {/* PDF Panel (right side) */}
+      {showPdfPanel && selectedDoc?.file_url && (
+        <div className="w-[520px] shrink-0 border-l border-border flex flex-col h-full animate-in slide-in-from-right duration-300 bg-background">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{ background: "#173C82" }}>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="inline-flex items-center rounded-md bg-white/15 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-white uppercase">
+                Factsheet
+              </span>
+              <span className="text-sm font-semibold text-white truncate">{fundLabel}</span>
+            </div>
+            <button
+              onClick={() => setShowPdfPanel(false)}
+              className="rounded-md p-1.5 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* PDF iframe */}
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <iframe
+              src={selectedDoc.file_url}
+              style={{ width: "100%", height: "100%", border: "none" }}
+              title={`Factsheet - ${fundLabel}`}
+            />
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center gap-2 px-4 py-3 shrink-0" style={{ background: "#F4F7FB", borderTop: "1px solid #d1dce8" }}>
+            <a
+              href={selectedDoc.file_url}
+              download
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 rounded-lg border border-[#173C82] px-3 py-1.5 text-xs font-medium text-[#173C82] transition-colors hover:bg-[#173C82] hover:text-white"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Download PDF
+            </a>
+            <button
+              onClick={() => window.open(selectedDoc.file_url!, "_blank")}
+              className="flex items-center gap-1.5 rounded-lg border border-[#173C82] px-3 py-1.5 text-xs font-medium text-[#173C82] transition-colors hover:bg-[#173C82] hover:text-white"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Abrir em nova aba
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
