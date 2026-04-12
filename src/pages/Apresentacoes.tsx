@@ -98,6 +98,8 @@ export default function Apresentacoes() {
         },
       };
 
+      console.log('Sending to Replit:', { portfolio, composition: composition.length, lookthrough: lookthrough.length });
+
       const response = await fetch(
         "https://43ed6015-f502-4d2f-8f81-efec12377521-00-14er4jw3ws1x8.riker.replit.dev/generate-report",
         {
