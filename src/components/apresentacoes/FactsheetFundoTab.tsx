@@ -23,6 +23,20 @@ const GROUP_CONFIG: Record<string, { label: string; categories: string[] }> = {
   fundos: { label: "Fundos", categories: ["private_fund", "open_end_fund", "ucits", "other"] },
 };
 
+function getDisplayName(doc: FundDoc): string {
+  if (doc.fund_name && doc.fund_name.length > 15 && !doc.fund_name.match(/^[A-Z0-9]{10,}$/)) {
+    return doc.fund_name;
+  }
+  if (doc.name.includes(" — ")) {
+    return doc.name.split(" — ").slice(1).join(" — ").replace(/ (ETF|Bond) Data$/, "").trim();
+  }
+  return doc.name;
+}
+
+function isSupabaseUrl(url: string): boolean {
+  return url.includes("supabase.co");
+}
+
 export function FactsheetFundoTab() {
   const [docs, setDocs] = useState<FundDoc[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,7 +67,9 @@ export function FactsheetFundoTab() {
 
   const filtered = docs.filter((d) => {
     const q = search.toLowerCase();
+    const displayName = getDisplayName(d).toLowerCase();
     return (
+      displayName.includes(q) ||
       (d.fund_name?.toLowerCase().includes(q) ?? false) ||
       d.name.toLowerCase().includes(q)
     );
@@ -65,7 +81,7 @@ export function FactsheetFundoTab() {
     items: filtered.filter((d) => cfg.categories.includes(d.category ?? "other")),
   })).filter((g) => g.items.length > 0);
 
-  const fundLabel = selectedDoc?.fund_name || selectedDoc?.name || "";
+  const fundLabel = selectedDoc ? getDisplayName(selectedDoc) : "";
 
   const handleViewFactsheet = () => {
     if (!selectedDoc) return;
@@ -136,19 +152,19 @@ export function FactsheetFundoTab() {
     }
   };
 
-  // Auto-scroll summary
   useEffect(() => {
     if (contentRef.current) {
       contentRef.current.scrollTop = contentRef.current.scrollHeight;
     }
   }, [summaryContent]);
 
-  // Reset states when selecting a different doc
   useEffect(() => {
     setShowPdfPanel(false);
     setSummaryContent("");
     setSummaryLoading(false);
   }, [selectedDoc?.id]);
+
+  const canEmbedPdf = selectedDoc?.file_url ? isSupabaseUrl(selectedDoc.file_url) : false;
 
   return (
     <div className="flex gap-4 h-full">
@@ -162,6 +178,30 @@ export function FactsheetFundoTab() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Selected fund action — TOP */}
+            {selectedDoc && (
+              <div className="flex items-center gap-3 pb-3 border-b border-border">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{fundLabel}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedDoc.period || "Período não definido"}
+                    {selectedDoc.file_url ? " · PDF disponível" : " · Sem PDF"}
+                  </p>
+                </div>
+                {selectedDoc.file_url ? (
+                  <Button onClick={handleViewFactsheet} size="sm">
+                    <FileText className="h-3.5 w-3.5 mr-1.5" />
+                    Ver Factsheet
+                  </Button>
+                ) : (
+                  <Button onClick={handleSearchOnline} size="sm" variant="outline">
+                    <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                    Buscar Factsheet Online
+                  </Button>
+                )}
+              </div>
+            )}
+
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -209,7 +249,7 @@ export function FactsheetFundoTab() {
                           <div className="flex items-center gap-2 min-w-0">
                             <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                             <span className="truncate font-medium">
-                              {doc.fund_name || doc.name}
+                              {getDisplayName(doc)}
                             </span>
                             {doc.period && (
                               <span className="shrink-0 text-[10px] text-muted-foreground">
@@ -228,30 +268,6 @@ export function FactsheetFundoTab() {
                     </div>
                   </div>
                 ))}
-              </div>
-            )}
-
-            {/* Selected fund action */}
-            {selectedDoc && (
-              <div className="flex items-center gap-3 pt-2 border-t border-border">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{fundLabel}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {selectedDoc.period || "Período não definido"}
-                    {selectedDoc.file_url ? " · PDF disponível" : " · Sem PDF"}
-                  </p>
-                </div>
-                {selectedDoc.file_url ? (
-                  <Button onClick={handleViewFactsheet} size="sm">
-                    <FileText className="h-3.5 w-3.5 mr-1.5" />
-                    Ver Factsheet
-                  </Button>
-                ) : (
-                  <Button onClick={handleSearchOnline} size="sm" variant="outline">
-                    <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-                    Buscar Factsheet Online
-                  </Button>
-                )}
               </div>
             )}
           </CardContent>
@@ -315,19 +331,39 @@ export function FactsheetFundoTab() {
             </button>
           </div>
 
-          {/* PDF iframe */}
+          {/* Content: iframe for Supabase URLs, fallback card for external */}
           <div className="flex-1 min-h-0 overflow-hidden">
-            <iframe
-              src={selectedDoc.file_url}
-              style={{ width: "100%", height: "100%", border: "none" }}
-              title={`Factsheet - ${fundLabel}`}
-            />
+            {canEmbedPdf ? (
+              <iframe
+                src={selectedDoc.file_url!}
+                style={{ width: "100%", height: "100%", border: "none" }}
+                title={`Factsheet - ${fundLabel}`}
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full px-8 text-center gap-6" style={{ background: "#F4F7FB" }}>
+                <FileText className="h-16 w-16 text-muted-foreground/40" />
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold text-foreground">{fundLabel}</h3>
+                  <p className="text-sm text-muted-foreground max-w-xs">
+                    Este documento não pode ser exibido inline — clique para abrir no navegador
+                  </p>
+                </div>
+                <Button
+                  size="lg"
+                  onClick={() => window.open(selectedDoc.file_url!, "_blank")}
+                  className="gap-2"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Abrir Factsheet
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Footer */}
           <div className="flex items-center gap-2 px-4 py-3 shrink-0" style={{ background: "#F4F7FB", borderTop: "1px solid #d1dce8" }}>
             <a
-              href={selectedDoc.file_url}
+              href={selectedDoc.file_url!}
               download
               target="_blank"
               rel="noopener noreferrer"
