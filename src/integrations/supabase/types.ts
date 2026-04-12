@@ -252,6 +252,7 @@ export type Database = {
       }
       documents: {
         Row: {
+          category: string | null
           chunk_count: number | null
           file_url: string | null
           fund_name: string | null
@@ -266,6 +267,7 @@ export type Database = {
           uploaded_at: string | null
         }
         Insert: {
+          category?: string | null
           chunk_count?: number | null
           file_url?: string | null
           fund_name?: string | null
@@ -280,6 +282,7 @@ export type Database = {
           uploaded_at?: string | null
         }
         Update: {
+          category?: string | null
           chunk_count?: number | null
           file_url?: string | null
           fund_name?: string | null
