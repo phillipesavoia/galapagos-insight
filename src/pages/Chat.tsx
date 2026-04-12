@@ -258,6 +258,21 @@ export default function Chat() {
               );
             } else if (event.type === "web_search") {
               setWebSearching(event.asset_name || "fundo");
+            } else if (event.type === "download" && event.base64 && event.fileName) {
+              try {
+                const binary = atob(event.base64);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                const blob = new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.presentationml.presentation" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = event.fileName;
+                a.click();
+                URL.revokeObjectURL(url);
+              } catch (dlErr) {
+                console.error("Download error:", dlErr);
+              }
             }
           } catch {
             // partial JSON, ignore
