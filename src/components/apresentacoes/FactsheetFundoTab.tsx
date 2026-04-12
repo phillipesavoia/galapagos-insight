@@ -24,11 +24,17 @@ const GROUP_CONFIG: Record<string, { label: string; categories: string[] }> = {
 };
 
 function getDisplayName(doc: FundDoc): string {
-  if (doc.fund_name && doc.fund_name.length > 15 && !doc.fund_name.match(/^[A-Z0-9]{10,}$/)) {
+  if (doc.fund_name && doc.fund_name.length > 5 && !doc.fund_name.match(/^[A-Z0-9]{8,}$/)) {
     return doc.fund_name;
   }
   if (doc.name.includes(" — ")) {
-    return doc.name.split(" — ").slice(1).join(" — ").replace(/ (ETF|Bond) Data$/, "").trim();
+    return doc.name
+      .split(" — ")
+      .slice(1)
+      .join(" — ")
+      .replace(/ ETF Data$/i, "")
+      .replace(/ Bond Data$/i, "")
+      .trim();
   }
   return doc.name;
 }
