@@ -13,7 +13,7 @@ const periods = ["Janeiro 2026", "Fevereiro 2026", "Março 2026"];
 
 const tabs = [
   { value: "portfolio-pptx", label: "Portfólio PPTX" },
-  { value: "factsheet-amc", label: "Factsheet AMC" },
+  { value: "factsheet-amc", label: "Factsheet Fundo" },
   { value: "carta-mensal", label: "Carta Mensal" },
   { value: "comparativo", label: "Comparativo de Grade" },
   { value: "personalizado", label: "Personalizado" },
