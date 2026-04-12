@@ -197,7 +197,11 @@ export default function Apresentacoes() {
             </Card>
           </TabsContent>
 
-          {tabs.filter((t) => t.value !== "portfolio-pptx").map((t) => (
+          <TabsContent value="factsheet-amc" className="mt-6">
+            <FactsheetFundoTab />
+          </TabsContent>
+
+          {tabs.filter((t) => t.value !== "portfolio-pptx" && t.value !== "factsheet-amc").map((t) => (
             <TabsContent key={t.value} value={t.value} className="mt-6">
               <Card>
                 <CardHeader>
