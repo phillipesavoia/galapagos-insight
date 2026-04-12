@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { Search, FileText, Loader2, ChevronRight, ExternalLink, Download, X } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Search, FileText, Loader2, ChevronRight, ExternalLink, Download, X, GripVertical } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -41,6 +41,28 @@ export function FactsheetFundoTab() {
 
   // PDF panel state
   const [showPdfPanel, setShowPdfPanel] = useState(false);
+  const [listWidth, setListWidth] = useState(440);
+  const isDragging = useRef(false);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+    const startX = e.clientX;
+    const startWidth = listWidth;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!isDragging.current) return;
+      const newWidth = Math.min(600, Math.max(280, startWidth + (ev.clientX - startX)));
+      setListWidth(newWidth);
+    };
+    const onMouseUp = () => {
+      isDragging.current = false;
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }, [listWidth]);
 
   // No-URL fallback state
   const [summaryContent, setSummaryContent] = useState("");
@@ -165,9 +187,9 @@ export function FactsheetFundoTab() {
     : null;
 
   return (
-    <div className="flex gap-4 h-full">
+    <div className="flex h-full">
       {/* Main content area */}
-      <div className="flex-1 min-w-0 space-y-4">
+      <div className="min-w-0 space-y-4 pr-4" style={{ width: showPdfPanel ? `${listWidth}px` : '100%', flexShrink: 0 }}>
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Factsheet Fundo</CardTitle>
@@ -310,23 +332,52 @@ export function FactsheetFundoTab() {
         )}
       </div>
 
+      {/* Resize handle */}
+      {showPdfPanel && selectedDoc?.file_url && (
+        <div
+          onMouseDown={handleMouseDown}
+          className="w-1.5 shrink-0 cursor-col-resize flex items-center justify-center hover:bg-accent transition-colors relative group"
+        >
+          <div className="absolute inset-y-0 -left-1 -right-1" />
+          <div className="flex flex-col items-center gap-0.5 text-muted-foreground group-hover:text-foreground transition-colors">
+            <GripVertical className="h-4 w-4" />
+          </div>
+        </div>
+      )}
+
       {/* PDF Panel (right side) */}
       {showPdfPanel && selectedDoc?.file_url && (
-        <div className="w-[520px] shrink-0 border-l border-border flex flex-col h-full animate-in slide-in-from-right duration-300 bg-background">
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{ background: "#173C82" }}>
+        <div className="flex-1 min-w-0 flex flex-col h-full animate-in slide-in-from-right duration-300 bg-background">
+          {/* Minimal top bar */}
+          <div className="flex items-center justify-between px-3 py-2 shrink-0 border-b border-border">
             <div className="flex items-center gap-2 min-w-0">
-              <span className="inline-flex items-center rounded-md bg-white/15 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-white uppercase">
-                Factsheet
-              </span>
-              <span className="text-sm font-semibold text-white truncate">{fundLabel}</span>
+              <span className="text-xs text-muted-foreground truncate">{fundLabel}</span>
+              <button
+                onClick={() => setShowPdfPanel(false)}
+                className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
             </div>
-            <button
-              onClick={() => setShowPdfPanel(false)}
-              className="rounded-md p-1.5 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <a
+                href={selectedDoc.file_url!}
+                download
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+              >
+                <Download className="h-3 w-3" />
+                Download PDF
+              </a>
+              <button
+                onClick={() => window.open(selectedDoc.file_url!, "_blank")}
+                className="inline-flex items-center justify-center rounded-md border border-input bg-background p-1 text-foreground transition-colors hover:bg-accent"
+                title="Abrir em nova aba"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
 
           {/* PDF via Google Docs viewer */}
@@ -336,27 +387,6 @@ export function FactsheetFundoTab() {
               style={{ width: "100%", height: "100%", border: "none", minHeight: "500px" }}
               title={fundLabel}
             />
-          </div>
-
-          {/* Footer */}
-          <div className="flex items-center gap-2 px-4 py-3 shrink-0" style={{ background: "#F4F7FB", borderTop: "1px solid #d1dce8" }}>
-            <a
-              href={selectedDoc.file_url!}
-              download
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 rounded-lg border border-[#173C82] px-3 py-1.5 text-xs font-medium text-[#173C82] transition-colors hover:bg-[#173C82] hover:text-white"
-            >
-              <Download className="h-3.5 w-3.5" />
-              Download PDF
-            </a>
-            <button
-              onClick={() => window.open(selectedDoc.file_url!, "_blank")}
-              className="flex items-center gap-1.5 rounded-lg border border-[#173C82] px-3 py-1.5 text-xs font-medium text-[#173C82] transition-colors hover:bg-[#173C82] hover:text-white"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              Abrir em nova aba
-            </button>
           </div>
         </div>
       )}
