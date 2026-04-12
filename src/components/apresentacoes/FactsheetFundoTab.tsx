@@ -33,10 +33,6 @@ function getDisplayName(doc: FundDoc): string {
   return doc.name;
 }
 
-function isSupabaseUrl(url: string): boolean {
-  return url.includes("supabase.co");
-}
-
 export function FactsheetFundoTab() {
   const [docs, setDocs] = useState<FundDoc[]>([]);
   const [loading, setLoading] = useState(true);
