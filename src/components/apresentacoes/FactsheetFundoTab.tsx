@@ -187,7 +187,8 @@ export function FactsheetFundoTab() {
     setSummaryLoading(false);
   }, [selectedDoc?.id]);
 
-  const pdfViewerUrl = selectedDoc?.file_url
+  const isDirectPdf = selectedDoc?.file_url?.toLowerCase().includes('.pdf') ?? false;
+  const pdfViewerUrl = selectedDoc?.file_url && isDirectPdf
     ? `https://docs.google.com/viewer?url=${encodeURIComponent(selectedDoc.file_url)}&embedded=true`
     : null;
 
