@@ -160,7 +160,9 @@ export function FactsheetFundoTab() {
     setSummaryLoading(false);
   }, [selectedDoc?.id]);
 
-  const canEmbedPdf = selectedDoc?.file_url ? isSupabaseUrl(selectedDoc.file_url) : false;
+  const pdfViewerUrl = selectedDoc?.file_url
+    ? `https://docs.google.com/viewer?url=${encodeURIComponent(selectedDoc.file_url)}&embedded=true`
+    : null;
 
   return (
     <div className="flex gap-4 h-full">
