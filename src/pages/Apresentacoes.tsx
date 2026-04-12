@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { PORTFOLIOS } from "@/lib/constants";
 import { supabase } from "@/integrations/supabase/client";
+import { FactsheetFundoTab } from "@/components/apresentacoes/FactsheetFundoTab";
 
 const periods = ["Janeiro 2026", "Fevereiro 2026", "Março 2026"];
 
