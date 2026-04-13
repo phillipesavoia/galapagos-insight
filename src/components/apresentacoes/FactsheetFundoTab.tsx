@@ -146,8 +146,8 @@ export function FactsheetFundoTab() {
             Authorization: `Bearer ${accessToken}`,
           },
           body: JSON.stringify({
-            messages: [{ role: "user", content: prompt }],
-            filters: { fund: fundLabel },
+            query: prompt,
+            filter_fund: fundLabel,
           }),
         }
       );
