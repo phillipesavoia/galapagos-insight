@@ -129,13 +129,21 @@ export function FactsheetFundoTab() {
     const prompt = `Faça um resumo completo do fundo "${fundLabel}". Inclua: estratégia, performance recente, composição da carteira, métricas de risco e qualquer informação relevante disponível nos documentos.`;
 
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) {
+        setRagError("Sessão expirada. Faça login novamente.");
+        setRagLoading(false);
+        return;
+      }
+
       const resp = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${accessToken}`,
           },
           body: JSON.stringify({
             messages: [{ role: "user", content: prompt }],
