@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, FileText } from "lucide-react";
+import { Search, FileText, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -129,7 +129,7 @@ export function FactsheetFundoTab() {
                         <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                         <span className="truncate font-medium">{getDisplayName(doc)}</span>
                         {doc.period && <span className="shrink-0 text-[10px] text-muted-foreground">{doc.period}</span>}
-                        {doc.file_url && isSupabaseUrl(doc.file_url) && (
+                        {doc.file_url && (
                           <Badge variant="outline" className="text-[9px] px-1 py-0 shrink-0 text-green-600 border-green-300">PDF</Badge>
                         )}
                       </button>
