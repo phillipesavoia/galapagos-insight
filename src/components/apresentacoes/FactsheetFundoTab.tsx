@@ -47,7 +47,6 @@ export function FactsheetFundoTab() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedDoc, setSelectedDoc] = useState<FundDoc | null>(null);
-  const [signedUrl, setSignedUrl] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -62,23 +61,6 @@ export function FactsheetFundoTab() {
       setLoading(false);
     })();
   }, []);
-
-  useEffect(() => {
-    setSignedUrl(null);
-    if (!selectedDoc?.file_url || !isSupabaseUrl(selectedDoc.file_url)) return;
-
-    const url = selectedDoc.file_url;
-    const storageMatch = url.match(/\/storage\/v1\/object\/(?:sign|public)\/([^/]+)\/(.+?)(?:\?|$)/);
-    if (storageMatch) {
-      const bucket = storageMatch[1];
-      const path = decodeURIComponent(storageMatch[2]);
-      supabase.storage.from(bucket).createSignedUrl(path, 3600).then(({ data }) => {
-        setSignedUrl(data?.signedUrl ?? url);
-      });
-    } else {
-      setSignedUrl(url);
-    }
-  }, [selectedDoc?.id]);
 
   const filtered = docs.filter((d) => {
     const q = search.toLowerCase();
@@ -95,7 +77,7 @@ export function FactsheetFundoTab() {
     .filter((g) => g.items.length > 0);
 
   const fundLabel = selectedDoc ? getDisplayName(selectedDoc) : "";
-  const hasSupabasePdf = selectedDoc?.file_url && isSupabaseUrl(selectedDoc.file_url);
+  const hasFileUrl = !!selectedDoc?.file_url;
 
   const openGoogleSearch = () => {
     window.open(
@@ -169,25 +151,18 @@ export function FactsheetFundoTab() {
           <div className="flex-1 flex items-center justify-center">
             <p className="text-sm text-muted-foreground">Selecione um fundo na lista para ver o factsheet</p>
           </div>
-        ) : hasSupabasePdf ? (
+        ) : hasFileUrl ? (
           <>
             <div className="px-4 py-3 shrink-0 border-b border-border">
               <h2 className="text-base font-semibold text-foreground truncate">{fundLabel}</h2>
             </div>
-            <div className="flex-1 min-h-0">
-              {signedUrl ? (
-                <iframe
-                  src={signedUrl}
-                  style={{ width: "100%", height: "100%", border: "none" }}
-                  title={fundLabel}
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                  <span className="ml-2 text-sm text-muted-foreground">Carregando PDF...</span>
-                </div>
-              )}
-            </div>
+            <iframe
+              key={selectedDoc.id}
+              src={`https://docs.google.com/viewer?url=${encodeURIComponent(selectedDoc.file_url!)}&embedded=true`}
+              width="100%"
+              style={{ flex: 1, border: "none", minHeight: "600px" }}
+              title={fundLabel}
+            />
           </>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6 text-center">
