@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Search, FileText, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,8 @@ export function FactsheetFundoTab() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedDoc, setSelectedDoc] = useState<FundDoc | null>(null);
+  const [leftWidth, setLeftWidth] = useState(340);
+  const isDragging = useRef(false);
 
   useEffect(() => {
     (async () => {
@@ -57,6 +59,23 @@ export function FactsheetFundoTab() {
       if (!error) setDocs((data as FundDoc[]) ?? []);
       setLoading(false);
     })();
+  }, []);
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!isDragging.current) return;
+      const newWidth = Math.min(500, Math.max(220, ev.clientX));
+      setLeftWidth(newWidth);
+    };
+    const onMouseUp = () => {
+      isDragging.current = false;
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
   }, []);
 
   const filtered = docs.filter((d) => {
@@ -85,8 +104,24 @@ export function FactsheetFundoTab() {
 
   return (
     <div style={{ display: "flex", height: "calc(100vh - 120px)" }}>
+      <style>{`
+        .fund-list::-webkit-scrollbar { width: 4px; }
+        .fund-list::-webkit-scrollbar-track { background: transparent; }
+        .fund-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+        .fund-list::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+      `}</style>
+
       {/* Left column: fund list */}
-      <div style={{ width: 340, flexShrink: 0, overflowY: "auto" }} className="pr-3">
+      <div
+        className="pr-3 fund-list"
+        style={{
+          width: leftWidth,
+          flexShrink: 0,
+          overflowY: "auto",
+          scrollbarWidth: "thin",
+          scrollbarColor: "rgba(255,255,255,0.15) transparent",
+        }}
+      >
         <div className="space-y-3">
           <div>
             <h3 className="text-lg font-semibold text-foreground">Factsheet Fundo</h3>
@@ -142,8 +177,25 @@ export function FactsheetFundoTab() {
         </div>
       </div>
 
+      {/* Drag handle divider */}
+      <div
+        onMouseDown={onMouseDown}
+        style={{
+          width: 4,
+          flexShrink: 0,
+          cursor: "col-resize",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          userSelect: "none",
+        }}
+        className="bg-border hover:bg-primary/30 transition-colors"
+      >
+        <span className="text-muted-foreground text-[10px] select-none" style={{ lineHeight: 1 }}>⋮</span>
+      </div>
+
       {/* Right column: always visible */}
-      <div style={{ flex: 1, borderLeft: "1px solid hsl(var(--border))" }} className="flex flex-col min-w-0">
+      <div style={{ flex: 1 }} className="flex flex-col min-w-0">
         {!selectedDoc ? (
           <div className="flex-1 flex items-center justify-center">
             <p className="text-sm text-muted-foreground">Selecione um fundo na lista para ver o factsheet</p>
