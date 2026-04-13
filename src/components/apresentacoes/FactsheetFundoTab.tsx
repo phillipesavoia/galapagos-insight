@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Search, FileText, Loader2, ExternalLink, Download, X, GripVertical } from "lucide-react";
+import { Search, FileText, Loader2, ExternalLink, X, GripVertical, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
+import ReactMarkdown from "react-markdown";
 
 interface FundDoc {
   id: string;
@@ -23,6 +25,15 @@ const GROUP_CONFIG: Record<string, { label: string; categories: string[] }> = {
   fundos: { label: "Fundos", categories: ["private_fund", "open_end_fund", "ucits", "other"] },
 };
 
+const CATEGORY_LABELS: Record<string, string> = {
+  etf: "ETF",
+  bond: "Bond",
+  private_fund: "Fundo Privado",
+  open_end_fund: "Fundo Aberto",
+  ucits: "UCITS",
+  other: "Outro",
+};
+
 function getDisplayName(doc: FundDoc): string {
   if (doc.fund_name && doc.fund_name.length > 5 && !doc.fund_name.match(/^[A-Z0-9]{8,}$/)) {
     return doc.fund_name;
@@ -39,21 +50,16 @@ function getDisplayName(doc: FundDoc): string {
   return doc.name;
 }
 
-function extractTicker(name: string): string | null {
-  const match = name.match(/\b([A-Z]{2,6})\s*(LN|LX|ID|SW|US|GR|NA|IM|FP)?\b/);
-  return match ? match[0].trim() : null;
-}
-
-function isSupabaseUrl(url: string): boolean {
-  return url.includes("supabase.co/storage");
-}
-
 export function FactsheetFundoTab() {
   const [docs, setDocs] = useState<FundDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedDoc, setSelectedDoc] = useState<FundDoc | null>(null);
-  const [iframeUrl, setIframeUrl] = useState<string | null>(null);
+
+  // RAG summary state
+  const [ragSummary, setRagSummary] = useState("");
+  const [ragLoading, setRagLoading] = useState(false);
+  const [ragError, setRagError] = useState<string | null>(null);
 
   const [listWidth, setListWidth] = useState(440);
   const isDragging = useRef(false);
@@ -90,45 +96,12 @@ export function FactsheetFundoTab() {
     })();
   }, []);
 
-  // When selectedDoc changes, resolve the iframe URL
+  // Reset RAG when fund changes
   useEffect(() => {
-    if (!selectedDoc?.file_url) {
-      setIframeUrl(null);
-      return;
-    }
-
-    const url = selectedDoc.file_url;
-    const isPdf = url.toLowerCase().includes(".pdf");
-
-    if (!isPdf) {
-      setIframeUrl(null);
-      return;
-    }
-
-    if (isSupabaseUrl(url)) {
-      // Extract bucket and path from the URL to create a fresh signed URL
-      // URL format: https://<ref>.supabase.co/storage/v1/object/sign/<bucket>/<path>?token=...
-      // or: https://<ref>.supabase.co/storage/v1/object/public/<bucket>/<path>
-      const storageMatch = url.match(/\/storage\/v1\/object\/(?:sign|public)\/([^/]+)\/(.+?)(?:\?|$)/);
-      if (storageMatch) {
-        const bucket = storageMatch[1];
-        const path = decodeURIComponent(storageMatch[2]);
-        supabase.storage.from(bucket).createSignedUrl(path, 3600).then(({ data }) => {
-          if (data?.signedUrl) {
-            setIframeUrl(data.signedUrl);
-          } else {
-            // Fallback to original URL
-            setIframeUrl(url);
-          }
-        });
-      } else {
-        setIframeUrl(url);
-      }
-    } else {
-      // External PDF — use Google Docs viewer
-      setIframeUrl(`https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`);
-    }
-  }, [selectedDoc]);
+    setRagSummary("");
+    setRagError(null);
+    setRagLoading(false);
+  }, [selectedDoc?.id]);
 
   const filtered = docs.filter((d) => {
     const q = search.toLowerCase();
@@ -145,13 +118,72 @@ export function FactsheetFundoTab() {
     .filter((g) => g.items.length > 0);
 
   const fundLabel = selectedDoc ? getDisplayName(selectedDoc) : "";
-  const isDirectPdf = selectedDoc?.file_url?.toLowerCase().includes(".pdf") ?? false;
-
-  const handleSelectFund = (doc: FundDoc) => {
-    setSelectedDoc(doc);
-  };
-
   const showPanel = !!selectedDoc;
+
+  const handleGenerateRag = async () => {
+    if (!selectedDoc) return;
+    setRagLoading(true);
+    setRagError(null);
+    setRagSummary("");
+
+    const prompt = `Faça um resumo completo do fundo "${fundLabel}". Inclua: estratégia, performance recente, composição da carteira, métricas de risco e qualquer informação relevante disponível nos documentos.`;
+
+    try {
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            messages: [{ role: "user", content: prompt }],
+            filters: { fund: fundLabel },
+          }),
+        }
+      );
+
+      if (!resp.ok || !resp.body) {
+        throw new Error("Erro ao gerar resumo");
+      }
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let accumulated = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let newlineIdx: number;
+        while ((newlineIdx = buffer.indexOf("\n")) !== -1) {
+          let line = buffer.slice(0, newlineIdx);
+          buffer = buffer.slice(newlineIdx + 1);
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (!line.startsWith("data: ")) continue;
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") break;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            if (content) {
+              accumulated += content;
+              setRagSummary(accumulated);
+            }
+          } catch {
+            // partial JSON, ignore
+          }
+        }
+      }
+    } catch (e) {
+      setRagError(e instanceof Error ? e.message : "Erro desconhecido");
+    } finally {
+      setRagLoading(false);
+    }
+  };
 
   return (
     <div className="flex">
@@ -163,13 +195,11 @@ export function FactsheetFundoTab() {
             <CardDescription>Selecione um fundo para visualizar sua factsheet</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Buscar por nome do fundo..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
             </div>
 
-            {/* Fund list */}
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -188,32 +218,26 @@ export function FactsheetFundoTab() {
                       <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{group.items.length}</Badge>
                     </div>
                     <div className="space-y-1">
-                      {group.items.map((doc) => {
-                        const ticker = extractTicker(doc.name);
-                        return (
-                          <button
-                            key={doc.id}
-                            onClick={() => handleSelectFund(doc)}
-                            className={`w-full flex items-center justify-between rounded-lg border px-3 py-2.5 text-left text-sm transition-colors ${
-                              selectedDoc?.id === doc.id
-                                ? "border-primary bg-primary/5 text-foreground"
-                                : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                            }`}
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                              <span className="truncate font-medium">{getDisplayName(doc)}</span>
-                              {ticker && (
-                                <Badge variant="secondary" className="text-[9px] px-1 py-0 shrink-0 font-mono">{ticker}</Badge>
-                              )}
-                              {doc.period && <span className="shrink-0 text-[10px] text-muted-foreground">{doc.period}</span>}
-                              {doc.file_url && (
-                                <Badge variant="outline" className="text-[9px] px-1 py-0 shrink-0 text-green-600 border-green-300">PDF</Badge>
-                              )}
-                            </div>
-                          </button>
-                        );
-                      })}
+                      {group.items.map((doc) => (
+                        <button
+                          key={doc.id}
+                          onClick={() => setSelectedDoc(doc)}
+                          className={`w-full flex items-center justify-between rounded-lg border px-3 py-2.5 text-left text-sm transition-colors ${
+                            selectedDoc?.id === doc.id
+                              ? "border-primary bg-primary/5 text-foreground"
+                              : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                            <span className="truncate font-medium">{getDisplayName(doc)}</span>
+                            {doc.period && <span className="shrink-0 text-[10px] text-muted-foreground">{doc.period}</span>}
+                            {doc.file_url && (
+                              <Badge variant="outline" className="text-[9px] px-1 py-0 shrink-0 text-green-600 border-green-300">PDF</Badge>
+                            )}
+                          </div>
+                        </button>
+                      ))}
                     </div>
                   </div>
                 ))}
@@ -236,79 +260,108 @@ export function FactsheetFundoTab() {
         </div>
       )}
 
-      {/* Right panel */}
-      {showPanel && (
-        <div className="flex-1 min-w-0 flex flex-col animate-in slide-in-from-right duration-300 bg-background">
-          {/* Top bar */}
-          <div className="flex items-center justify-between px-3 py-2 shrink-0 border-b border-border">
-            <span className="text-xs text-muted-foreground truncate min-w-0 mr-2">{fundLabel}</span>
-            <div className="flex items-center gap-1.5 shrink-0">
-              {selectedDoc?.file_url && (
-                <a
-                  href={selectedDoc.file_url}
-                  download
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent"
-                >
-                  <Download className="h-3 w-3" />
-                  Download PDF
-                </a>
-              )}
-              <button
-                onClick={() => setSelectedDoc(null)}
-                className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
+      {/* Right panel — clean info card */}
+      {showPanel && selectedDoc && (
+        <div className="flex-1 min-w-0 animate-in slide-in-from-right duration-300">
+          {/* Close button */}
+          <div className="flex justify-end px-3 py-2">
+            <button
+              onClick={() => setSelectedDoc(null)}
+              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
 
-          {/* Content */}
-          <div className="flex-1 min-h-0">
-            {/* Case A: direct PDF with resolved iframe URL */}
-            {selectedDoc?.file_url && isDirectPdf && iframeUrl ? (
-              <iframe
-                src={iframeUrl}
-                style={{ width: "100%", height: "100%", border: "none", minHeight: "500px" }}
-                title={fundLabel}
-              />
-            ) : selectedDoc?.file_url && isDirectPdf && !iframeUrl ? (
-              <div className="flex items-center justify-center h-full">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                <span className="ml-2 text-sm text-muted-foreground">Carregando PDF...</span>
+          <div className="px-6 pb-8 space-y-6">
+            {/* Fund name + metadata */}
+            <div className="space-y-2">
+              <h2 className="text-xl font-bold text-foreground leading-tight">{fundLabel}</h2>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                {selectedDoc.category && (
+                  <Badge variant="secondary" className="text-xs">
+                    {CATEGORY_LABELS[selectedDoc.category] ?? selectedDoc.category}
+                  </Badge>
+                )}
+                {selectedDoc.period && <span>{selectedDoc.period}</span>}
               </div>
-            ) : selectedDoc?.file_url && !isDirectPdf ? (
-              /* Case B: webpage URL */
-              <div className="flex flex-col items-center gap-4 px-6 text-center" style={{ paddingTop: "20%" }}>
-                <FileText className="h-12 w-12 text-muted-foreground" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-foreground">{fundLabel}</p>
-                  <p className="text-xs text-muted-foreground">Factsheet disponível no site do gestor</p>
-                </div>
-                <Button onClick={() => window.open(selectedDoc.file_url!, "_blank")} size="lg">
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Abrir Factsheet
-                </Button>
-              </div>
-            ) : (
-              /* Case C: no file_url */
-              <div className="flex flex-col items-center gap-4 px-6 text-center" style={{ paddingTop: "20%" }}>
-                <FileText className="h-12 w-12 text-muted-foreground" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-foreground">{fundLabel}</p>
-                  <p className="text-xs text-muted-foreground">Factsheet não disponível na Biblioteca</p>
-                </div>
+            </div>
+
+            <Separator />
+
+            {/* Action section */}
+            <div className="space-y-3">
+              {selectedDoc.file_url ? (
+                <>
+                  <Button
+                    size="lg"
+                    className="w-full"
+                    onClick={() => window.open(selectedDoc.file_url!, "_blank")}
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Abrir Factsheet PDF
+                  </Button>
+                  <p className="text-xs text-muted-foreground text-center">
+                    O PDF abre diretamente no navegador
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() =>
+                      window.open(
+                        `https://www.google.com/search?q=${encodeURIComponent(fundLabel + " factsheet PDF")}`,
+                        "_blank"
+                      )
+                    }
+                  >
+                    <Search className="h-4 w-4 mr-2" />
+                    Buscar Factsheet no Google
+                  </Button>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Documento não indexado na Biblioteca
+                  </p>
+                </>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* RAG Summary section */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-foreground">Resumo RAG</h3>
+
+              {!ragSummary && !ragLoading && (
                 <Button
-                  onClick={() => window.open(`https://www.google.com/search?q=${encodeURIComponent(fundLabel + " factsheet PDF")}`, "_blank")}
-                  size="lg"
                   variant="outline"
+                  onClick={handleGenerateRag}
+                  disabled={ragLoading}
                 >
-                  <Search className="h-4 w-4 mr-2" />
-                  Buscar no Google
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Gerar Resumo
                 </Button>
-              </div>
-            )}
+              )}
+
+              {ragLoading && !ragSummary && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Gerando resumo...</span>
+                </div>
+              )}
+
+              {ragError && (
+                <p className="text-sm text-destructive">{ragError}</p>
+              )}
+
+              {ragSummary && (
+                <div className="prose prose-sm max-w-none text-foreground">
+                  <ReactMarkdown>{ragSummary}</ReactMarkdown>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
