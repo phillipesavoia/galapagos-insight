@@ -1,12 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Search, FileText, Loader2, ExternalLink, X, GripVertical, Sparkles } from "lucide-react";
+import { Search, FileText, Loader2, X, GripVertical } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { supabase } from "@/integrations/supabase/client";
-import ReactMarkdown from "react-markdown";
 
 interface FundDoc {
   id: string;
@@ -25,15 +23,6 @@ const GROUP_CONFIG: Record<string, { label: string; categories: string[] }> = {
   fundos: { label: "Fundos", categories: ["private_fund", "open_end_fund", "ucits", "other"] },
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  etf: "ETF",
-  bond: "Bond",
-  private_fund: "Fundo Privado",
-  open_end_fund: "Fundo Aberto",
-  ucits: "UCITS",
-  other: "Outro",
-};
-
 function getDisplayName(doc: FundDoc): string {
   if (doc.fund_name && doc.fund_name.length > 5 && !doc.fund_name.match(/^[A-Z0-9]{8,}$/)) {
     return doc.fund_name;
@@ -50,16 +39,16 @@ function getDisplayName(doc: FundDoc): string {
   return doc.name;
 }
 
+function isSupabaseUrl(url: string): boolean {
+  return url.includes("supabase.co");
+}
+
 export function FactsheetFundoTab() {
   const [docs, setDocs] = useState<FundDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedDoc, setSelectedDoc] = useState<FundDoc | null>(null);
-
-  // RAG summary state
-  const [ragSummary, setRagSummary] = useState("");
-  const [ragLoading, setRagLoading] = useState(false);
-  const [ragError, setRagError] = useState<string | null>(null);
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
 
   const [listWidth, setListWidth] = useState(440);
   const isDragging = useRef(false);
@@ -96,11 +85,22 @@ export function FactsheetFundoTab() {
     })();
   }, []);
 
-  // Reset RAG when fund changes
+  // Resolve signed URL for Supabase PDFs
   useEffect(() => {
-    setRagSummary("");
-    setRagError(null);
-    setRagLoading(false);
+    setSignedUrl(null);
+    if (!selectedDoc?.file_url || !isSupabaseUrl(selectedDoc.file_url)) return;
+
+    const url = selectedDoc.file_url;
+    const storageMatch = url.match(/\/storage\/v1\/object\/(?:sign|public)\/([^/]+)\/(.+?)(?:\?|$)/);
+    if (storageMatch) {
+      const bucket = storageMatch[1];
+      const path = decodeURIComponent(storageMatch[2]);
+      supabase.storage.from(bucket).createSignedUrl(path, 3600).then(({ data }) => {
+        setSignedUrl(data?.signedUrl ?? url);
+      });
+    } else {
+      setSignedUrl(url);
+    }
   }, [selectedDoc?.id]);
 
   const filtered = docs.filter((d) => {
@@ -119,82 +119,17 @@ export function FactsheetFundoTab() {
 
   const fundLabel = selectedDoc ? getDisplayName(selectedDoc) : "";
   const showPanel = !!selectedDoc;
+  const hasSupabasePdf = selectedDoc?.file_url && isSupabaseUrl(selectedDoc.file_url);
 
-  const handleGenerateRag = async () => {
-    if (!selectedDoc) return;
-    setRagLoading(true);
-    setRagError(null);
-    setRagSummary("");
-
-    const prompt = `Faça um resumo completo do fundo "${fundLabel}". Inclua: estratégia, performance recente, composição da carteira, métricas de risco e qualquer informação relevante disponível nos documentos.`;
-
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
-      if (!accessToken) {
-        setRagError("Sessão expirada. Faça login novamente.");
-        setRagLoading(false);
-        return;
-      }
-
-      const resp = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            query: prompt,
-            filter_fund: fundLabel,
-          }),
-        }
-      );
-
-      if (!resp.ok || !resp.body) {
-        throw new Error("Erro ao gerar resumo");
-      }
-
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let accumulated = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-
-        let newlineIdx: number;
-        while ((newlineIdx = buffer.indexOf("\n")) !== -1) {
-          let line = buffer.slice(0, newlineIdx);
-          buffer = buffer.slice(newlineIdx + 1);
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (!line.startsWith("data: ")) continue;
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") break;
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (content) {
-              accumulated += content;
-              setRagSummary(accumulated);
-            }
-          } catch {
-            // partial JSON, ignore
-          }
-        }
-      }
-    } catch (e) {
-      setRagError(e instanceof Error ? e.message : "Erro desconhecido");
-    } finally {
-      setRagLoading(false);
-    }
+  const openGoogleSearch = () => {
+    window.open(
+      `https://www.google.com/search?q=${encodeURIComponent(fundLabel + " factsheet PDF")}`,
+      "_blank"
+    );
   };
 
   return (
-    <div className="flex">
+    <div className="flex h-full">
       {/* List panel */}
       <div className="min-w-0 space-y-4 pr-4" style={{ width: showPanel ? `${listWidth}px` : "100%", flexShrink: 0 }}>
         <Card>
@@ -240,7 +175,7 @@ export function FactsheetFundoTab() {
                             <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                             <span className="truncate font-medium">{getDisplayName(doc)}</span>
                             {doc.period && <span className="shrink-0 text-[10px] text-muted-foreground">{doc.period}</span>}
-                            {doc.file_url && (
+                            {doc.file_url && isSupabaseUrl(doc.file_url) && (
                               <Badge variant="outline" className="text-[9px] px-1 py-0 shrink-0 text-green-600 border-green-300">PDF</Badge>
                             )}
                           </div>
@@ -268,109 +203,62 @@ export function FactsheetFundoTab() {
         </div>
       )}
 
-      {/* Right panel — clean info card */}
+      {/* Right panel */}
       {showPanel && selectedDoc && (
-        <div className="flex-1 min-w-0 animate-in slide-in-from-right duration-300">
-          {/* Close button */}
-          <div className="flex justify-end px-3 py-2">
-            <button
-              onClick={() => setSelectedDoc(null)}
-              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-
-          <div className="px-6 pb-8 space-y-6">
-            {/* Fund name + metadata */}
-            <div className="space-y-2">
-              <h2 className="text-xl font-bold text-foreground leading-tight">{fundLabel}</h2>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                {selectedDoc.category && (
-                  <Badge variant="secondary" className="text-xs">
-                    {CATEGORY_LABELS[selectedDoc.category] ?? selectedDoc.category}
-                  </Badge>
-                )}
-                {selectedDoc.period && <span>{selectedDoc.period}</span>}
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Action section */}
-            <div className="space-y-3">
-              {selectedDoc.file_url ? (
-                <>
-                  <Button
-                    size="lg"
-                    className="w-full"
-                    onClick={() => window.open(selectedDoc.file_url!, "_blank")}
-                  >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Abrir Factsheet PDF
-                  </Button>
-                  <p className="text-xs text-muted-foreground text-center">
-                    O PDF abre diretamente no navegador
-                  </p>
-                </>
-              ) : (
-                <>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="w-full"
-                    onClick={() =>
-                      window.open(
-                        `https://www.google.com/search?q=${encodeURIComponent(fundLabel + " factsheet PDF")}`,
-                        "_blank"
-                      )
-                    }
-                  >
-                    <Search className="h-4 w-4 mr-2" />
-                    Buscar Factsheet no Google
-                  </Button>
-                  <p className="text-xs text-muted-foreground text-center">
-                    Documento não indexado na Biblioteca
-                  </p>
-                </>
-              )}
-            </div>
-
-            <Separator />
-
-            {/* RAG Summary section */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-foreground">Resumo RAG</h3>
-
-              {!ragSummary && !ragLoading && (
-                <Button
-                  variant="outline"
-                  onClick={handleGenerateRag}
-                  disabled={ragLoading}
+        <div className="flex-1 min-w-0 flex flex-col animate-in slide-in-from-right duration-300 bg-background">
+          {hasSupabasePdf ? (
+            <>
+              {/* Top bar for PDF */}
+              <div className="flex items-center justify-between px-3 py-2 shrink-0 border-b border-border">
+                <span className="text-sm font-medium text-foreground truncate min-w-0 mr-2">{fundLabel}</span>
+                <button
+                  onClick={() => setSelectedDoc(null)}
+                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 >
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Gerar Resumo
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              {/* PDF iframe */}
+              <div className="flex-1 min-h-0">
+                {signedUrl ? (
+                  <iframe
+                    src={signedUrl}
+                    style={{ width: "100%", height: "100%", border: "none", minHeight: "500px" }}
+                    title={fundLabel}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-sm text-muted-foreground">Carregando PDF...</span>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Top bar */}
+              <div className="flex items-center justify-end px-3 py-2 shrink-0">
+                <button
+                  onClick={() => setSelectedDoc(null)}
+                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              {/* Fallback: no embeddable PDF */}
+              <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6 text-center">
+                <FileText className="h-12 w-12 text-muted-foreground" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-foreground">{fundLabel}</p>
+                  <p className="text-xs text-muted-foreground">Factsheet não disponível na Biblioteca</p>
+                </div>
+                <Button onClick={openGoogleSearch} size="lg" variant="outline">
+                  <Search className="h-4 w-4 mr-2" />
+                  Buscar no Google
                 </Button>
-              )}
-
-              {ragLoading && !ragSummary && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Gerando resumo...</span>
-                </div>
-              )}
-
-              {ragError && (
-                <p className="text-sm text-destructive">{ragError}</p>
-              )}
-
-              {ragSummary && (
-                <div className="prose prose-sm max-w-none text-foreground">
-                  <ReactMarkdown>{ragSummary}</ReactMarkdown>
-                </div>
-              )}
-            </div>
-          </div>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
