@@ -39,11 +39,21 @@ function getDisplayName(doc: FundDoc): string {
   return doc.name;
 }
 
+function extractTicker(name: string): string | null {
+  const match = name.match(/\b([A-Z]{2,6})\s*(LN|LX|ID|SW|US|GR|NA|IM|FP)?\b/);
+  return match ? match[0].trim() : null;
+}
+
+function isSupabaseUrl(url: string): boolean {
+  return url.includes("supabase.co/storage");
+}
+
 export function FactsheetFundoTab() {
   const [docs, setDocs] = useState<FundDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedDoc, setSelectedDoc] = useState<FundDoc | null>(null);
+  const [iframeUrl, setIframeUrl] = useState<string | null>(null);
 
   const [listWidth, setListWidth] = useState(440);
   const isDragging = useRef(false);
@@ -80,6 +90,46 @@ export function FactsheetFundoTab() {
     })();
   }, []);
 
+  // When selectedDoc changes, resolve the iframe URL
+  useEffect(() => {
+    if (!selectedDoc?.file_url) {
+      setIframeUrl(null);
+      return;
+    }
+
+    const url = selectedDoc.file_url;
+    const isPdf = url.toLowerCase().includes(".pdf");
+
+    if (!isPdf) {
+      setIframeUrl(null);
+      return;
+    }
+
+    if (isSupabaseUrl(url)) {
+      // Extract bucket and path from the URL to create a fresh signed URL
+      // URL format: https://<ref>.supabase.co/storage/v1/object/sign/<bucket>/<path>?token=...
+      // or: https://<ref>.supabase.co/storage/v1/object/public/<bucket>/<path>
+      const storageMatch = url.match(/\/storage\/v1\/object\/(?:sign|public)\/([^/]+)\/(.+?)(?:\?|$)/);
+      if (storageMatch) {
+        const bucket = storageMatch[1];
+        const path = decodeURIComponent(storageMatch[2]);
+        supabase.storage.from(bucket).createSignedUrl(path, 3600).then(({ data }) => {
+          if (data?.signedUrl) {
+            setIframeUrl(data.signedUrl);
+          } else {
+            // Fallback to original URL
+            setIframeUrl(url);
+          }
+        });
+      } else {
+        setIframeUrl(url);
+      }
+    } else {
+      // External PDF — use Google Docs viewer
+      setIframeUrl(`https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`);
+    }
+  }, [selectedDoc]);
+
   const filtered = docs.filter((d) => {
     const q = search.toLowerCase();
     const displayName = getDisplayName(d).toLowerCase();
@@ -96,9 +146,6 @@ export function FactsheetFundoTab() {
 
   const fundLabel = selectedDoc ? getDisplayName(selectedDoc) : "";
   const isDirectPdf = selectedDoc?.file_url?.toLowerCase().includes(".pdf") ?? false;
-  const pdfViewerUrl = selectedDoc?.file_url && isDirectPdf
-    ? `https://docs.google.com/viewer?url=${encodeURIComponent(selectedDoc.file_url)}&embedded=true`
-    : null;
 
   const handleSelectFund = (doc: FundDoc) => {
     setSelectedDoc(doc);
@@ -141,26 +188,32 @@ export function FactsheetFundoTab() {
                       <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{group.items.length}</Badge>
                     </div>
                     <div className="space-y-1">
-                      {group.items.map((doc) => (
-                        <button
-                          key={doc.id}
-                          onClick={() => handleSelectFund(doc)}
-                          className={`w-full flex items-center justify-between rounded-lg border px-3 py-2.5 text-left text-sm transition-colors ${
-                            selectedDoc?.id === doc.id
-                              ? "border-primary bg-primary/5 text-foreground"
-                              : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                            <span className="truncate font-medium">{getDisplayName(doc)}</span>
-                            {doc.period && <span className="shrink-0 text-[10px] text-muted-foreground">{doc.period}</span>}
-                            {doc.file_url && (
-                              <Badge variant="outline" className="text-[9px] px-1 py-0 shrink-0 text-green-600 border-green-300">PDF</Badge>
-                            )}
-                          </div>
-                        </button>
-                      ))}
+                      {group.items.map((doc) => {
+                        const ticker = extractTicker(doc.name);
+                        return (
+                          <button
+                            key={doc.id}
+                            onClick={() => handleSelectFund(doc)}
+                            className={`w-full flex items-center justify-between rounded-lg border px-3 py-2.5 text-left text-sm transition-colors ${
+                              selectedDoc?.id === doc.id
+                                ? "border-primary bg-primary/5 text-foreground"
+                                : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                              <span className="truncate font-medium">{getDisplayName(doc)}</span>
+                              {ticker && (
+                                <Badge variant="secondary" className="text-[9px] px-1 py-0 shrink-0 font-mono">{ticker}</Badge>
+                              )}
+                              {doc.period && <span className="shrink-0 text-[10px] text-muted-foreground">{doc.period}</span>}
+                              {doc.file_url && (
+                                <Badge variant="outline" className="text-[9px] px-1 py-0 shrink-0 text-green-600 border-green-300">PDF</Badge>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
@@ -213,16 +266,21 @@ export function FactsheetFundoTab() {
 
           {/* Content */}
           <div className="flex-1 min-h-0">
-            {/* Case A: direct PDF */}
-            {selectedDoc?.file_url && isDirectPdf && pdfViewerUrl ? (
+            {/* Case A: direct PDF with resolved iframe URL */}
+            {selectedDoc?.file_url && isDirectPdf && iframeUrl ? (
               <iframe
-                src={pdfViewerUrl}
+                src={iframeUrl}
                 style={{ width: "100%", height: "100%", border: "none", minHeight: "500px" }}
                 title={fundLabel}
               />
+            ) : selectedDoc?.file_url && isDirectPdf && !iframeUrl ? (
+              <div className="flex items-center justify-center h-full">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-sm text-muted-foreground">Carregando PDF...</span>
+              </div>
             ) : selectedDoc?.file_url && !isDirectPdf ? (
               /* Case B: webpage URL */
-              <div className="flex flex-col items-center justify-center h-full gap-4 px-6 py-12 text-center">
+              <div className="flex flex-col items-center gap-4 px-6 text-center" style={{ paddingTop: "20%" }}>
                 <FileText className="h-12 w-12 text-muted-foreground" />
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-foreground">{fundLabel}</p>
@@ -235,7 +293,7 @@ export function FactsheetFundoTab() {
               </div>
             ) : (
               /* Case C: no file_url */
-              <div className="flex flex-col items-center justify-center h-full gap-4 px-6 py-12 text-center">
+              <div className="flex flex-col items-center gap-4 px-6 text-center" style={{ paddingTop: "20%" }}>
                 <FileText className="h-12 w-12 text-muted-foreground" />
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-foreground">{fundLabel}</p>
