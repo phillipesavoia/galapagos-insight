@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { PORTFOLIOS } from "@/lib/constants";
 import { supabase } from "@/integrations/supabase/client";
 import { FactsheetFundoTab } from "@/components/apresentacoes/FactsheetFundoTab";
+import { CartaMensalTab } from "@/components/apresentacoes/CartaMensalTab";
 
 const periods = ["Janeiro 2026", "Fevereiro 2026", "Março 2026"];
 
@@ -201,7 +202,11 @@ export default function Apresentacoes() {
             <FactsheetFundoTab />
           </TabsContent>
 
-          {tabs.filter((t) => t.value !== "portfolio-pptx" && t.value !== "factsheet-amc").map((t) => (
+          <TabsContent value="carta-mensal" className="mt-6">
+            <CartaMensalTab />
+          </TabsContent>
+
+          {tabs.filter((t) => !["portfolio-pptx", "factsheet-amc", "carta-mensal"].includes(t.value)).map((t) => (
             <TabsContent key={t.value} value={t.value} className="mt-6">
               <Card>
                 <CardHeader>
