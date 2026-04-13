@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.generate-artifact-html]
 verify_jwt = false
+
+[functions.ingest-webhook]
+verify_jwt = false
