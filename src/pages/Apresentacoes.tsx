@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { PORTFOLIOS } from "@/lib/constants";
 import { supabase } from "@/integrations/supabase/client";
 import { FactsheetFundoTab } from "@/components/apresentacoes/FactsheetFundoTab";
+import { CartaMensalTab } from "@/components/apresentacoes/CartaMensalTab";
 
 const periods = ["Janeiro 2026", "Fevereiro 2026", "Março 2026"];
 
